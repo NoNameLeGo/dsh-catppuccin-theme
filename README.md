@@ -15,89 +15,101 @@
 	<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/preview.webp"/>
 </p>
 
-## About
+## 简介
 
-A [Catppuccin](https://github.com/catppuccin/catppuccin) theme plugin for the
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI
-(`dsh web`). It registers the four Catppuccin flavours — Latte, Frappé,
-Macchiato and Mocha — into the official theme system, remapping the entire
-`--dsw-*` design-token ladder, and adds a **Catppuccin** row to
-**Settings → General → Appearance** so you can switch flavours without leaving
-the settings page. Your choice is persisted and restored on the next boot.
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI
+（`dsh web`）的 [Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件。
 
-## Previews
+插件将 Catppuccin 的四种风味——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
+注册进官方主题系统，完整重映射整套 `--dsw-*` 设计令牌；并在
+**设置 → 常规 → 外观** 下方新增一行 **Catppuccin**，无需离开设置页即可切换风味。
+选择会被持久化保存，下次启动自动恢复。
 
-The palettes, as rendered by this plugin:
+## 特性
+
+- 🎨 四种风味全覆盖：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
+- 🧩 接入官方 ThemeRuntime，与内置浅色/深色/跟随系统主题平级
+- 🎯 完整重映射 `--dsw-*` 令牌阶梯（4 风味 × 162 个令牌，含别名层 `var()` 引用）
+- ⚙️ 设置页专属 **Catppuccin** 行：一键切换，选择持久化，重启自动恢复
+- 🌐 中英文双语界面文案（跟随系统语言）
+
+## 预览
+
+四种风味对应的色板：
 
 <details>
-<summary>🌻 Latte</summary>
+<summary>🌻 Latte（浅色）</summary>
 <img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/latte.webp"/>
 </details>
 <details>
-<summary>🪴 Frappé</summary>
+<summary>🪴 Frappé（深色）</summary>
 <img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/frappe.webp"/>
 </details>
 <details>
-<summary>🌺 Macchiato</summary>
+<summary>🌺 Macchiato（深色）</summary>
 <img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/macchiato.webp"/>
 </details>
 <details>
-<summary>🌿 Mocha</summary>
+<summary>🌿 Mocha（深色）</summary>
 <img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/mocha.webp"/>
 </details>
 
-## Usage
+## 安装
 
-### Install the plugin
+### 方式一：从仓库安装（推荐）
 
-Add the plugin to a dsh web profile (the bundle is an official dsh plugin
-shape — install it from this repository):
-
-```sh
-dsh plugin --profile <name> add <path-or-git-url>
-```
-
-For a local checkout, you can link it directly into the profile:
+插件是标准的 dsh 插件形态，直接添加到你的 web profile：
 
 ```sh
-pnpm --dir <profile-dir> add link:<path-to-this-repo>
+dsh plugin --profile <profile名> add https://github.com/NoNameLeGo/dsh-catppuccin
 ```
 
-then add `dsh-catppuccin` to the profile's `bundles` list and restart
-`dsh web`.
+### 方式二：本地链接
 
-### Switch flavours
+克隆到本地后，把包链接进 profile 并加入 bundles：
 
-1. Open the web GUI at `http://127.0.0.1:3080`.
-2. Go to **Settings → General**.
-3. Below the **Appearance** section, pick a flavour in the **Catppuccin**
-   row — Latte (light), Frappé, Macchiato, or Mocha (dark).
-4. Choose **Off** to fall back to the official theme (system-following).
+```sh
+pnpm --dir <profile目录> add link:<本仓库路径>
+```
 
-## Development
+然后在 profile 的 `package.json` 中把 `dsh-catppuccin` 加进 `dsh.profile.bundles`，
+重启 `dsh web` 即可。
+
+## 使用
+
+1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）。
+2. 进入 **设置 → 常规**。
+3. 在 **外观** 区域下方找到 **Catppuccin** 行，选择风味：
+   **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
+4. 选择 **关闭** 则回退到官方主题（跟随系统）。
+
+## 开发
 
 ```sh
 pnpm install
-pnpm typecheck   # tsc --noEmit
-pnpm test        # vitest (palette token coverage)
-pnpm build       # tsdown -> lib/index.js (host) + lib/client.js (browser)
+pnpm typecheck   # tsc --noEmit 类型检查
+pnpm test        # vitest 跑令牌覆盖测试
+pnpm build       # tsdown 构建 -> lib/index.js（host）+ lib/client.js（浏览器）
 ```
 
-Token mappings are generated from the Catppuccin palette definitions — rerun
-`node scripts/generate-palettes.mjs` after editing the generator, then rebuild.
+令牌映射由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑：
 
-## 🙋 FAQ
+```sh
+node scripts/generate-palettes.mjs
+```
 
-- Q: **_"Why does the Appearance row not show the Catppuccin flavours?"_**\
-  A: The official row only lists the built-in light/dark/system preferences.
-  The flavours live in the dedicated **Catppuccin** row right below it.
-- Q: **_"How is my flavour choice remembered?"_**\
-  A: It is persisted in the `dsh-catppuccin` settings namespace (host half)
-  and restored by the browser half on boot.
+## 🙋 常见问题
 
-## 💝 Thanks to
+- Q: **_"为什么外观行里看不到 Catppuccin 风味？"_**\
+  A: 官方外观行只列出内置的浅色/深色/跟随系统偏好。四种风味在它正下方的
+  **Catppuccin** 行里。
+- Q: **_"我的风味选择是怎么记住的？"_**
+  A: 由 host 半注册在 `dsh-catppuccin` 设置命名空间，浏览器半在启动时恢复。
 
-- [Catppuccin](https://github.com/catppuccin) for the palettes and the port template
+## 💝 致谢
+
+- [Catppuccin](https://github.com/catppuccin) 提供的色板与 port 模板
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系
 
 &nbsp;
 
