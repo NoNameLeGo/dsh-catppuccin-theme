@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/preview.webp"/>
+	<img src="assets/previews/hero-mocha.png" width="70%" alt="Catppuccin Mocha 主题下的 DeepSeek Harness"/>
 </p>
 
 ## 简介
@@ -20,38 +20,37 @@
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI
 （`dsh web`）的 [Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件。
 
-插件将 Catppuccin 的四种风味——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
-注册进官方主题系统，完整重映射整套 `--dsw-*` 设计令牌；并在
-**设置 → 常规 → 外观** 下方新增一行 **Catppuccin**，无需离开设置页即可切换风味。
-选择会被持久化保存，下次启动自动恢复。
+它内置 Catppuccin 的四种风味——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
+把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
+下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、下次启动自动恢复。
 
 ## 特性
 
-- 🎨 四种风味全覆盖：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
-- 🧩 接入官方 ThemeRuntime，与内置浅色/深色/跟随系统主题平级
-- 🎯 完整重映射 `--dsw-*` 令牌阶梯（4 风味 × 162 个令牌，含别名层 `var()` 引用）
-- ⚙️ 设置页专属 **Catppuccin** 行：一键切换，选择持久化，重启自动恢复
-- 🌐 中英文双语界面文案（跟随系统语言）
+- 🎨 四种风味：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
+- 🧩 接入官方主题系统，与内置浅色 / 深色 / 跟随系统主题平级
+- 🎯 全界面配色覆盖（162 个配色变量），不只是一两个强调色
+- ⚙️ 设置页一行切换，选择自动保存、重启自动恢复
+- 🌐 中英文双语文案（跟随系统语言）
 
 ## 预览
 
-四种风味对应的色板：
+四种风味在 DeepSeek Harness 中的实际效果（截图来自本地 GUI，Mocha 见文首大图）：
 
 <details>
 <summary>🌻 Latte（浅色）</summary>
-<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/latte.webp"/>
+<img src="assets/previews/latte.png"/>
 </details>
 <details>
 <summary>🪴 Frappé（深色）</summary>
-<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/frappe.webp"/>
+<img src="assets/previews/frappe.png"/>
 </details>
 <details>
 <summary>🌺 Macchiato（深色）</summary>
-<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/macchiato.webp"/>
+<img src="assets/previews/macchiato.png"/>
 </details>
 <details>
 <summary>🌿 Mocha（深色）</summary>
-<img src="https://raw.githubusercontent.com/catppuccin/catppuccin/main/assets/previews/mocha.webp"/>
+<img src="assets/previews/mocha.png"/>
 </details>
 
 ## 安装
@@ -81,18 +80,18 @@ pnpm --dir <profile目录> add link:<本仓库路径>
 2. 进入 **设置 → 常规**。
 3. 在 **外观** 区域下方找到 **Catppuccin** 行，选择风味：
    **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
-4. 选择 **关闭** 则回退到官方主题（跟随系统）。
+4. 选择 **跟随系统** 则回退到官方主题。
 
 ## 开发
 
 ```sh
 pnpm install
 pnpm typecheck   # tsc --noEmit 类型检查
-pnpm test        # vitest 跑令牌覆盖测试
-pnpm build       # tsdown 构建 -> lib/index.js（host）+ lib/client.js（浏览器）
+pnpm test        # vitest 跑配色表覆盖测试
+pnpm build       # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js（浏览器）
 ```
 
-令牌映射由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑：
+配色表由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑：
 
 ```sh
 node scripts/generate-palettes.mjs
@@ -104,7 +103,7 @@ node scripts/generate-palettes.mjs
   A: 官方外观行只列出内置的浅色/深色/跟随系统偏好。四种风味在它正下方的
   **Catppuccin** 行里。
 - Q: **_"我的风味选择是怎么记住的？"_**
-  A: 由 host 半注册在 `dsh-catppuccin` 设置命名空间，浏览器半在启动时恢复。
+  A: 选择保存在 `dsh-catppuccin` 设置里，启动时会自动恢复。
 
 ## 💝 致谢
 
