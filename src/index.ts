@@ -14,8 +14,19 @@ import z from 'schemastery'
 /** Settings namespace owning the persisted Catppuccin flavour choice. */
 export const CATPPUCCIN_SETTINGS_NS = settingsNamespace('dsh-catppuccin')
 
-/** Accepted flavour values. */
-export const CATPPUCCIN_FLAVOR_VALUES = ['latte', 'frappe', 'macchiato', 'mocha', 'off'] as const
+/**
+ * Accepted flavour values — the four registered theme ids plus `off`. These
+ * MUST stay in sync with the browser half's `CATPPUCCIN_FLAVORS[].themeId`
+ * (guarded by tests/palettes.spec.ts) because the persisted value is the
+ * theme id itself.
+ */
+export const CATPPUCCIN_FLAVOR_VALUES = [
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha',
+  'off',
+] as const
 
 /** Flavour key persisted in the user-settings document. */
 export interface CatppuccinSettings {

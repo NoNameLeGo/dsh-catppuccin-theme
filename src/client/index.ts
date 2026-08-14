@@ -80,18 +80,33 @@ export function apply(ctx: ClientContext): void {
   const binder = ctx.get('settingsScope') as { bind<T>(spec: { namespace: string }): SettingsScope<{ flavor: FlavorChoice }> }
   const scope = binder.bind<{ flavor: FlavorChoice }>({ namespace: SETTINGS_NAMESPACE })
 
-  // Restore the saved flavour on boot, once the settings section is ready.
-  // A one-shot restore needs no disposer; it is idempotent across reboots.
-  const snapshot = scope.getSnapshot()
-  const saved = snapshot.status === 'ready' ? snapshot.value?.flavor : undefined
-  if (saved !== undefined && saved !== 'off') {
-    try {
-      theme.setTheme(saved)
-    } catch {
-      // Theme not registered yet — impossible here (registered above), but
-      // stay safe against a stale persisted value.
+  // Restore the saved flavour on boot once the settings section has loaded.
+  // The scope starts in the "loading" state and only turns "ready" after the
+  // host document arrives, so a one-shot read at apply() would always miss
+  // the value; subscribe and restore on the first ready snapshot instead.
+  ctx.effect(() => {
+    let restored = false
+    const restoreOnce = () => {
+      if (restored) return
+      const snapshot = scope.getSnapshot()
+      if (snapshot.status !== 'ready') return
+      restored = true
+      const saved = snapshot.value?.flavor
+      if (saved !== undefined && saved !== 'off') {
+        try {
+          theme.setTheme(saved)
+        } catch {
+          // Theme not registered yet — impossible here (registered above),
+          // but stay safe against a stale persisted value.
+        }
+      }
     }
-  }
+    restoreOnce()
+    const unsubscribe = scope.subscribe(restoreOnce)
+    return () => {
+      unsubscribe()
+    }
+  }, 'catppuccin: boot restore')
 
   const injected = (): CatppuccinRowInjected => ({
     themes: CATPPUCCIN_FLAVORS.map((flavor) => ({
@@ -108,13 +123,17 @@ export function apply(ctx: ClientContext): void {
       if (choice === 'off') {
         // Revert to the official default (system-following).
         theme.setTheme('system')
-        await scope.set('flavor', 'off').catch(() => {})
+        await scope.set('flavor', 'off').catch((err) => {
+          console.error('[dsh-catppuccin] persist off failed:', err)
+        })
         return
       }
       const flavor = flavorInfo(choice)
       if (!flavor) return
       theme.setTheme(flavor.themeId)
-      await scope.set('flavor', flavor.themeId).catch(() => {})
+      await scope.set('flavor', flavor.themeId).catch((err) => {
+        console.error('[dsh-catppuccin] persist flavor failed:', err)
+      })
     },
   })
 
