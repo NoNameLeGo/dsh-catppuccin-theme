@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt on install via the `prepare` script)
+lib/
+dist/
+
+# Test / tooling artifacts
+coverage/
+*.tsbuildinfo
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
