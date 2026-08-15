@@ -3,4 +3,4 @@
 # `dsh plugin --profile <name> add <path-or-git-url>`.
 - insert:
     - id: dsh-catppuccin
-      name: 'dsh-catppuccin'
+      name: '@nonamelego/dsh-catppuccin'

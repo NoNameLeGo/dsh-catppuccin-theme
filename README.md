@@ -55,15 +55,21 @@
 
 ## 安装
 
-### 方式一：从仓库安装（推荐）
+### 方式一：从 npm 安装（推荐）
 
-插件是标准的 dsh 插件形态，直接添加到你的 web profile：
+```sh
+dsh plugin --profile <profile名> add @nonamelego/dsh-catppuccin
+```
+
+装完重启 `dsh web` 即可，`dsh plugin` 会自动把它加进 profile 的 bundles。
+
+### 方式二：从仓库安装
 
 ```sh
 dsh plugin --profile <profile名> add https://github.com/NoNameLeGo/dsh-catppuccin
 ```
 
-### 方式二：本地链接
+### 方式三：本地链接
 
 克隆到本地后，把包链接进 profile 并加入 bundles：
 
@@ -71,7 +77,7 @@ dsh plugin --profile <profile名> add https://github.com/NoNameLeGo/dsh-catppucc
 pnpm --dir <profile目录> add link:<本仓库路径>
 ```
 
-然后在 profile 的 `package.json` 中把 `dsh-catppuccin` 加进 `dsh.profile.bundles`，
+然后在 profile 的 `package.json` 中把 `@nonamelego/dsh-catppuccin` 加进 `dsh.profile.bundles`，
 重启 `dsh web` 即可。
 
 ## 使用
