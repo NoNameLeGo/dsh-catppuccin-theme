@@ -58,23 +58,27 @@
 ### 方式一：从 npm 安装（推荐）
 
 ```sh
-dsh plugin --profile <profile名> add @nonamelego/dsh-catppuccin
+dsh plugin --profile web add @nonamelego/dsh-catppuccin
 ```
 
 装完重启 `dsh web` 即可，`dsh plugin` 会自动把它加进 profile 的 bundles。
+其他 profile 把命令里的 `web` 换成对应名字即可（如 `headless`）。
 
 ### 方式二：从仓库安装
 
 ```sh
-dsh plugin --profile <profile名> add https://github.com/NoNameLeGo/dsh-catppuccin
+dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin
 ```
 
-### 方式三：本地链接
+从 git 安装时 pnpm 可能要求允许构建脚本——按 pnpm 的提示把对应包加进 profile
+`pnpm-workspace.yaml` 的 `allowBuilds` 后重跑一次即可。
 
-克隆到本地后，把包链接进 profile 并加入 bundles：
+### 方式三：本地链接（开发调试用）
+
+克隆到本地后，把包链接进 profile 并加入 bundles（下面的路径换成你自己的）：
 
 ```sh
-pnpm --dir <profile目录> add link:<本仓库路径>
+pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppuccin
 ```
 
 然后在 profile 的 `package.json` 中把 `@nonamelego/dsh-catppuccin` 加进 `dsh.profile.bundles`，
