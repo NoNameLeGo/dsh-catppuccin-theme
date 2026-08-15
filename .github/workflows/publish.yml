@@ -1,0 +1,56 @@
+# 自动化发布到 npm（OIDC Trusted Publishing）
+#
+# 触发方式：
+#   1. 推送 v* 标签（如 v0.1.1）——正式发布
+#   2. workflow_dispatch —— 手动触发
+#
+# 前置条件（一次性，npmjs.com 网页端配置）：
+#   Package Settings → Trusted Publisher → GitHub Actions：
+#   Organization or user: NoNameLeGo
+#   Repository:           dsh-catppuccin
+#   Workflow filename:    publish.yml
+#   Allowed actions:      npm publish
+#
+# 工作流内不存任何 npm token：发布身份来自 GitHub OIDC，每次发布使用
+# 短期凭证（需 id-token: write 权限）。
+
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC：向 npm 换取短期发布凭证（必需）
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
+      - name: Publish to npm
+        run: npm publish --registry=https://registry.npmjs.org
