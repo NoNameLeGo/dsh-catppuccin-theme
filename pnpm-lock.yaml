@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      schemastery:
+        specifier: ^3.18.0
+        version: 3.18.0
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
@@ -41,9 +45,6 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
-      schemastery:
-        specifier: ^3.18.0
-        version: 3.18.0
       tsdown:
         specifier: ^0.22.2
         version: 0.22.14(typescript@5.9.3)

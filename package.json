@@ -1,7 +1,7 @@
 {
   "name": "@nonamelego/dsh-catppuccin",
   "description": "Catppuccin themes for the DeepSeek Harness web GUI — Latte, Frappé, Macchiato and Mocha registered into the official theme system (Appearance settings), fully remapping the --dsw-* token ladder.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "lib/index.js",
   "repository": {
@@ -59,6 +59,9 @@
     "gen:palettes": "node scripts/generate-palettes.mjs"
   },
   "license": "MIT",
+  "dependencies": {
+    "schemastery": "^3.18.0"
+  },
   "peerDependencies": {
     "react": "^18.2.0"
   },
@@ -74,7 +77,6 @@
     "jsdom": "29.1.1",
     "lightningcss": "^1.32.0",
     "react": "^18.2.0",
-    "schemastery": "^3.18.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.7.0",
     "vite-tsconfig-paths": "^6.1.1",
