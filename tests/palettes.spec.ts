@@ -8,8 +8,14 @@
  */
 import { describe, expect, it } from 'vitest'
 import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
-import { flavorFromThemeId, flavorInfo } from '../src/client/index.ts'
-import { CATPPUCCIN_FLAVOR_VALUES, CatppuccinSettingsSchema } from '../src/index.ts'
+import {
+  CATPPUCCIN_FLAVOR_VALUES,
+  FLAVOR_STORAGE_KEY,
+  flavorFromThemeId,
+  flavorInfo,
+  readFlavor,
+  writeFlavor,
+} from '../src/client/index.ts'
 
 describe('Catppuccin palettes', () => {
   it('covers all four flavours', () => {
@@ -70,27 +76,31 @@ describe('flavour helpers', () => {
   })
 })
 
-describe('persisted settings contract', () => {
-  it('host flavour values equal the registered theme ids plus off', () => {
-    // The browser half persists the theme id itself; the host schema must
-    // accept exactly those values or every scope.set() is rejected.
+describe('persisted flavour contract', () => {
+  it('flavour values equal the registered theme ids plus off', () => {
+    // The browser half persists the theme id itself; the accepted value set
+    // must stay exactly the four registered ids plus `off`.
     expect(CATPPUCCIN_FLAVOR_VALUES).toEqual([
       ...CATPPUCCIN_FLAVORS.map((f) => f.themeId),
       'off',
     ])
   })
 
-  it('schema accepts every theme id and rejects unknown values', () => {
-    // schemastery exposes the standard-schema validate protocol.
-    const validate = (input: unknown) => CatppuccinSettingsSchema['~standard'].validate(input)
-    for (const themeId of CATPPUCCIN_FLAVORS.map((f) => f.themeId)) {
-      const r = validate({ flavor: themeId })
-      expect('issues' in r).toBe(false)
-      expect('value' in r && r.value.flavor).toBe(themeId)
-    }
-    expect(validate({ flavor: 'off' }).value.flavor).toBe('off')
-    expect(validate({}).value.flavor).toBe('off')
-    expect('issues' in validate({ flavor: 'mocha' })).toBe(true)
-    expect('issues' in validate({ flavor: 'neon' })).toBe(true)
+  it('readFlavor falls back to off for absent or unknown values', () => {
+    localStorage.removeItem(FLAVOR_STORAGE_KEY)
+    expect(readFlavor()).toBe('off')
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-mocha')
+    expect(readFlavor()).toBe('catppuccin-mocha')
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'mocha')
+    expect(readFlavor()).toBe('off')
+    localStorage.removeItem(FLAVOR_STORAGE_KEY)
+  })
+
+  it('writeFlavor persists the choice', () => {
+    writeFlavor('catppuccin-latte')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-latte')
+    writeFlavor('off')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('off')
+    localStorage.removeItem(FLAVOR_STORAGE_KEY)
   })
 })

@@ -1,0 +1,406 @@
+/* ============================================================================
+ * Catppuccin glass layer — a toggleable glassmorphism skin for the DeepSeek
+ * Harness web GUI, riding on top of the Catppuccin themes.
+ *
+ * Every rule is gated on the `data-dsh-glass` attribute the plugin puts on
+ * <html> while enabled (removed on disable), so off == the stock UI, exactly.
+ * The fill colours are derived from the ACTIVE theme's design tokens via
+ * color-mix(), so the glass automatically picks up the current Catppuccin
+ * flavour (Latte / Frappé / Macchiato / Mocha) — or the stock light/dark
+ * palette when no Catppuccin theme is active.
+ *
+ * Selectors deliberately use attribute/element hooks and stable data-* seams
+ * (never hashed module classes) so the layer survives recompiles.
+ * ========================================================================== */
+
+/* ---------- Knobs: the settings row writes --dsh-glass-blur (px),
+   --dsh-glass-frost (0-1.4 alpha multiplier; 50 on the slider = 1x),
+   --dsh-glass-hue (deg) and the scheme-aware brightness overlays onto
+   <html>. The glass surfaces consume them, so the sliders move the whole
+   skin live. Shared card recipes keep the main panes in lock step.
+   NOTE: the recipes are defined on BODY — they reference the --dsw-alias-*
+   theme tokens that the presenter writes onto body as inline variables, and
+   a var() reference inside a custom property is substituted where the
+   property is defined (computed-value time), so defining the recipes on
+   <html> would leave them unresolvable (html cannot inherit up from body). ---------- */
+[data-dsh-glass] body {
+  --dsh-glass-card: linear-gradient(180deg,
+    color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(52% * var(--dsh-glass-frost, 1)), transparent),
+    color-mix(in srgb, var(--dsw-alias-bg-layer-2) calc(40% * var(--dsh-glass-frost, 1)), transparent));
+}
+
+/* Canvas: body keeps the theme base colour; the frame and the conversation /
+   details columns go transparent so the ambient backdrop shows through. */
+[data-dsh-glass] body {
+  background: var(--dsw-alias-bg-base);
+}
+
+[data-dsh-glass] [data-dsh-glass-frame] {
+  background: transparent;
+}
+
+[data-dsh-glass] [data-phase],
+[data-dsh-glass] [data-dsh-glass-details] {
+  background: transparent;
+}
+
+/* The floating header card sits ABOVE the transcript: the scroll body slides
+   up behind the frosted glass (negative margin) and its padding starts
+   content below the card, so scrolling text passes under the header and stays
+   visible through the blur instead of hard-clipping at the card edge. */
+[data-dsh-glass-float] [data-phase='active'] header {
+  position: relative;
+  z-index: 8;
+}
+
+/* The floating header breaks the code block banner's sticky anchoring, so
+   disable stickiness — the banner stays on its code block and scrolls with
+   it instead of sliding over the header and drifting. */
+[data-dsh-glass-float] [class*='banner'] {
+  position: static;
+}
+
+[data-dsh-glass-float] [data-phase='active'] [data-conversation-scroll] {
+  margin-top: -95px;
+  padding-top: 107px;
+}
+
+/* Active phase: drop the composer seat's opaque bottom slab and fade band
+   entirely so the glass card reads as one piece over the backdrop. */
+[data-dsh-glass] [data-phase] [class*='composerSeat'][class*='composerSeat'] {
+  background: none;
+}
+
+/* ---------- Ambient scene: a CSS-only living backdrop (no WebGL). A soft
+   vertical wash of the theme's own surfaces plus two slowly drifting accent
+   blobs; the hue knob hue-rotates the whole board. The brightness knob
+   overlays white/black via ::after (painted ABOVE the blobs). ---------- */
+[data-dsh-glass] [data-dsh-glass-ambient] {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  filter: hue-rotate(var(--dsh-glass-hue, 0deg));
+  background:
+    radial-gradient(760px 420px at 50% -8%, color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 18%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-layer-1) 62%, transparent) 0%, color-mix(in srgb, var(--dsw-alias-bg-layer-2) 46%, transparent) 100%),
+    radial-gradient(900px 420px at 50% 108%, color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 10%, transparent), transparent 70%);
+}
+
+[data-dsh-glass] [data-dsh-glass-ambient]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, var(--dsh-glass-brightness-white, 0)), rgba(255, 255, 255, var(--dsh-glass-brightness-white, 0))),
+    linear-gradient(rgba(0, 0, 0, var(--dsh-glass-brightness-black, 0)), rgba(0, 0, 0, var(--dsh-glass-brightness-black, 0)));
+}
+
+/* Drifting accent blobs (background hue follows the ambient's hue-rotate). */
+[data-dsh-glass] [data-dsh-glass-blob] {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.42;
+  will-change: transform;
+}
+
+[data-dsh-glass] [data-dsh-glass-blob='1'] {
+  width: 44vw;
+  height: 44vw;
+  left: -10vw;
+  top: -8vw;
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 15%, transparent);
+  animation: dsh-glass-drift-a 30s var(--ds-ease-in-out) infinite alternate;
+}
+
+[data-dsh-glass] [data-dsh-glass-blob='2'] {
+  width: 38vw;
+  height: 38vw;
+  right: -12vw;
+  top: 24vh;
+  background: color-mix(in srgb, var(--dsw-alias-state-success-tertiary) 45%, transparent);
+  animation: dsh-glass-drift-b 36s var(--ds-ease-in-out) infinite alternate;
+}
+
+[data-dsh-glass] [data-dsh-glass-blob='3'] {
+  width: 30vw;
+  height: 30vw;
+  left: 30vw;
+  bottom: -14vh;
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-tertiary) 40%, transparent);
+  animation: dsh-glass-drift-c 42s var(--ds-ease-in-out) infinite alternate;
+}
+
+@keyframes dsh-glass-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
+}
+
+@keyframes dsh-glass-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to { transform: translate3d(-7vw, 6vh, 0) scale(0.96); }
+}
+
+@keyframes dsh-glass-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(0.96); }
+  to { transform: translate3d(8vw, -5vh, 0) scale(1.1); }
+}
+
+/* ---------- Corner language: 14px surfaces, 10px controls, 8px atoms. ---------- */
+[data-dsh-glass-float] [role='menu'],
+[data-dsh-glass-float] [role='dialog'],
+[data-dsh-glass-float] [role='alert'],
+[data-dsh-glass-float] [data-dsh-glass-surface] {
+  border-radius: 14px;
+}
+
+[data-dsh-glass-float] [role='menuitem'],
+[data-dsh-glass-float] [role='tooltip'],
+[data-dsh-glass-float] [class*='pill'] {
+  border-radius: 8px;
+}
+
+[data-dsh-glass-float] button[class*='button'] {
+  border-radius: 10px;
+}
+
+[data-dsh-glass-float] [class*='iconButton'],
+[data-dsh-glass-float] [class*='searchButton'] {
+  border-radius: 8px;
+}
+
+/* Composer attach "+": a frosted bead on the card's own glass. */
+[data-dsh-glass-float] [data-dsh-glass-add] {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(55% * var(--dsh-glass-frost, 1)), transparent);
+  border: 1px solid var(--dsw-alias-border-l2);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+[data-dsh-glass-float] [data-dsh-glass-add]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(72% * var(--dsh-glass-frost, 1)), transparent);
+}
+
+/* Card family: hover cards, panels, plugin cards, tool cards, the composer. */
+[data-dsh-glass-float] [class*='card'] {
+  border-radius: 14px;
+}
+
+/* ---------- Session header (顶栏): a detached glass card. The bottom edge
+   opens into the chat — no bottom border and a shallow shadow, so the
+   original header/chat divider line is gone. ---------- */
+[data-dsh-glass-float] header {
+  margin: 12px 16px 0;
+  padding: 10px 16px 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-bottom-color: transparent;
+  border-radius: 20px;
+  background: var(--dsh-glass-card);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent),
+    0 8px 28px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 55%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+[data-dsh-glass-float] header::after {
+  display: none;
+}
+
+/* ---------- Sidebar (侧边栏): header-style glass card; the token fill on
+   the column and its inner chrome goes transparent so the glass reads. The
+   root width inline-style is released so content follows the glass panel. ---------- */
+[data-dsh-glass-float] [class*='sidebarCol'] {
+  --dsw-specific-sidebar-fill: transparent;
+  margin: 12px;
+  padding: 10px 12px 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-right-color: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 22%, transparent);
+  border-radius: 20px;
+  background: var(--dsh-glass-card);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent),
+    0 8px 28px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 55%, transparent);
+  overflow: hidden;
+}
+
+/* Collapsed rail: full-height glass strip, no floating margins. */
+[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [class*='sidebarCol'] {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  border-left: none;
+}
+
+/* The sidebar root freezes at the expanded column width via an inline style
+   — release it so the content follows the glass panel's width. Scoped to the
+   dedicated seam: a broad `[class*='root']` selector would also hit the
+   settings panel (rendered inside the sidebar column) and collapse its rows. */
+[data-dsh-glass-float] [data-dsh-glass-frame]:not([data-sidebar-collapsed]) [data-dsh-glass-sidebar-root] {
+  width: 100% !important;
+}
+
+/* ---------- Trajectory view (轨迹视图): a glass panel aligned with the
+   header card's left/right edges, frosted like the other surfaces. ---------- */
+[data-dsh-glass-float] [data-dsh-glass-trajectory] {
+  margin: 8px 16px 12px;
+  width: calc(100% - 32px);
+  height: calc(100% - 20px);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 20px;
+  background: var(--dsh-glass-card);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent),
+    0 8px 28px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 55%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  overflow: hidden;
+}
+
+/* The toolbar and timeline surfaces go transparent so the glass shows through. */
+[data-dsh-glass-float] [data-dsh-glass-trajectory] [role='toolbar'],
+[data-dsh-glass-float] [data-dsh-glass-trajectory] section[aria-label='Trajectory timeline'] {
+  background: transparent;
+}
+
+/* ---------- Composer (输入框): the start-chat glass recipe — 24px corners,
+   frosted translucent fill, backdrop blur, soft drop shadow. ---------- */
+[data-dsh-glass-float] [data-composer-card],
+[data-dsh-glass-float] [data-composer-card]::after {
+  border-radius: 24px;
+}
+
+[data-dsh-glass-float] [data-composer-card] {
+  background: var(--dsh-glass-card);
+  border: 1px solid var(--dsw-alias-border-l2);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent),
+    0 8px 32px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 60%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+/* ---------- Stats line (统计行): the composer card's docked footer. Shares
+   the card's glass (same blur, width, border) so card + footer read as ONE
+   piece; the distinction is a hairline divider at the seam plus a more
+   transparent (recessed) fill. ---------- */
+[data-dsh-glass-float] [data-dsh-glass-inputbar]:not([class*='hero']) {
+  padding-bottom: 12px;
+}
+
+[data-dsh-glass-float] [data-dsh-glass-stats] {
+  width: calc(var(--dsh-chat-content-width, 100%) + 32px);
+  max-width: none;
+  margin: 0 auto;
+  padding: 2px 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-top-color: var(--dsw-alias-border-l1);
+  border-radius: 0 0 24px 24px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(30% * var(--dsh-glass-frost, 1)), transparent),
+    color-mix(in srgb, var(--dsw-alias-bg-layer-2) calc(18% * var(--dsh-glass-frost, 1)), transparent));
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 60%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+/* Fused state: once the stats line is docked underneath, the card's bottom
+   opens into it — square bottom corners, no bottom border — so card + stats
+   read as ONE glass card instead of two stacked pills. */
+[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card] {
+  border-radius: 24px 24px 0 0;
+  border-bottom: none;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent);
+}
+
+/* ---------- Sidebar: the selected session gets an accent bar and a soft halo. ---------- */
+[data-dsh-glass-float] [role='treeitem'][aria-selected='true'] {
+  box-shadow:
+    inset 2px 0 0 var(--dsw-specific-sidebar-nav-item-active-accent),
+    0 0 16px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);
+}
+
+/* ---------- Hover light: buttons and menu cells answer with a soft ring. ---------- */
+[data-dsh-glass-float] button[class*='button']:hover:not(:disabled),
+[data-dsh-glass-float] [role='menuitem']:hover:not(:disabled) {
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-border-l3) 60%, transparent);
+}
+
+/* ---------- Menus: the site's frosted recipe. Dialogs keep their native
+   surface (a backdrop-filter on the dialog scrambles its fixed-position
+   layout, so only the radius applies). ---------- */
+[data-dsh-glass-float] [role='menu'] {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(72% * var(--dsh-glass-frost, 1)), transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+/* ---------- Page transitions: opacity-only (a running transform would
+   re-anchor position:fixed descendants mid-flight). ---------- */
+[data-dsh-glass-float] [data-phase='hero'] {
+  animation: dsh-glass-in 0.32s var(--ds-ease-in-out);
+}
+
+[data-dsh-glass-float] [data-phase='active'] {
+  animation: dsh-glass-in 0.3s var(--ds-ease-in-out);
+}
+
+[data-dsh-glass-float] [data-testid^='view-'] {
+  animation: dsh-glass-in 0.26s var(--ds-ease-in-out);
+}
+
+[data-dsh-glass-float] [data-tool] {
+  animation: dsh-glass-rise 0.3s var(--ds-ease-in-out) both;
+}
+
+[data-dsh-glass-float] [role='dialog'] {
+  animation: dsh-glass-dialog-in 0.24s var(--ds-ease-in-out);
+}
+
+@keyframes dsh-glass-in {
+  from { opacity: 0; }
+}
+
+@keyframes dsh-glass-rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes dsh-glass-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+/* ---------- Keyboard focus and text selection. ---------- */
+[data-dsh-glass] :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 85%, transparent);
+  outline-offset: 1px;
+}
+
+[data-dsh-glass] ::selection {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 35%, transparent);
+}
+
+/* ---------- Compatibility mode: stock layout, generic glass material.
+   The layout rules above are gated on data-dsh-glass-float, so in compat
+   mode the stock layout stays byte-for-byte; the conservative surface
+   families get the frosted blur so other plugins' UI picks up the glass
+   with zero coordination. Dialogs keep their stock surface (see above). ---------- */
+[data-dsh-glass-compat] [role='menu'],
+[data-dsh-glass-compat] [role='tooltip'],
+[data-dsh-glass-compat] [class*='card'],
+[data-dsh-glass-compat] [class*='panel'],
+[data-dsh-glass-compat] [class*='popover'],
+[data-dsh-glass-compat] [class*='dropdown'] {
+  backdrop-filter: blur(12px);
+}
+
+/* ---------- Reduced motion: keep the static look, drop every effect. ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-dsh-glass-float] [data-phase='hero'],
+  [data-dsh-glass-float] [data-phase='active'],
+  [data-dsh-glass-float] [data-testid^='view-'],
+  [data-dsh-glass-float] [data-tool],
+  [data-dsh-glass-float] [role='dialog'],
+  [data-dsh-glass] [data-dsh-glass-ambient],
+  [data-dsh-glass] [data-dsh-glass-blob] {
+    animation: none;
+  }
+}

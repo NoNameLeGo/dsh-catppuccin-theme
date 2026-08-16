@@ -28,7 +28,7 @@ export interface CatppuccinRowInjected {
   /** Subscribe to theme preference changes. Returns the disposer. */
   subscribe: (listener: () => void) => () => void
   /** Switch the theme and persist the choice (`off` reverts to system). */
-  select: (choice: FlavorChoice) => Promise<void>
+  select: (choice: FlavorChoice) => void | Promise<void>
 }
 
 /** Full component props: runtime share + locale seat + injected face. */

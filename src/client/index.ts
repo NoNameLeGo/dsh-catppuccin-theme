@@ -6,19 +6,26 @@
  * themes whose --dsw-* token overrides fully remap the UI palette. The
  * official Appearance row persists only the built-in light/dark/system
  * preferences, so this plugin also owns a settings row ("Catppuccin") that
- * lists the four flavours; selecting one writes the flavour to the
- * `dsh-catppuccin` settings namespace (persisted by the host half) and
- * switches the theme, and the choice is restored on boot.
+ * lists the four flavours; selecting one switches the theme and persists the
+ * flavour in localStorage (the Host settings wire only serves an explicit
+ * allowlist of namespaces — a plugin-owned namespace answers
+ * `settings-not-exposed`, so a browser-local preference is the durable
+ * store here). The choice is restored on boot.
  */
-import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the settings-surface Context merge (ctx.settingsScope).
+// Type-only: pulls the settings-surface SlotMap merge (settings.general.item).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { en, zh, type CatppuccinKey } from './locales.ts'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorInfo } from './palettes.ts'
+import { GlassLayer } from './glass/glass-layer.ts'
+import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
+// Side-effect import: the glass stylesheet (auto-injected as a plugin-owned
+// <style> tag; every rule is gated on the data-dsh-glass attribute).
+import './glass/glass.module.css'
 
 /** Locale namespace owned by this plugin. */
 export const NS = 'catppuccin'
@@ -30,11 +37,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** The settings namespace string (must match the host half's settingsNamespace). */
-export const SETTINGS_NAMESPACE = 'dsh-catppuccin'
+/** localStorage key carrying the persisted flavour choice. */
+export const FLAVOR_STORAGE_KEY = 'dsh.catppuccin.flavor'
+
+/** Accepted flavour values — the four registered theme ids plus `off`. These
+ *  MUST stay in sync with the registered themes (guarded by
+ *  tests/palettes.spec.ts) because the persisted value is the theme id. */
+export const CATPPUCCIN_FLAVOR_VALUES = [
+  ...CATPPUCCIN_FLAVORS.map((f) => f.themeId),
+  'off',
+] as const
 
 /** `off` means: fall back to the official theme (default). */
-export type FlavorChoice = CatppuccinFlavorInfo['themeId'] | 'off'
+export type FlavorChoice = (typeof CATPPUCCIN_FLAVOR_VALUES)[number]
 
 /** The flavour whose themeId this is, or `off`. */
 export function flavorFromThemeId(themeId: string): FlavorChoice {
@@ -46,8 +61,29 @@ export function flavorInfo(themeId: string): CatppuccinFlavorInfo | undefined {
   return CATPPUCCIN_FLAVORS.find((f) => f.themeId === themeId)
 }
 
-/** Required services: slots + locale (settings row) and theme (register + switch). */
-export const inject = ['slots', 'locale', 'theme', 'settingsScope', 'connection', 'remote']
+/** Read the persisted flavour (absent / unknown values mean the default `off`). */
+export function readFlavor(): FlavorChoice {
+  try {
+    const raw = localStorage.getItem(FLAVOR_STORAGE_KEY)
+    return raw !== null && (CATPPUCCIN_FLAVOR_VALUES as readonly string[]).includes(raw)
+      ? raw as FlavorChoice
+      : 'off'
+  } catch {
+    return 'off'
+  }
+}
+
+/** Persist the flavour choice (storage failures keep the in-memory state). */
+export function writeFlavor(choice: FlavorChoice): void {
+  try {
+    localStorage.setItem(FLAVOR_STORAGE_KEY, choice)
+  } catch {
+    /* in-memory state still applies for this tab */
+  }
+}
+
+/** Required services: slots + locale (settings rows) and theme (register + switch). */
+export const inject = ['slots', 'locale', 'theme']
 
 /**
  * Register the Catppuccin dictionaries, the four flavour themes, and the
@@ -76,35 +112,50 @@ export function apply(ctx: ClientContext): void {
   }, 'catppuccin: flavour themes')
 
   // Persisted flavour choice. The official ThemeRuntime only persists the
-  // built-in preferences, so the choice lives in our own settings namespace.
-  const binder = ctx.get('settingsScope') as { bind<T>(spec: { namespace: string }): SettingsScope<{ flavor: FlavorChoice }> }
-  const scope = binder.bind<{ flavor: FlavorChoice }>({ namespace: SETTINGS_NAMESPACE })
-
-  // Restore the saved flavour on boot once the settings section has loaded.
-  // The scope starts in the "loading" state and only turns "ready" after the
-  // host document arrives, so a one-shot read at apply() would always miss
-  // the value; subscribe and restore on the first ready snapshot instead.
+  // built-in preferences, and the Host settings wire refuses plugin-owned
+  // namespaces (`settings-not-exposed`), so the choice lives in localStorage.
+  // Restoring it is a two-step race at boot: the flavour themes are registered
+  // by this plugin (so an immediate setTheme may run before registration), and
+  // the official Appearance scope adoption (`adopt()`) re-applies the stored
+  // light/dark/system preference once its scope loads, overriding us. So the
+  // saved flavour is re-asserted on every theme change within a short boot
+  // window; after that a theme change is a user action and must win.
   ctx.effect(() => {
-    let restored = false
-    const restoreOnce = () => {
-      if (restored) return
-      const snapshot = scope.getSnapshot()
-      if (snapshot.status !== 'ready') return
-      restored = true
-      const saved = snapshot.value?.flavor
-      if (saved !== undefined && saved !== 'off') {
+    const saved = readFlavor()
+    if (saved === 'off') return () => {}
+    let settled = false
+    const started = Date.now()
+    const applySaved = (): void => {
+      if (settled) return
+      if (Date.now() - started > 5000) {
+        settled = true
+        return
+      }
+      try {
+        if (theme.getTheme().preference !== saved) theme.setTheme(saved)
+      } catch {
+        // Theme not registered yet — the registry-update theme/change retries.
+      }
+    }
+    applySaved()
+    const disposer = ctx.on('theme/change', applySaved)
+    const timer = window.setTimeout(() => { settled = true }, 5000)
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key !== FLAVOR_STORAGE_KEY) return
+      const next = readFlavor()
+      if (next !== 'off') {
         try {
-          theme.setTheme(saved)
+          theme.setTheme(next)
         } catch {
-          // Theme not registered yet — impossible here (registered above),
-          // but stay safe against a stale persisted value.
+          /* unknown persisted value — keep the current theme */
         }
       }
     }
-    restoreOnce()
-    const unsubscribe = scope.subscribe(restoreOnce)
+    window.addEventListener('storage', onStorage)
     return () => {
-      unsubscribe()
+      disposer()
+      window.clearTimeout(timer)
+      window.removeEventListener('storage', onStorage)
     }
   }, 'catppuccin: boot restore')
 
@@ -119,21 +170,17 @@ export function apply(ctx: ClientContext): void {
       return flavorFromThemeId(pref)
     },
     subscribe: (listener) => ctx.on('theme/change', listener),
-    select: async (choice: FlavorChoice) => {
+    select: (choice: FlavorChoice) => {
       if (choice === 'off') {
         // Revert to the official default (system-following).
         theme.setTheme('system')
-        await scope.set('flavor', 'off').catch((err) => {
-          console.error('[dsh-catppuccin] persist off failed:', err)
-        })
+        writeFlavor('off')
         return
       }
       const flavor = flavorInfo(choice)
       if (!flavor) return
       theme.setTheme(flavor.themeId)
-      await scope.set('flavor', flavor.themeId).catch((err) => {
-        console.error('[dsh-catppuccin] persist flavor failed:', err)
-      })
+      writeFlavor(flavor.themeId)
     },
   })
 
@@ -144,4 +191,28 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: injected,
   }, CatppuccinRow))
+
+  // The glass layer: a toggleable glassmorphism skin on top of the Catppuccin
+  // themes. It owns its lifecycle (enable flag + knobs persist in
+  // localStorage; every effect is released with this fiber).
+  const glass = new GlassLayer(ctx)
+
+  const glassInjected = (): GlassRowInjected => ({
+    getState: () => glass.getSnapshot(),
+    subscribe: (listener) => glass.subscribe(listener),
+    setEnabled: (enabled) => { glass.setEnabled(enabled) },
+    setMode: (mode) => { glass.setMode(mode) },
+    setBlur: (blur) => { glass.setBlur(blur) },
+    setFrost: (frost) => { glass.setFrost(frost) },
+    setBrightness: (brightness) => { glass.setBrightness(brightness) },
+    setHue: (hue) => { glass.setHue(hue) },
+  })
+
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'catppuccin-glass',
+    order: 21,
+    locale: NS,
+    inject: glassInjected,
+  }, GlassRow))
 }

@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-	<img src="assets/previews/hero-mocha.png" width="70%" alt="Catppuccin Mocha 主题下的 DeepSeek Harness"/>
+	<img src="assets/previews/combined.png" width="100%" alt="Catppuccin 四主题下的 DeepSeek Harness"/>
 </p>
 
 ## 简介
@@ -24,6 +24,10 @@
 把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
 下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、下次启动自动恢复。
 
+同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
+输入框、统计行、轨迹视图都变成磨砂玻璃卡片，模糊度、磨砂度、背景亮度、
+背景色调均可自由调节，玻璃颜色自动跟随当前 Catppuccin 主题。
+
 ## 特性
 
 - 🎨 四个主题：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
@@ -31,10 +35,14 @@
 - 🎯 全界面配色覆盖（162 个配色变量），不只是一两个强调色
 - ⚙️ 设置页一行切换，选择自动保存、重启自动恢复
 - 🌐 中英文双语文案（跟随系统语言）
+- 🪟 **玻璃质感**：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图磨砂玻璃效果，
+  设置里一键开关；云母 / 兼容双模式，模糊度、磨砂度、背景亮度、背景色调
+  自由调节（参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin) 的交互）
+- 🎨 玻璃配色取自当前主题的 token（color-mix 自动跟随四个 Catppuccin 色板）
 
 ## 预览
 
-四个主题在 DeepSeek Harness 中的实际效果（截图来自本地 GUI，Mocha 见文首大图）：
+四个主题在 DeepSeek Harness 中的实际效果（截图来自本地 GUI，文首大图为四主题斜切合成）：
 
 <details>
 <summary>🌻 Latte（浅色）</summary>
@@ -92,6 +100,48 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
    **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
 4. 选择 **跟随系统** 则回退到官方主题。
 
+### 玻璃质感
+
+在 **设置 → 常规** 的 **Catppuccin 主题** 正下方找到 **玻璃质感** 行：
+
+- **总开关**：开启后顶栏、侧边栏、输入框、统计行、轨迹视图变为磨砂玻璃；
+  关闭即完全还原原生界面（无需刷新）。
+- **模式**：**云母效果**把界面改成悬浮磨砂卡片；**兼容模式**保持原版排版，
+  只把材质换成玻璃。
+- **玻璃模糊度**（0–40 px）、**磨砂度**（0–100%）：控制玻璃的模糊半径与
+  不透明度。
+- **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样）。
+- **背景色调**（0–360°）：背景渐变与光晕的色相偏移。
+
+玻璃配色取自当前主题的设计 token，切换 Latte / Frappé / Macchiato / Mocha
+时玻璃颜色自动跟随；设置保存在浏览器本地（localStorage），重启自动恢复。
+
+## 玻璃拟态（Glassmorphism）
+
+**玻璃拟态**是一种视觉风格：让界面面板像一片磨砂玻璃，透过它能看到背后的
+内容。它的三个关键要素是——
+
+1. **半透明填充**：面板本身不画实底色，而是半透明的「玻璃」；
+2. **背景模糊**（`backdrop-filter: blur()`）：面板背后的内容（聊天记录、
+   背景光晕）透过玻璃被柔化，与前景文字拉开层次；
+3. **玻璃细节**：细描边、内高光、柔和投影和较大圆角，模拟玻璃的厚度与边缘。
+
+本插件的实现方式：
+
+- **配色自动跟随主题**：玻璃填充用 `color-mix()` 把当前主题的 token
+  （`--dsw-alias-bg-layer-1/2`）按磨砂度混合成半透明色，所以 Latte 是浅色
+  玻璃、Mocha 是深色玻璃，切换主题玻璃颜色即时跟随，无需额外配置；
+- **五个区域玻璃化**：顶栏、侧边栏、输入框、统计行、轨迹视图都变成磨砂
+  玻璃卡片；云母模式下它们成为带圆角的悬浮卡片，聊天内容滚动时会从顶栏
+  玻璃下方穿过、被模糊；
+- **背景光晕**：页面背后有一层 CSS 渐变 + 缓慢漂移的色斑作为「玻璃后的
+  风景」，背景亮度与色相（0–360°）都可调；
+- **一键开关**：整个效果由 `data-dsh-glass` 属性统一门控，关闭即完全还原
+  原生界面，插件卸载时不留任何残留；
+- 交互与实现思路参考了
+  [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
+  （Aqua 玻璃皮肤）的云母 / 兼容双模式与旋钮设计。
+
 ## 开发
 
 ```sh
@@ -113,12 +163,15 @@ node scripts/generate-palettes.mjs
   A: 官方外观行只列出内置的浅色/深色/跟随系统偏好。四个主题在它正下方的
   **Catppuccin** 行里。
 - Q: **_"我的主题选择是怎么记住的？"_**
-  A: 选择保存在 `dsh-catppuccin` 设置里，启动时会自动恢复。
+  A: 选择保存在浏览器本地（localStorage），下次打开同一浏览器会自动恢复；
+  玻璃质感开关与各旋钮同样保存在本地。
 
 ## 💝 致谢
 
 - [Catppuccin](https://github.com/catppuccin) 提供的色板与 port 模板
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系
+- [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
+  的玻璃质感交互与实现参考（云母 / 兼容双模式、模糊度 / 磨砂度等旋钮设计）
 
 &nbsp;
 
