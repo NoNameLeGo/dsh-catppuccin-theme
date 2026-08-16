@@ -145,13 +145,21 @@ function resolveDark(ctx: Context): boolean {
   }
 }
 
-/** The ambient backdrop markup injected while enabled (CSS-only, no WebGL). */
+/**
+ * The ambient backdrop markup injected while enabled (CSS-only, no WebGL):
+ * the living backdrop plus the two page-edge fade bands that blur the chat
+ * content melting into the viewport edges (ported from
+ * DSH-Transparent-UI-Plugin). All three are fixed-position, click-through,
+ * and removed together on disable.
+ */
 const AMBIENT_MARKUP = [
   '<div data-dsh-glass-ambient aria-hidden="true">',
   '  <span data-dsh-glass-blob="1"></span>',
   '  <span data-dsh-glass-blob="2"></span>',
   '  <span data-dsh-glass-blob="3"></span>',
   '</div>',
+  '<span data-dsh-glass-fade="top" aria-hidden="true"></span>',
+  '<span data-dsh-glass-fade="bottom" aria-hidden="true"></span>',
 ].join('')
 
 /**
@@ -340,18 +348,18 @@ export class GlassLayer {
     document.documentElement.removeAttribute(GLASS_ATTRIBUTE)
     document.documentElement.removeAttribute(GLASS_FLOAT_ATTRIBUTE)
     document.documentElement.removeAttribute(GLASS_COMPAT_ATTRIBUTE)
-    for (const node of document.querySelectorAll('[data-dsh-glass-ambient]')) node.remove()
+    for (const node of document.querySelectorAll('[data-dsh-glass-ambient], [data-dsh-glass-fade]')) node.remove()
     this.seamDisposer?.()
     this.seamDisposer = undefined
   }
 
-  /** Insert the ambient backdrop (or reuse the existing one). */
+  /** Insert the ambient backdrop + edge fades (or reuse the existing ones). */
   private ensureAmbient(): void {
     if (document.querySelector('[data-dsh-glass-ambient]') !== null) return
     const holder = document.createElement('div')
     holder.innerHTML = AMBIENT_MARKUP
-    const node = holder.firstElementChild
-    if (!(node instanceof HTMLElement)) return
-    document.body.prepend(node)
+    for (const node of Array.from(holder.children)) {
+      if (node instanceof HTMLElement) document.body.append(node)
+    }
   }
 }

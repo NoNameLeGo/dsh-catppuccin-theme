@@ -97,6 +97,20 @@
     linear-gradient(rgba(0, 0, 0, var(--dsh-glass-brightness-black, 0)), rgba(0, 0, 0, var(--dsh-glass-brightness-black, 0)));
 }
 
+/* A very slow "breathing" of the whole backdrop (ported from the original
+   project's ambient): the board, not individual blobs, gains and loses a
+   hint of presence so the scene feels alive without moving anything. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-dsh-glass] [data-dsh-glass-ambient] {
+    animation: dsh-glass-breathe 9s var(--ds-ease-in-out) infinite alternate;
+  }
+}
+
+@keyframes dsh-glass-breathe {
+  from { opacity: 0.88; }
+  to { opacity: 1; }
+}
+
 /* Drifting accent blobs (background hue follows the ambient's hue-rotate). */
 [data-dsh-glass] [data-dsh-glass-blob] {
   position: absolute;
@@ -148,6 +162,36 @@
   to { transform: translate3d(8vw, -5vh, 0) scale(1.1); }
 }
 
+/* ---------- Page edge fades: 13px gradient blur bands pinned to the top
+   and bottom of the viewport (ported from DSH-Transparent-UI-Plugin). They
+   sit BELOW the floating glass (header / composer / sidebar hold z-index 8)
+   but ABOVE the scrolling chat content — content melting into an edge
+   passes under the blur, while the glass cards themselves stay sharp. The
+   fill rides the theme's layer-1 token, so the veil adapts to each
+   Catppuccin flavour. Click-transparent, so nothing is blocked. ---------- */
+[data-dsh-glass] [data-dsh-glass-fade] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 13px;
+  z-index: 7;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 50%, transparent);
+}
+
+[data-dsh-glass] [data-dsh-glass-fade='top'] {
+  top: 0;
+  -webkit-mask-image: linear-gradient(180deg, black 0%, transparent 100%);
+  mask-image: linear-gradient(180deg, black 0%, transparent 100%);
+}
+
+[data-dsh-glass] [data-dsh-glass-fade='bottom'] {
+  bottom: 0;
+  -webkit-mask-image: linear-gradient(0deg, black 0%, transparent 100%);
+  mask-image: linear-gradient(0deg, black 0%, transparent 100%);
+}
+
 /* ---------- Corner language: 14px surfaces, 10px controls, 8px atoms. ---------- */
 [data-dsh-glass-float] [role='menu'],
 [data-dsh-glass-float] [role='dialog'],
@@ -183,6 +227,31 @@
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(72% * var(--dsh-glass-frost, 1)), transparent);
 }
 
+/* New-session button: the same frosted bead recipe as the "+" — always a
+   touch more opaque than the surrounding cards so it reads as the primary
+   action on the glass sheet. */
+[data-dsh-glass-float] [data-dsh-glass-surface] {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(62% * var(--dsh-glass-frost, 1)), transparent);
+  border: 1px solid var(--dsw-alias-border-l2);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
+[data-dsh-glass-float] [data-dsh-glass-surface]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(78% * var(--dsh-glass-frost, 1)), transparent);
+}
+
+/* Chat message bubbles: frosted glass so the ambient scene shimmers behind
+   the text (ported from the original project). The fill comes from theme
+   tokens, so the four Catppuccin palettes stay faithful instead of a fixed
+   white/black tint. */
+[data-dsh-glass-float] [class*='bubble'] {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l2) 80%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(46% * var(--dsh-glass-frost, 1)), transparent);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
 /* Card family: hover cards, panels, plugin cards, tool cards, the composer. */
 [data-dsh-glass-float] [class*='card'] {
   border-radius: 14px;
@@ -213,6 +282,12 @@
    root width inline-style is released so content follows the glass panel. ---------- */
 [data-dsh-glass-float] [class*='sidebarCol'] {
   --dsw-specific-sidebar-fill: transparent;
+  position: relative;
+  /* Above the header card (8): the settings panel is a fixed overlay
+     trapped in this stacking context, so the sidebar itself must outrank
+     the header or the panel's top edge sits under the top bar (ported
+     from the original project). */
+  z-index: 9;
   margin: 12px;
   padding: 10px 12px 14px;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -225,12 +300,16 @@
   overflow: hidden;
 }
 
-/* Collapsed rail: full-height glass strip, no floating margins. */
+/* Collapsed rail: floats too (mica mode) — same geometry as the original
+   project: a 12px left margin plus a matching negative right margin (outer
+   size unchanged, the main column does not move; the rail just reaches
+   12px into the chat gutter), 16px corners, and a margin transition that
+   runs on the same clock as the app's own collapse crossfade. */
 [data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [class*='sidebarCol'] {
-  margin: 0;
+  margin: 12px -12px 12px 12px;
   padding: 0;
-  border-radius: 0;
-  border-left: none;
+  border-radius: 16px;
+  transition: margin 150ms var(--ds-ease-in-out), border-radius 150ms var(--ds-ease-in-out);
 }
 
 /* The sidebar root freezes at the expanded column width via an inline style
@@ -271,6 +350,10 @@
 }
 
 [data-dsh-glass-float] [data-composer-card] {
+  position: relative;
+  /* Above the scrolling content and the code-banner stack (max 7), so the
+     frosted card always reads as one piece over the transcript. */
+  z-index: 8;
   background: var(--dsh-glass-card);
   border: 1px solid var(--dsw-alias-border-l2);
   box-shadow:
@@ -288,6 +371,9 @@
 }
 
 [data-dsh-glass-float] [data-dsh-glass-stats] {
+  position: relative;
+  /* The docked footer rides with the composer card it fuses into. */
+  z-index: 8;
   width: calc(var(--dsh-chat-content-width, 100%) + 32px);
   max-width: none;
   margin: 0 auto;
@@ -386,6 +472,7 @@
 [data-dsh-glass-compat] [role='menu'],
 [data-dsh-glass-compat] [role='tooltip'],
 [data-dsh-glass-compat] [class*='card'],
+[data-dsh-glass-compat] [class*='bubble'],
 [data-dsh-glass-compat] [class*='panel'],
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
