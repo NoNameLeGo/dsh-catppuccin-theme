@@ -6,11 +6,11 @@
   "main": "lib/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NoNameLeGo/dsh-catppuccin.git"
+    "url": "git+https://github.com/NoNameLeGo/dsh-catppuccin-theme.git"
   },
-  "homepage": "https://github.com/NoNameLeGo/dsh-catppuccin#readme",
+  "homepage": "https://github.com/NoNameLeGo/dsh-catppuccin-theme#readme",
   "bugs": {
-    "url": "https://github.com/NoNameLeGo/dsh-catppuccin/issues"
+    "url": "https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues"
   },
   "keywords": [
     "dsh",

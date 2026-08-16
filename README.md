@@ -6,9 +6,9 @@
 </h3>
 
 <p align="center">
-	<a href="https://github.com/NoNameLeGo/dsh-catppuccin/stargazers"><img src="https://img.shields.io/github/stars/NoNameLeGo/dsh-catppuccin?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
-	<a href="https://github.com/NoNameLeGo/dsh-catppuccin/issues"><img src="https://img.shields.io/github/issues/NoNameLeGo/dsh-catppuccin?colorA=363a4f&colorB=f5a97f&style=for-the-badge"></a>
-	<a href="https://github.com/NoNameLeGo/dsh-catppuccin/contributors"><img src="https://img.shields.io/github/contributors/NoNameLeGo/dsh-catppuccin?colorA=363a4f&colorB=a6da95&style=for-the-badge"></a>
+	<a href="https://github.com/NoNameLeGo/dsh-catppuccin-theme/stargazers"><img src="https://img.shields.io/github/stars/NoNameLeGo/dsh-catppuccin-theme?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
+	<a href="https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues"><img src="https://img.shields.io/github/issues/NoNameLeGo/dsh-catppuccin-theme?colorA=363a4f&colorB=f5a97f&style=for-the-badge"></a>
+	<a href="https://github.com/NoNameLeGo/dsh-catppuccin-theme/contributors"><img src="https://img.shields.io/github/contributors/NoNameLeGo/dsh-catppuccin-theme?colorA=363a4f&colorB=a6da95&style=for-the-badge"></a>
 </p>
 
 <p align="center">
@@ -90,7 +90,7 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 ### 方式二：从仓库安装
 
 ```sh
-dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin
+dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 ```
 
 从 git 安装时 pnpm 可能要求允许构建脚本——按 pnpm 的提示把对应包加进 profile
