@@ -14,3 +14,6 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Accidental nested clone / scratch directories (never part of this repo)
+awesome-dsh-plugin/
