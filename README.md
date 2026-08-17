@@ -26,7 +26,7 @@
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
 输入框、统计行、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
-模糊度、磨砂度、背景亮度、背景色调均可自由调节，玻璃颜色自动跟随当前
+模糊度、磨砂度、背景亮度均可自由调节，玻璃颜色自动跟随当前
 Catppuccin 主题。
 
 ## 特性
@@ -38,9 +38,9 @@ Catppuccin 主题。
 - 🌐 中英文双语文案（跟随系统语言）
 - 🪟 **玻璃质感**：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
   新会话按钮磨砂玻璃效果，设置里一键开关；云母 / 兼容双模式，模糊度、磨砂度、
-  背景亮度、背景色调自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
-- 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、缓慢呼吸的
-  背景光晕——内容滚入视口边缘时柔化穿过，层次更立体
+  背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
+- 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
+  纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色取自当前主题的 token（color-mix 自动跟随四个 Catppuccin 色板）
 
 ## 预览
@@ -68,7 +68,7 @@ Catppuccin 主题。
 
 同一会话在浅色（Latte）与深色（Mocha）下的磨砂玻璃效果：顶栏、侧边栏、
 聊天气泡、输入框与统计行都是玻璃卡片，消息滚过页面边缘时被柔化，
-背景是缓慢漂移的 Catppuccin 光晕（截图来自本地 GUI）：
+背景为主题底色的纯色（截图来自本地 GUI）：
 
 <p align="center">
 	<img src="assets/previews/glass-latte.png" width="100%" alt="玻璃质感 · Latte"/>
@@ -125,8 +125,8 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
   只把材质换成玻璃。
 - **玻璃模糊度**（0–40 px）、**磨砂度**（0–100%）：控制玻璃的模糊半径与
   不透明度。
-- **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样）。
-- **背景色调**（0–360°）：背景渐变与光晕的色相偏移。
+- **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样），
+  直接调和进纯色背景。
 
 玻璃配色取自当前主题的设计 token，切换 Latte / Frappé / Macchiato / Mocha
 时玻璃颜色自动跟随；设置保存在浏览器本地（localStorage），重启自动恢复。
@@ -138,7 +138,7 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
 
 1. **半透明填充**：面板本身不画实底色，而是半透明的「玻璃」；
 2. **背景模糊**（`backdrop-filter: blur()`）：面板背后的内容（聊天记录、
-   背景光晕）透过玻璃被柔化，与前景文字拉开层次；
+   页面底色）透过玻璃被柔化，与前景文字拉开层次；
 3. **玻璃细节**：细描边、内高光、柔和投影和较大圆角，模拟玻璃的厚度与边缘。
 
 本插件的实现方式：
@@ -154,8 +154,9 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
   柔化穿过——玻璃卡片保持清晰，内容在边界「融化」（借鉴
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
   的 Aqua 皮肤）；
-- **背景光晕**：页面背后有一层 CSS 渐变 + 缓慢漂移的色斑作为「玻璃后的
-  风景」，并带有 9 秒周期的微妙呼吸明暗；背景亮度与色相（0–360°）都可调；
+- **纯色背景**：页面底色就是当前主题的 `bg-base` 纯色（Latte `#eff1f5` /
+  Frappé `#303446` / Macchiato `#24273a` / Mocha `#1e1e2e`），零硬编码、
+  切色板自动跟随；背景亮度旋钮直接往这个纯色里调和白/黑；
 - **一键开关**：整个效果由 `data-dsh-glass` 属性统一门控，关闭即完全还原
   原生界面，插件卸载时不留任何残留；无心智负担的 z-index 层级整理（侧边栏
   9 / 顶栏与输入框 8）保证设置面板、浮动卡片互不遮挡；

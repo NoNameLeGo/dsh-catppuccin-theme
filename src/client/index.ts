@@ -205,7 +205,7 @@ export function apply(ctx: ClientContext): void {
     setBlur: (blur) => { glass.setBlur(blur) },
     setFrost: (frost) => { glass.setFrost(frost) },
     setBrightness: (brightness) => { glass.setBrightness(brightness) },
-    setHue: (hue) => { glass.setHue(hue) },
+    resetDefaults: () => { glass.resetDefaults() },
   })
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({

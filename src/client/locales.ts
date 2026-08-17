@@ -26,8 +26,7 @@ export const zh = {
   'glass.brightness': '背景亮度',
   'glass.brightnessHintDark': '深色模式：0 压暗至纯黑，50 原样',
   'glass.brightnessHintLight': '浅色模式：50 原样，100 提亮至纯白',
-  'glass.hue': '背景色调',
-  'glass.hueHint': '背景渐变与光晕的色相偏移（0–360°）',
+  'glass.reset': '还原默认值',
 } as const
 
 /** English dictionary, checked complete against the zh key set. */
@@ -53,8 +52,7 @@ export const en: Record<keyof typeof zh, string> = {
   'glass.brightness': 'Backdrop brightness',
   'glass.brightnessHintDark': 'Dark mode: 0 fades to pure black, 50 unchanged',
   'glass.brightnessHintLight': 'Light mode: 50 unchanged, 100 brightens to pure white',
-  'glass.hue': 'Backdrop hue',
-  'glass.hueHint': 'Hue shift for the backdrop gradient and glow (0–360°)',
+  'glass.reset': 'Reset to defaults',
 }
 
 /** Key union of the Catppuccin dictionaries. */

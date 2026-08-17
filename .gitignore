@@ -17,3 +17,6 @@ Thumbs.db
 
 # Accidental nested clone / scratch directories (never part of this repo)
 awesome-dsh-plugin/
+
+# Agent scratch / working directories
+.workbuddy/

@@ -3,9 +3,15 @@
  * Web surface, riding on top of the Catppuccin themes. Everything the layer
  * owns is an effect: the CSS hooks ride a `data-dsh-glass` attribute on
  * <html> (the stylesheet only applies under it), the seam stamps ride a
- * MutationObserver, and the ambient backdrop is a DOM element — so switching
- * the flag off (or unloading the plugin) restores the stock UI exactly: no
- * residue, no reload.
+ * MutationObserver, and the page-edge fade bands are DOM elements — so
+ * switching the flag off (or unloading the plugin) restores the stock UI
+ * exactly: no residue, no reload.
+ *
+ * The page ground is a SOLID colour: the active theme's own `bg-base`
+ * token (Latte / Frappé / Macchiato / Mocha), with the brightness knob
+ * mixing white/black straight into it. The earlier animated ambient scene
+ * (gradient wash + drifting blobs + hue rotation) was removed in favour of
+ * this flat ground.
  *
  * The enable flag and every knob persist in localStorage: client-only visual
  * preferences (like the selected-session key), written and read by this
@@ -16,7 +22,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
 
-/** html attribute selecting the glass layer: CSS hooks and ambient effects. */
+/** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
 
 /** html attribute selecting the mica (floating-card) layout rules. */
@@ -41,8 +47,6 @@ export interface GlassSettings {
   frost: number
   /** Backdrop brightness, 0-100 (0 = pure black, 50 = transparent, 100 = pure white; half-range per scheme). */
   brightness: number
-  /** Ambient hue shift, degrees. */
-  hue: number
 }
 
 /** The full state the settings row mirrors (settings + enable flag + scheme). */
@@ -53,12 +57,17 @@ export interface GlassRowState extends GlassSettings {
   dark: boolean
 }
 
+/**
+ * Shipped knob defaults — aligned with the reference project
+ * (DSH-Transparent-UI-Plugin / Aqua): mica mode, blur 2px, frost 20
+ * (the 0-100 slider maps to a 0-1.4 alpha multiplier via frost/50, so 20
+ * reads as a light frost) and neutral backdrop brightness.
+ */
 const SETTINGS_DEFAULTS: GlassSettings = {
   mode: 'mica',
-  blur: 14,
-  frost: 50,
+  blur: 2,
+  frost: 20,
   brightness: 50,
-  hue: 0,
 }
 
 /** Numeric knob keys and their localStorage names. */
@@ -66,7 +75,6 @@ const NUMERIC_KEYS = {
   blur: 'dsh.catppuccin.glass.blur',
   frost: 'dsh.catppuccin.glass.frost',
   brightness: 'dsh.catppuccin.glass.brightness',
-  hue: 'dsh.catppuccin.glass.hue',
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
 
@@ -74,9 +82,7 @@ const MODE_KEY = 'dsh.catppuccin.glass.mode'
 
 /** Clamp a numeric knob into its sane range. */
 function clampSetting(key: NumericKey, value: number): number {
-  const max = key === 'blur' ? 40
-    : key === 'frost' || key === 'brightness' ? 100
-      : 360
+  const max = key === 'blur' ? 40 : 100
   return Number.isFinite(value) ? Math.min(max, Math.max(0, value)) : SETTINGS_DEFAULTS[key]
 }
 
@@ -146,18 +152,13 @@ function resolveDark(ctx: Context): boolean {
 }
 
 /**
- * The ambient backdrop markup injected while enabled (CSS-only, no WebGL):
- * the living backdrop plus the two page-edge fade bands that blur the chat
- * content melting into the viewport edges (ported from
- * DSH-Transparent-UI-Plugin). All three are fixed-position, click-through,
- * and removed together on disable.
+ * The page-edge fade bands injected while enabled (ported from
+ * DSH-Transparent-UI-Plugin): two fixed-position, click-through strips
+ * that blur the chat content melting into the viewport edges. Both are
+ * removed together on disable. The page ground itself is pure CSS (the
+ * body rule), so no backdrop element is needed.
  */
-const AMBIENT_MARKUP = [
-  '<div data-dsh-glass-ambient aria-hidden="true">',
-  '  <span data-dsh-glass-blob="1"></span>',
-  '  <span data-dsh-glass-blob="2"></span>',
-  '  <span data-dsh-glass-blob="3"></span>',
-  '</div>',
+const FADE_MARKUP = [
   '<span data-dsh-glass-fade="top" aria-hidden="true"></span>',
   '<span data-dsh-glass-fade="bottom" aria-hidden="true"></span>',
 ].join('')
@@ -202,7 +203,7 @@ export class GlassLayer {
       }
       window.addEventListener('storage', onStorage)
       // Follow the Appearance switch: the brightness knob's half-range and
-      // the ambient direction flip with the resolved scheme. Runs even while
+      // the mix direction flip with the resolved scheme. Runs even while
       // disabled so the settings row stays correct.
       const themeListener = ctx.on('theme/change', () => {
         this.dark = resolveDark(ctx)
@@ -279,12 +280,13 @@ export class GlassLayer {
     this.publish()
   }
 
-  /** Set the ambient hue shift (degrees). */
-  setHue(value: number): void {
-    const next = clampSetting('hue', value)
-    if (next === this.settings.hue) return
-    this.settings.hue = next
-    writeSetting('hue', next)
+  /** Restore every knob to the shipped defaults (persisted immediately). */
+  resetDefaults(): void {
+    this.settings = { ...SETTINGS_DEFAULTS }
+    writeMode(this.settings.mode)
+    writeSetting('blur', this.settings.blur)
+    writeSetting('frost', this.settings.frost)
+    writeSetting('brightness', this.settings.brightness)
     if (this.enabled) this.applySettings()
     this.publish()
   }
@@ -296,7 +298,6 @@ export class GlassLayer {
       blur: readSetting('blur'),
       frost: readSetting('frost'),
       brightness: readSetting('brightness'),
-      hue: readSetting('hue'),
     }
   }
 
@@ -322,10 +323,10 @@ export class GlassLayer {
     // Frost 0-100 → a 0-1.4 alpha multiplier (50 = 1x). Capped so max frost
     // stays translucent frosted glass instead of collapsing to a solid slab.
     style.setProperty('--dsh-glass-frost', String(Math.min(this.settings.frost / 50, 1.4)))
-    style.setProperty('--dsh-glass-hue', `${this.settings.hue}deg`)
     // Backdrop brightness: dark mode darkens (0 = pure black, 50 = off),
     // light mode brightens (50 = off, 100 = pure white) — the knob's range
-    // and the overlay direction both follow the resolved scheme.
+    // and the mix direction both follow the resolved scheme. The body
+    // background rule mixes these fractions straight into the solid ground.
     const dark = this.dark
     style.setProperty('--dsh-glass-brightness-black', String(dark ? Math.max(0, (50 - this.settings.brightness) / 50) : 0))
     style.setProperty('--dsh-glass-brightness-white', String(dark ? 0 : Math.max(0, (this.settings.brightness - 50) / 50)))
@@ -340,7 +341,7 @@ export class GlassLayer {
   private mount(): void {
     document.documentElement.setAttribute(GLASS_ATTRIBUTE, '')
     this.applySettings()
-    this.ensureAmbient()
+    this.ensureFades()
     if (this.seamDisposer === undefined) this.seamDisposer = startGlassSeamStamper()
   }
 
@@ -348,16 +349,16 @@ export class GlassLayer {
     document.documentElement.removeAttribute(GLASS_ATTRIBUTE)
     document.documentElement.removeAttribute(GLASS_FLOAT_ATTRIBUTE)
     document.documentElement.removeAttribute(GLASS_COMPAT_ATTRIBUTE)
-    for (const node of document.querySelectorAll('[data-dsh-glass-ambient], [data-dsh-glass-fade]')) node.remove()
+    for (const node of document.querySelectorAll('[data-dsh-glass-fade]')) node.remove()
     this.seamDisposer?.()
     this.seamDisposer = undefined
   }
 
-  /** Insert the ambient backdrop + edge fades (or reuse the existing ones). */
-  private ensureAmbient(): void {
-    if (document.querySelector('[data-dsh-glass-ambient]') !== null) return
+  /** Insert the page-edge fade bands (or reuse the existing ones). */
+  private ensureFades(): void {
+    if (document.querySelector('[data-dsh-glass-fade]') !== null) return
     const holder = document.createElement('div')
-    holder.innerHTML = AMBIENT_MARKUP
+    holder.innerHTML = FADE_MARKUP
     for (const node of Array.from(holder.children)) {
       if (node instanceof HTMLElement) document.body.append(node)
     }

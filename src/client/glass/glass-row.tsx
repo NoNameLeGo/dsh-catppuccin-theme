@@ -2,8 +2,8 @@
  * Catppuccin glass settings row — registered into the General settings
  * section (`settings.general.item`, right under the Catppuccin flavour row).
  * Holds the master on/off switch plus every glass knob: mode (mica /
- * compatibility), blur, frost, backdrop brightness and ambient hue. Every
- * write goes straight through to the glass layer, so the skin moves live.
+ * compatibility), blur, frost and backdrop brightness. Every write goes
+ * straight through to the glass layer, so the skin moves live.
  */
 import { useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -26,8 +26,8 @@ export interface GlassRowInjected {
   setFrost: (value: number) => void
   /** Set the backdrop brightness, 0-100. */
   setBrightness: (value: number) => void
-  /** Set the ambient hue shift, degrees. */
-  setHue: (value: number) => void
+  /** Restore every knob to the shipped defaults. */
+  resetDefaults: () => void
 }
 
 /** Full component props: runtime share + locale seat + injected face. */
@@ -104,9 +104,9 @@ function Segmented<T extends string>(props: {
  * @param props - composed slot props.
  * @returns the General section row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setHue }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, resetDefaults }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, hue, dark } = state
+  const { enabled, mode, blur, frost, brightness, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -152,8 +152,11 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
             <div className={css.knobHint}>
               {t(dark ? 'glass.brightnessHintDark' : 'glass.brightnessHintLight')}
             </div>
-            <Knob label={t('glass.hue')} value={hue} min={0} max={360} step={1} unit="°" onChange={setHue} />
-            <div className={css.knobHint}>{t('glass.hueHint')}</div>
+            <div className={css.row}>
+              <button type="button" className={css.resetButton} onClick={() => { resetDefaults() }}>
+                {t('glass.reset')}
+              </button>
+            </div>
           </>
         )}
       </div>
