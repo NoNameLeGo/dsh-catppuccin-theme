@@ -412,10 +412,15 @@
   backdrop-filter: none;
 }
 
-/* The stats row inside the band: plain text, no own glass. */
+/* The stats row inside the band: plain text, no own glass. It must keep a
+   container-constrained width (100% + the shell's own max-width, exactly
+   like the stock row): in the flex column the row is a direct flex item
+   (the slot anchor is display:contents), and `width:auto` there would let
+   it shrink to its content width, which makes scrollWidth == clientWidth
+   and disables the stock "hover for full text" tooltip (it only arms when
+   the row is truncated). */
 [data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar] [data-slot] [data-dsh-glass-stats] {
-  width: auto !important;
-  max-width: none !important;
+  width: 100% !important;
   min-width: 0;
   margin: 0;
   padding: 4px 0 0 !important;
