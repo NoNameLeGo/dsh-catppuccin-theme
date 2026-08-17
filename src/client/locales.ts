@@ -27,6 +27,19 @@ export const zh = {
   'glass.brightnessHintDark': '深色模式：0 压暗至纯黑，50 原样',
   'glass.brightnessHintLight': '浅色模式：50 原样，100 提亮至纯白',
   'glass.reset': '还原默认值',
+  'update.title': '检查 Catppuccin 插件更新',
+  'update.description': '检测本插件（dsh-catppuccin）在 npm 上的最新版本，判断当前安装是否需要升级。',
+  'update.check': '检查更新',
+  'update.checking': '检查中…',
+  'update.current': '当前版本',
+  'update.upToDate': '已是最新版本 🎉',
+  'update.available': '发现新版本：',
+  'update.commandHint': '在终端运行以下命令升级（把 web 换成你的 profile 名）：',
+  'update.restartHint': '升级完成后重启 dsh web 生效。',
+  'update.copy': '复制命令',
+  'update.copied': '已复制 ✓',
+  'update.failed': '检查失败，请稍后重试。',
+  'update.retry': '重试',
 } as const
 
 /** English dictionary, checked complete against the zh key set. */
@@ -53,6 +66,19 @@ export const en: Record<keyof typeof zh, string> = {
   'glass.brightnessHintDark': 'Dark mode: 0 fades to pure black, 50 unchanged',
   'glass.brightnessHintLight': 'Light mode: 50 unchanged, 100 brightens to pure white',
   'glass.reset': 'Reset to defaults',
+  'update.title': 'Check for Catppuccin plugin updates',
+  'update.description': 'Checks npm for the latest dsh-catppuccin release and whether this install is current.',
+  'update.check': 'Check for updates',
+  'update.checking': 'Checking…',
+  'update.current': 'Current version',
+  'update.upToDate': 'Up to date 🎉',
+  'update.available': 'New version available:',
+  'update.commandHint': 'Run this in a terminal to upgrade (replace web with your profile name):',
+  'update.restartHint': 'Restart dsh web after the upgrade.',
+  'update.copy': 'Copy command',
+  'update.copied': 'Copied ✓',
+  'update.failed': 'Check failed — try again later.',
+  'update.retry': 'Retry',
 }
 
 /** Key union of the Catppuccin dictionaries. */

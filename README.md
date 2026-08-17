@@ -42,6 +42,7 @@ Catppuccin 主题。
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色取自当前主题的 token（color-mix 自动跟随四个 Catppuccin 色板）
+- 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令
 
 ## 预览
 
@@ -131,6 +132,22 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
 玻璃配色取自当前主题的设计 token，切换 Latte / Frappé / Macchiato / Mocha
 时玻璃颜色自动跟随；设置保存在浏览器本地（localStorage），重启自动恢复。
 
+### 检查 Catppuccin 插件更新
+
+在 **设置 → 常规** 的 **玻璃质感** 正下方找到 **检查 Catppuccin 插件更新** 行：
+
+- 点击 **检查更新**，插件宿主会查询 npm registry 上本插件（`dsh-catppuccin`）
+  的最新版本，并与当前安装版本比较（含预发布版本的语义化版本比较）。
+- 已是最新 → 显示当前版本号；发现新版 → 显示新版本号，并给出可复制的
+  升级命令（`dsh plugin --profile web add @nonamelego/dsh-catppuccin@latest`，
+  profile 名按你的实际配置替换），复制后在终端运行，升级完成后重启
+  `dsh web` 生效。
+- 通道策略：正式版安装只跟随 `latest` 标签；预发布版安装同时跟随
+  `beta` 标签（升级命令自动用 `@beta`），正式版超过你的预发布版本时提示
+  升级到 `@latest`。
+- 检查走宿主进程的 Node fetch（无跨域问题）；离线或 registry 不可达时
+  显示失败并支持重试。
+
 ## 玻璃拟态（Glassmorphism）
 
 **玻璃拟态**是一种视觉风格：让界面面板像一片磨砂玻璃，透过它能看到背后的
@@ -187,6 +204,11 @@ node scripts/generate-palettes.mjs
 - Q: **_"我的主题选择是怎么记住的？"_**
   A: 选择保存在浏览器本地（localStorage），下次打开同一浏览器会自动恢复；
   玻璃质感开关与各旋钮同样保存在本地。
+- Q: **_"怎么知道这个插件有没有新版本？"_**
+  A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
+  发现新版会给出可复制的升级命令；也可以随时手动执行
+  `dsh plugin --profile web update @nonamelego/dsh-catppuccin`
+  （或重新 `add` 最新版）。
 
 ## 💝 致谢
 

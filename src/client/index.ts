@@ -23,6 +23,9 @@ import { en, zh, type CatppuccinKey } from './locales.ts'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorInfo } from './palettes.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
+import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
+import type { UpdateCheckPayload } from '../update-check.ts'
+import { UPDATE_ROUTE_PATH } from '../update-check.ts'
 // Side-effect import: the glass stylesheet (auto-injected as a plugin-owned
 // <style> tag; every rule is gated on the data-dsh-glass attribute).
 import './glass/glass.module.css'
@@ -215,4 +218,26 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: glassInjected,
   }, GlassRow))
+
+  // Update check: the Host owns the npm lookup (Node fetch, no CORS); the row
+  // only fetches the same-origin route and renders the verdict. Upgrade stays
+  // a terminal action — the row just surfaces the CLI command.
+  const updateInjected = (): UpdateRowInjected => ({
+    check: async () => {
+      try {
+        const response = await fetch(UPDATE_ROUTE_PATH, { headers: { accept: 'application/json' } })
+        return await response.json() as UpdateCheckPayload
+      } catch {
+        return { ok: false, error: 'network' }
+      }
+    },
+  })
+
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'catppuccin-update',
+    order: 22,
+    locale: NS,
+    inject: updateInjected,
+  }, UpdateRow))
 }
