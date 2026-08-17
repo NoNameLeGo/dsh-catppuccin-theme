@@ -52,5 +52,9 @@ jobs:
         run: pnpm test
 
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
+      # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
+      # 正式版 → latest，预发布 → beta。
       - name: Publish to npm
-        run: npm publish --registry=https://registry.npmjs.org
+        run: |
+          TAG=$(node -p "require('./package.json').version.includes('-') ? 'beta' : 'latest'")
+          npm publish --registry=https://registry.npmjs.org --tag "$TAG"
