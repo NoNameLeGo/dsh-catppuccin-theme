@@ -56,40 +56,67 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Boolean toggle pill (the master switch). */
+/* Glass toggle switch (the master switch): a frosted track with a sliding
+ * glass knob. OFF = translucent hairline glass; ON = accent-tinted glass
+ * with a soft glow. With the glass layer on, the track picks up the live
+ * --dsh-glass-* recipe (the frost slider moves it with the rest of the
+ * skin); without it, token-derived fallbacks keep the same look. */
 .toggle,
 .toggleOn {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px 0 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 14px;
-  background: transparent;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-primary);
+  flex: none;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--dsh-glass-rim-soft, var(--dsw-alias-border-l2));
+  border-radius: 12px;
+  background: var(--dsh-glass-card-raised, color-mix(in srgb, var(--dsw-alias-bg-layer-2) 55%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.toggle:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+.toggle:hover,
+.toggleOn:hover {
+  filter: brightness(1.12);
+}
+
+.toggle:focus-visible,
+.toggleOn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, transparent);
+  outline-offset: 2px;
 }
 
 .toggleOn {
   border-color: transparent;
-  background: var(--dsw-alias-state-business-tertiary);
-  color: var(--dsw-alias-state-business-primary);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 78%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 38%, transparent);
 }
 
+/* The knob: frosted-white glass circle with a top-edge light and a soft
+ * drop; it rides the track and carries a small check while on. */
 .check {
+  position: absolute;
+  top: 3px;
+  left: 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  font-size: 12px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.82));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggleOn .check {
+  transform: translateX(22px);
 }
 
 /* Knob: label, slider, number box + unit. */

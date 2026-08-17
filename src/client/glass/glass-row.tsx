@@ -123,12 +123,13 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
           <span className={css.rowLabel}>{t('glass.enable')}</span>
           <button
             type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={t('glass.enable')}
             className={enabled ? css.toggleOn : css.toggle}
-            aria-pressed={enabled}
             onClick={() => { setEnabled(!enabled) }}
           >
-            <span className={css.check}>{enabled ? '✓' : ''}</span>
-            {enabled ? t('glass.on') : t('glass.off')}
+            <span className={css.check} aria-hidden="true">{enabled ? '✓' : ''}</span>
           </button>
         </div>
         {enabled && (
