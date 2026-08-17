@@ -7,7 +7,7 @@
 # 前置条件（一次性，npmjs.com 网页端配置）：
 #   Package Settings → Trusted Publisher → GitHub Actions：
 #   Organization or user: NoNameLeGo
-#   Repository:           dsh-catppuccin
+#   Repository:           dsh-catppuccin-theme
 #   Workflow filename:    publish.yml
 #   Allowed actions:      npm publish
 #
