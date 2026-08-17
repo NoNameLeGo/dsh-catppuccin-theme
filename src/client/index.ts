@@ -228,7 +228,7 @@ export function apply(ctx: ClientContext): void {
         const response = await fetch(UPDATE_ROUTE_PATH, { headers: { accept: 'application/json' } })
         return await response.json() as UpdateCheckPayload
       } catch {
-        return { ok: false, error: 'network' }
+        return { ok: false, code: 'network', error: 'network' }
       }
     },
   })

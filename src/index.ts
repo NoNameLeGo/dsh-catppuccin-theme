@@ -30,6 +30,7 @@ import {
   type UpdateCheckPayload,
 } from './update-check.ts'
 import { isUpdateAvailable } from './versions.ts'
+import { detectProfile } from './profile-detect.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'dsh-catppuccin'
@@ -55,41 +56,64 @@ interface WebServerLike {
   register(route: WebRouteLike): () => void
 }
 
-/** Query the npm registry and build the check payload. */
+/** Query the npm registry and build the check payload. The probe result
+ *  feeds the upgrade command's profile name and the install-source copy, so
+ *  the Client never guesses either. */
 async function fetchLatestVersion(): Promise<UpdateCheckPayload> {
   const current = pkg.version
+  const probe = await detectProfile()
+  const base = {
+    current,
+    profile: probe.name,
+    profileDetected: probe.detected,
+    installSource: probe.installSource,
+    checkedAt: new Date().toISOString(),
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), UPDATE_FETCH_TIMEOUT_MS)
+  let response: Response
   try {
-    const response = await fetch(REGISTRY_PACKUMENT_URL, {
+    response = await fetch(REGISTRY_PACKUMENT_URL, {
       signal: controller.signal,
       headers: { accept: 'application/vnd.npm.install-v1+json' },
     })
-    if (!response.ok) {
-      return { ok: false, current, error: `npm registry responded HTTP ${response.status}` }
-    }
-    const data = await response.json() as { 'dist-tags'?: Record<string, string> }
-    const newest = selectNewest(current, data['dist-tags'] ?? {})
-    if (newest === null) {
-      return { ok: false, current, error: 'npm registry returned no usable dist-tags' }
-    }
-    const outdated = isUpdateAvailable(current, newest.version)
-    return {
-      ok: true,
-      current,
-      latest: newest.version,
-      outdated,
-      channel: newest.channel,
-      ...(outdated ? { updateCommand: updateCommandFor(newest.channel) } : {}),
-    }
   } catch (error) {
     return {
+      ...base,
       ok: false,
-      current,
+      code: 'registry-unreachable',
       error: error instanceof Error ? error.message : String(error),
     }
   } finally {
     clearTimeout(timer)
+  }
+  if (!response.ok) {
+    return {
+      ...base,
+      ok: false,
+      code: 'registry-http',
+      error: `npm registry responded HTTP ${response.status}`,
+    }
+  }
+  let data: { 'dist-tags'?: Record<string, string> }
+  try {
+    data = await response.json() as { 'dist-tags'?: Record<string, string> }
+  } catch {
+    return { ...base, ok: false, code: 'invalid-response', error: 'npm registry returned an unparseable packument' }
+  }
+  const newest = selectNewest(current, data['dist-tags'] ?? {})
+  if (newest === null) {
+    return { ...base, ok: false, code: 'no-dist-tags', error: 'npm registry returned no usable dist-tags' }
+  }
+  const outdated = isUpdateAvailable(current, newest.version)
+  return {
+    ...base,
+    ok: true,
+    code: 'ok',
+    latest: newest.version,
+    outdated,
+    channel: newest.channel,
+    ...(outdated ? { updateCommand: updateCommandFor(newest.channel, probe.name) } : {}),
   }
 }
 

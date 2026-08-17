@@ -69,6 +69,7 @@
     "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-theme": "^0.1.0-rc.6",
+    "@types/node": "^26.2.0",
     "@types/react": "~18.3.1",
     "jsdom": "29.1.1",
     "lightningcss": "^1.32.0",
@@ -79,4 +80,3 @@
     "vitest": "^4.1.8"
   }
 }
-

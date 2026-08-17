@@ -20,3 +20,9 @@ awesome-dsh-plugin/
 
 # Agent scratch / working directories
 .workbuddy/
+.dsh-vision-toolkit/
+
+# Local debugging / scratch artifacts (one-off Playwright debug scripts, screenshots, chat test files)
+debug-*.cjs
+debug-*.png
+quicksort.py

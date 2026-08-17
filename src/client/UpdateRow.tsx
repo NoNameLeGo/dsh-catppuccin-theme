@@ -2,14 +2,16 @@
  * Update-check settings row — one General-section preference row that asks
  * the Host's `/catppuccin/check-update` route for the latest published npm
  * version and reports whether this install is current. Detection is Host-side
- * (Node fetch, no CORS); the row renders the verdict and, when an update is
- * available, offers the copyable CLI upgrade command. Upgrading itself stays
- * a terminal action (`dsh plugin … add @latest`) — the row never touches the
+ * (Node fetch, no CORS, profile probe included); the row renders the verdict
+ * and, when an update is available, offers the copyable CLI upgrade command
+ * whose profile name the Host already probed. Upgrading itself stays a
+ * terminal action (`dsh plugin … add @latest`) — the row never touches the
  * profile workspace.
  */
 import { useState } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { UpdateCheckPayload } from '../update-check.ts'
+import type { UpdateCheckPayload, UpdateErrorCode } from '../update-check.ts'
+import type { CatppuccinKey } from './locales.ts'
 
 /** Injected business face of the row (assembled in apply). */
 export interface UpdateRowInjected {
@@ -33,6 +35,18 @@ async function copyCommand(text: string): Promise<boolean> {
   }
 }
 
+/** Map a stable error code to its locale key (unknown codes fall back to the generic message). */
+function errorKey(code: UpdateErrorCode | undefined): CatppuccinKey {
+  switch (code) {
+    case 'registry-unreachable': return 'update.err.registry'
+    case 'registry-http': return 'update.err.http'
+    case 'no-dist-tags': return 'update.err.noTags'
+    case 'invalid-response': return 'update.err.invalid'
+    case 'network': return 'update.err.network'
+    default: return 'update.failed'
+  }
+}
+
 /**
  * Render the update-check row: title, description, a check button, and the
  * verdict once checked.
@@ -50,7 +64,7 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
     try {
       setPayload(await check())
     } catch {
-      setPayload({ ok: false, error: 'network' })
+      setPayload({ ok: false, code: 'network', error: 'network' })
     } finally {
       setPhase('done')
     }
@@ -69,6 +83,9 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
     font: 'inherit',
     opacity: phase === 'checking' ? 0.6 : 1,
   }
+
+  const localInstall = payload?.ok === true && payload.installSource !== undefined
+    && payload.installSource !== 'registry'
 
   return (
     <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
@@ -89,6 +106,11 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
               {t('update.current')} {payload.current}
             </span>
           )}
+          {payload?.ok === true && payload.checkedAt !== undefined && (
+            <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, lineHeight: '18px' }}>
+              {t('update.checkedAt')} {new Date(payload.checkedAt).toLocaleString()}
+            </span>
+          )}
         </div>
 
         {phase === 'done' && payload !== null && (
@@ -102,7 +124,9 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
                   {payload.updateCommand !== undefined && (
                     <>
                       <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                        {t('update.commandHint')}
+                        {payload.profileDetected === true && payload.profile !== undefined
+                          ? t('update.commandHintDetected').replace('{profile}', payload.profile)
+                          : t('update.commandHint')}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                         <code style={{
@@ -129,6 +153,11 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
                           {copied ? t('update.copied') : t('update.copy')}
                         </button>
                       </div>
+                      {localInstall && (
+                        <div style={{ color: 'var(--dsw-alias-label-warning, var(--dsw-alias-label-tertiary))', fontSize: 12, lineHeight: '18px' }}>
+                          {t('update.localInstall')}
+                        </div>
+                      )}
                       <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
                         {t('update.restartHint')}
                       </div>
@@ -143,7 +172,7 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                 <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                  {t('update.failed')}
+                  {t(errorKey(payload.code))}
                 </span>
                 <button type="button" onClick={() => void runCheck()} style={{ ...buttonStyle, cursor: 'pointer' }}>
                   {t('update.retry')}

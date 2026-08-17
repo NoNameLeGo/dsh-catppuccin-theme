@@ -35,11 +35,19 @@ export const zh = {
   'update.upToDate': '已是最新版本 🎉',
   'update.available': '发现新版本：',
   'update.commandHint': '在终端运行以下命令升级（把 web 换成你的 profile 名）：',
+  'update.commandHintDetected': '已自动探测到 profile「{profile}」，在终端运行以下命令升级：',
   'update.restartHint': '升级完成后重启 dsh web 生效。',
   'update.copy': '复制命令',
   'update.copied': '已复制 ✓',
   'update.failed': '检查失败，请稍后重试。',
   'update.retry': '重试',
+  'update.checkedAt': '检查时间',
+  'update.localInstall': '检测到本地链接/源码安装，npm 升级命令可能不适用——请用 git pull 或重新构建。',
+  'update.err.registry': '无法连接 npm registry，请检查网络后重试。',
+  'update.err.http': 'npm registry 返回异常状态码，请稍后重试。',
+  'update.err.noTags': 'npm registry 未返回可用的版本标签。',
+  'update.err.invalid': 'npm registry 返回了无法解析的数据。',
+  'update.err.network': '无法连接插件宿主，请刷新页面后重试。',
 } as const
 
 /** English dictionary, checked complete against the zh key set. */
@@ -74,11 +82,19 @@ export const en: Record<keyof typeof zh, string> = {
   'update.upToDate': 'Up to date 🎉',
   'update.available': 'New version available:',
   'update.commandHint': 'Run this in a terminal to upgrade (replace web with your profile name):',
+  'update.commandHintDetected': 'Profile "{profile}" detected — run this in a terminal to upgrade:',
   'update.restartHint': 'Restart dsh web after the upgrade.',
   'update.copy': 'Copy command',
   'update.copied': 'Copied ✓',
   'update.failed': 'Check failed — try again later.',
   'update.retry': 'Retry',
+  'update.checkedAt': 'Checked at',
+  'update.localInstall': 'This install is a local link/source checkout — the npm upgrade command may not apply; use git pull or rebuild instead.',
+  'update.err.registry': 'Could not reach the npm registry — check your network and retry.',
+  'update.err.http': 'The npm registry returned an unexpected status code.',
+  'update.err.noTags': 'The npm registry returned no usable version tags.',
+  'update.err.invalid': 'The npm registry returned unparseable data.',
+  'update.err.network': 'Could not reach the plugin host — refresh the page and retry.',
 }
 
 /** Key union of the Catppuccin dictionaries. */

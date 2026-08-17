@@ -118,8 +118,9 @@ describe('selectNewest', () => {
 })
 
 describe('updateCommandFor', () => {
-  it('names the dist-tag being chased', () => {
-    expect(updateCommandFor('latest')).toBe('dsh plugin --profile web add @nonamelego/dsh-catppuccin@latest')
-    expect(updateCommandFor('beta')).toBe('dsh plugin --profile web add @nonamelego/dsh-catppuccin@beta')
+  it('names the dist-tag being chased and the target profile', () => {
+    expect(updateCommandFor('latest', 'web')).toBe('dsh plugin --profile web add @nonamelego/dsh-catppuccin@latest')
+    expect(updateCommandFor('beta', 'web')).toBe('dsh plugin --profile web add @nonamelego/dsh-catppuccin@beta')
+    expect(updateCommandFor('latest', 'headless')).toBe('dsh plugin --profile headless add @nonamelego/dsh-catppuccin@latest')
   })
 })

@@ -139,14 +139,16 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
 - 点击 **检查更新**，插件宿主会查询 npm registry 上本插件（`dsh-catppuccin`）
   的最新版本，并与当前安装版本比较（含预发布版本的语义化版本比较）。
 - 已是最新 → 显示当前版本号；发现新版 → 显示新版本号，并给出可复制的
-  升级命令（`dsh plugin --profile web add @nonamelego/dsh-catppuccin@latest`，
-  profile 名按你的实际配置替换），复制后在终端运行，升级完成后重启
-  `dsh web` 生效。
+  升级命令。命令中的 profile 名由宿主**自动探测**：优先取当前进程的
+  `--profile` 参数，否则扫描 `~/.dsh/profiles/*` 找到实际安装了本插件的
+  profile，无需手动替换（探测失败时才回退为 `web` 并提示手动确认）。
+- 检测到本插件为本地链接 / 源码安装（`link:` / `file:` / git）时会给出
+  提示：npm 升级命令不适用，应改用 `git pull` 或重新构建。
 - 通道策略：正式版安装只跟随 `latest` 标签；预发布版安装同时跟随
   `beta` 标签（升级命令自动用 `@beta`），正式版超过你的预发布版本时提示
   升级到 `@latest`。
 - 检查走宿主进程的 Node fetch（无跨域问题）；离线或 registry 不可达时
-  显示失败并支持重试。
+  显示具体失败原因并支持重试。
 
 ## 玻璃拟态（Glassmorphism）
 

@@ -41,10 +41,14 @@ export interface NewestRelease {
 
 /**
  * The copyable CLI upgrade command for one channel (`dsh plugin` is a thin
- * pnpm forwarder; the profile name varies per deployment).
+ * pnpm forwarder). The profile name comes from the Host's runtime probe
+ * (`src/profile-detect.ts`), never hard-coded, so the command works on any
+ * deployment out of the box.
+ * @param channel - the dist-tag to chase.
+ * @param profile - the DSH profile name to target.
  */
-export function updateCommandFor(channel: UpdateChannel): string {
-  return `dsh plugin --profile web add ${PACKAGE_NAME}@${channel}`
+export function updateCommandFor(channel: UpdateChannel, profile: string): string {
+  return `dsh plugin --profile ${profile} add ${PACKAGE_NAME}@${channel}`
 }
 
 /**
@@ -73,11 +77,26 @@ export function selectNewest(current: string, tags: DistTags): NewestRelease | n
   return best
 }
 
+/** Stable machine-readable outcome code (borrowed from the plugin-update
+ *  error-code discipline of dsh-vision-toolkit): the Client maps it to copy
+ *  instead of sniffing human text. */
+export type UpdateErrorCode =
+  | 'ok'
+  | 'network'           // the same-origin fetch itself failed (client side)
+  | 'registry-unreachable' // npm registry could not be reached or timed out
+  | 'registry-http'     // registry answered with a non-2xx status
+  | 'no-dist-tags'      // registry returned no usable dist-tags
+  | 'invalid-response'  // registry response could not be parsed
+
+/** How this package is installed inside the probed DSH profile. */
+export type InstallSource = 'registry' | 'link' | 'file' | 'git' | 'unknown'
+
 /**
  * JSON payload of the update check. `ok: false` carries a human-readable
- * `error`; `ok: true` carries the comparison result. The Host owns the
- * semver comparison and the channel selection (single source of truth), so
- * the Client never parses versions itself.
+ * `error` plus a stable `code`; `ok: true` carries the comparison result.
+ * The Host owns the semver comparison, the channel selection, and the
+ * profile probe (single source of truth), so the Client never parses
+ * versions or guesses the profile name itself.
  */
 export interface UpdateCheckPayload {
   /** Whether the registry lookup succeeded. */
@@ -92,6 +111,16 @@ export interface UpdateCheckPayload {
   channel?: UpdateChannel
   /** Copyable CLI upgrade command (present when outdated). */
   updateCommand?: string
+  /** DSH profile name the upgrade command targets (probed, not guessed). */
+  profile?: string
+  /** Whether the profile probe actually found the install (false = fallback). */
+  profileDetected?: boolean
+  /** How the package is installed in that profile (drives copy). */
+  installSource?: InstallSource
+  /** ISO timestamp of the check (registry lookup moment). */
+  checkedAt?: string
+  /** Stable outcome code (see {@link UpdateErrorCode}). */
+  code?: UpdateErrorCode
   /** Failure detail (only when `ok` is false). */
   error?: string
 }
