@@ -458,18 +458,33 @@
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
 
-/* ---------- Model picker provider-group titles: the sticky band that shows
-   each provider's name (e.g. "DeepSeek", "Agnes", "opencode-go") inside the
-   composer's model list. The stock UI paints it a solid OPAQUE fill, which
-   reads as a dead slab inside the frosted menu. Give it the same raised
-   glass recipe as the menu so the label blends with the glass; the sticky
-   header keeps its own blur so model options scrolling beneath it melt at
-   the edge. Scoped with :has(> [role='menuitemradio']) so only model groups
-   are touched, never arbitrary group rows in other menus. ---------- */
+/* ---------- Model-parade menu: the composer 模型选择弹层（含分组列表的那
+   个）通用菜单配方太透（约 9% 不透明度），铺在聊天内容上几乎看不清；
+   设置面板是 ~55% 的磨砂，清晰得多。这里单独把它提浓到 layer-2 @ 70%（仍
+   跟随主题 token、保留 blur），达到与设置面板相当的清晰度。Scoped with
+   :has([role='group'] > [role='menuitemradio']) 只命中带分组清单的模型弹层，
+   普通上下文菜单不受影响。 ---------- */
+[data-dsh-glass-float] [role='menu']:has([role='group'] > [role='menuitemradio']) {
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 70%, transparent);
+}
+
+/* ---------- Model picker provider-group titles: 每个模型提供方的分组名
+   （如 "DeepSeek"、"Agnes"、"opencode-go"）做成一枚贴合文字的胶囊标签，
+   像侧栏「新会话」按钮那样被容器包起来——细描边 + 玻璃填充 + 全圆角，
+   宽度收缩到只包住文本（inline-flex + width:fit-content），不再占满整行，
+   也不需要原来那个不透明实底条。保留 sticky 吸顶：选项滚动经过时胶囊
+   浮在组上方。Scoped with :has(> [role='menuitemradio']) 只命中模型分组，
+   不影响其他菜单里的 group 行。 ---------- */
 [data-dsh-glass-float] [role='menu'] [role='group']:has(> [role='menuitemradio']) > :first-child {
+  display: inline-flex;
+  align-items: center;
+  margin: 3px 0 5px 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--dsh-glass-rim);
+  border-radius: 999px;
   background: var(--dsh-glass-card-raised);
-  border-bottom: 1px solid var(--dsh-glass-rim-soft);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  width: fit-content;
 }
 
 /* ---------- Settings / modal dialogs: the raised panel becomes the same
