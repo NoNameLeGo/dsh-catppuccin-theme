@@ -55,6 +55,16 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # 诊断步骤（定位 OIDC 可信发布为何 ENEEDAUTH；确认后可删）
+      - name: Diagnose OIDC auth
+        run: |
+          echo "node: $(node -v)"
+          echo "npm: $(npm -v)"
+          echo "id-token-request-url set: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
+          echo "id-token-request-token set: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}"
+          echo "npmrc global: $(npm config get registry)"
+          gh api "https://api.github.com/orgs/NoNameLeGo" -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" > /dev/null 2>&1 && echo "github api reachable with oidc token" || echo "github api not reachable"
+
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
       # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
       # 正式版 → latest，预发布 → beta。
