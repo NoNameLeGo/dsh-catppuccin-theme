@@ -55,20 +55,16 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # 诊断步骤（定位 OIDC 可信发布为何 ENEEDAUTH；确认后可删）
-      - name: Diagnose OIDC auth
-        run: |
-          echo "node: $(node -v)"
-          echo "npm: $(npm -v)"
-          echo "id-token-request-url set: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
-          echo "id-token-request-token set: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}"
-          echo "npmrc global: $(npm config get registry)"
-          gh api "https://api.github.com/orgs/NoNameLeGo" -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" > /dev/null 2>&1 && echo "github api reachable with oidc token" || echo "github api not reachable"
-
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
       # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
       # 正式版 → latest，预发布 → beta。
+      #
+      # `env -u NODE_AUTH_TOKEN` 是关键：npm 11.x 的 OIDC 可信发布检测条件是
+      # `process.env.NODE_AUTH_TOKEN === undefined`（不是空值）。GitHub runner
+      # 会把 setup-node 注入的 NODE_AUTH_TOKEN（占位值）重新塞回每个步骤的
+      # 环境，即使 bash `unset` 也会被覆盖；`env -u` 在 exec(2) 层面真正把它
+      # 从 npm 进程环境里移除，npm 才会回落到 OIDC 令牌交换而非走 token 鉴权。
       - name: Publish to npm
         run: |
           TAG=$(node -p "require('./package.json').version.includes('-') ? 'beta' : 'latest'")
-          npm publish --registry=https://registry.npmjs.org --tag "$TAG"
+          env -u NODE_AUTH_TOKEN npm publish --registry=https://registry.npmjs.org --tag "$TAG"
