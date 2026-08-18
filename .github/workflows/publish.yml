@@ -55,19 +55,6 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # 诊断：解码 GitHub OIDC JWT 的 claims，比对 npm Trusted Publisher 配置
-      - name: Diagnose OIDC claims
-        run: |
-          set -e
-          JWT=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")
-          echo "JWT length: ${#JWT}"
-          PAYLOAD=$(echo "$JWT" | cut -d. -f2)
-          # base64url decode
-          PAD=$(( (4 - ${#PAYLOAD} % 4) % 4 ))
-          PAYLOAD_PADDED="${PAYLOAD}$(printf '=%.0s' $(seq 1 $PAD))"
-          echo "$PAYLOAD_PADDED" | tr '_-' '/+' | base64 -d 2>/dev/null | python3 -m json.tool 2>/dev/null | grep -E '"(sub|repository_owner|repository|workflow|event_name|ref|job_workflow_ref|aud)"' || echo "decode failed"
-          echo "--- Trusted Publisher expects: org=nonamelego (or NoNameLeGo?) repo=dsh-catppuccin-theme wf=publish.yml ---"
-
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
       # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
       # 正式版 → latest，预发布 → beta。
