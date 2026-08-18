@@ -13,11 +13,16 @@
  * (`/catppuccin/check-update`) that queries the npm registry for the latest
  * published version, compares it against this package's own manifest version
  * with a dependency-free semver comparator, and answers the JSON contract in
- * `src/update-check.ts`. The route exists only when the composition actually
- * provides the `webServer` service (the web shape does; a headless profile
- * simply gets no route and the settings row reports a check failure). The
- * response carries only public package metadata plus this package's own
- * version, so no workspace gate is needed.
+ * `src/update-check.ts`. `webServer` is a hard inject dependency (the same
+ * pattern every working host plugin uses: dsh-ssh, client-hmr,
+ * client-connection), so Cordis starts this plugin only after the service is
+ * live — mounting can never race ahead of it and silently skip the route.
+ * (An earlier version read `ctx.get('webServer')` once and bailed silently
+ * when it was not yet visible, which left a mounted-but-routeless plugin and
+ * made "check for updates" fail forever.) A headless profile has no webServer
+ * and no settings UI, so the plugin simply stays waiting there. The response
+ * carries only public package metadata plus this package's own version, so no
+ * workspace gate is needed.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import pkg from '../package.json'
@@ -34,6 +39,15 @@ import { detectProfile } from './profile-detect.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'dsh-catppuccin'
+
+/**
+ * Hard dependencies: the update check is a webServer route, so this Host
+ * half is not activated until the webServer service is live. Declaring
+ * inject (not a one-shot `ctx.get` probe) makes route registration
+ * deterministic: Cordis reactivates the plugin once the service appears, no
+ * matter the mount order.
+ */
+export const inject = ['webServer']
 
 // Minimal structural types for the parts of node:http and the webServer
 // service this plugin touches. The host bundle resolves cordis and friends
@@ -124,10 +138,13 @@ async function handleUpdateCheck(_req: HttpRequestLike, res: HttpResponseLike): 
   res.end(JSON.stringify(payload))
 }
 
-/** Host plugin body: register the update-check route when a webServer exists. */
+/** Host plugin body: register the update-check route (webServer is inject). */
 export function apply(ctx: Context): void {
-  const webServer = ctx.get('webServer') as WebServerLike | undefined
-  if (webServer === undefined) return
+  // inject above guarantees the service is live when apply runs, so a plain
+  // get can never come back undefined (the silent-skip failure mode this
+  // plugin used to have). The cast is local typing only — the host bundle
+  // ships no @types/node / web-profile Context merge.
+  const webServer = ctx.get('webServer') as WebServerLike
   ctx.effect(() => webServer.register({
     kind: 'exact',
     path: UPDATE_ROUTE_PATH,

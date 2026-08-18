@@ -458,6 +458,20 @@
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
 
+/* ---------- Model picker provider-group titles: the sticky band that shows
+   each provider's name (e.g. "DeepSeek", "Agnes", "opencode-go") inside the
+   composer's model list. The stock UI paints it a solid OPAQUE fill, which
+   reads as a dead slab inside the frosted menu. Give it the same raised
+   glass recipe as the menu so the label blends with the glass; the sticky
+   header keeps its own blur so model options scrolling beneath it melt at
+   the edge. Scoped with :has(> [role='menuitemradio']) so only model groups
+   are touched, never arbitrary group rows in other menus. ---------- */
+[data-dsh-glass-float] [role='menu'] [role='group']:has(> [role='menuitemradio']) > :first-child {
+  background: var(--dsh-glass-card-raised);
+  border-bottom: 1px solid var(--dsh-glass-rim-soft);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+}
+
 /* ---------- Settings / modal dialogs: the raised panel becomes the same
    live glass as the other surfaces. Scoped to `aria-modal=true` so small
    role=dialog popups (the context meter, etc.) keep their own surfaces —
