@@ -22,7 +22,10 @@
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
 把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
-下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、下次启动自动恢复。
+下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、重启自动恢复——
+偏好持久保存在 DSH home 下的 `catppuccin-state.json`（浏览器 localStorage
+作为同机的即时缓存），因此即使在 **DSH Desktop** 里每次启动端口都变化，
+主题和玻璃设置也能跨重启稳定恢复。
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
 输入框、统计行、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
@@ -143,7 +146,11 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
   直接调和进纯色背景。
 
 玻璃配色取自当前主题的设计 token，切换 Latte / Frappé / Macchiato / Mocha
-时玻璃颜色自动跟随；设置保存在浏览器本地（localStorage），重启自动恢复。
+时玻璃颜色自动跟随；设置最终持久保存在 DSH home 下的
+`catppuccin-state.json`（同主题一起，跨重启、跨端口恢复），浏览器
+localStorage 只作为即时缓存与多标签页同步——**DSH Desktop** 每次启动使用
+不同的随机回环端口，localStorage 因此无法跨重启保留，而 DSH home 下的文件
+不受端口影响，重启后自动恢复。
 
 ### 检查 Catppuccin 插件更新
 
@@ -220,8 +227,11 @@ node scripts/generate-palettes.mjs
   A: 官方外观行只列出内置的浅色/深色/跟随系统偏好。四个主题在它正下方的
   **Catppuccin** 行里。
 - Q: **_"我的主题选择是怎么记住的？"_**
-  A: 选择保存在浏览器本地（localStorage），下次打开同一浏览器会自动恢复；
-  玻璃质感开关与各旋钮同样保存在本地。
+  A: 选择持久保存在 DSH home 下的 `catppuccin-state.json`（同一台机器的
+  DSH 共享这份偏好），浏览器 localStorage 作为即时缓存与多标签页同步。
+  因此普通 `dsh web`、`dsh web --port` 自定义端口，以及 **DSH Desktop**
+  （每次启动用随机回环端口）都能跨重启自动恢复；玻璃质感开关与各旋钮同样
+  持久保存。
 - Q: **_"怎么知道这个插件有没有新版本？"_**
   A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
   发现新版会给出可复制的升级命令；也可以随时手动执行

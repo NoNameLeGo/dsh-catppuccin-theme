@@ -13,14 +13,21 @@
  * (gradient wash + drifting blobs + hue rotation) was removed in favour of
  * this flat ground.
  *
- * The enable flag and every knob persist in localStorage: client-only visual
- * preferences (like the selected-session key), written and read by this
- * plugin alone, so the layer needs no host configuration.
+ * The enable flag and every knob persist in localStorage — the in-browser
+ * cache and cross-tab sync bus. The DURABLE copy of the same state lives in a
+ * Host file behind `/catppuccin/state` (see `src/state.ts` / `src/host-state.ts`):
+ * required because DSH Desktop boots the GUI on a fresh random loopback port
+ * every launch, and localStorage (scoped per origin including the port) always
+ * starts empty there, while a file in the DSH home does not. The layer lets
+ * the plugin hydrate (`applyRemote`) and snapshot (`getRemoteState`) that
+ * durable copy; the enable flag and knobs themselves stay client-only visual
+ * preferences shared with the plugin alone, needing no host configuration.
  */
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the theme plugin's Context merge (ctx.theme + theme/change).
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
+import type { GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -61,9 +68,10 @@ export interface GlassRowState extends GlassSettings {
  * Shipped knob defaults — aligned with the reference project
  * (DSH-Transparent-UI-Plugin / Aqua): mica mode, blur 2px, frost 20
  * (the 0-100 slider maps to a 0-1.4 alpha multiplier via frost/50, so 20
- * reads as a light frost) and neutral backdrop brightness.
+ * reads as a light frost) and neutral backdrop brightness. MUST stay in sync
+ * with `DEFAULT_GLASS` in `src/state.ts` (guarded by `tests/state.spec.ts`).
  */
-const SETTINGS_DEFAULTS: GlassSettings = {
+export const SETTINGS_DEFAULTS: GlassSettings = {
   mode: 'mica',
   blur: 2,
   frost: 20,
@@ -231,6 +239,36 @@ export class GlassLayer {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
+  }
+
+  /** The durable subset of the current layer state (no derived `dark`). */
+  getRemoteState(): GlassState {
+    return {
+      enabled: this.enabled,
+      mode: this.settings.mode,
+      blur: this.settings.blur,
+      frost: this.settings.frost,
+      brightness: this.settings.brightness,
+    }
+  }
+
+  /** Overlay durable state hydrated from the Host file: persist it to
+   *  localStorage (the cache), apply it to the live layer, and republish so
+   *  the settings row reflects the restored choice. */
+  applyRemote(remote: GlassState): void {
+    this.enabled = remote.enabled
+    this.settings = {
+      mode: remote.mode === 'compat' ? 'compat' : 'mica',
+      blur: clampSetting('blur', remote.blur),
+      frost: clampSetting('frost', remote.frost),
+      brightness: clampSetting('brightness', remote.brightness),
+    }
+    writeEnabled(this.enabled)
+    writeMode(this.settings.mode)
+    writeSetting('blur', this.settings.blur)
+    writeSetting('frost', this.settings.frost)
+    writeSetting('brightness', this.settings.brightness)
+    this.sync()
   }
 
   /** Flip the layer: persist, then apply or retract every owned effect. */

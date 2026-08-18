@@ -22,6 +22,13 @@ import { PACKAGE_NAME } from './update-check.ts'
 /** Fallback profile name when nothing can be probed (keeps the command valid). */
 export const FALLBACK_PROFILE = 'web'
 
+/** The DSH home the running process owns — `$DSH_HOME` when set, else
+ *  `~/.dsh`. Port-independent and stable across restarts, so it is the right
+ *  root for the plugin's durable state file. */
+export function defaultDshHome(): string {
+  return process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
+}
+
 /** How this package's dependency spec was written in the profile manifest. */
 export interface ProfileProbe {
   /** Profile name to target in the upgrade command. */
@@ -114,7 +121,7 @@ export async function detectProfile(options: {
   /** Authoritative profile under DSH Desktop (`desktopProfiles.current`), when running there. */
   desktopProfile?: DesktopProfileHint | undefined
 } = {}): Promise<ProfileProbe> {
-  const dshHome = options.dshHome ?? (process.env.DSH_HOME?.trim() || join(homedir(), '.dsh'))
+  const dshHome = options.dshHome ?? defaultDshHome()
   const argv = options.argv ?? process.argv.slice(2)
 
   // DSH Desktop wins over every probe: the launcher already resolved the
