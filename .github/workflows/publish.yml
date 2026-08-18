@@ -36,10 +36,14 @@ jobs:
         with:
           version: 10
 
+      # registry-url 故意省略：一旦设置，setup-node 会写带
+      # `_authToken=${NODE_AUTH_TOKEN}` 的 ~/.npmrc 并可能导出占位
+      # NODE_AUTH_TOKEN，它会抢占 OIDC 令牌交换（可信发布），表现为
+      # registry 返回误导性的 404 / ENEEDAUTH。见 actions/setup-node#1440。
+      # OIDC 下 npm 默认即 registry.npmjs.org，发布命令里再显式 --registry。
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
           cache: pnpm
 
       - name: Install dependencies
@@ -54,15 +58,7 @@ jobs:
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
       # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
       # 正式版 → latest，预发布 → beta。
-      #
-      # NODE_AUTH_TOKEN: '' 是关键：actions/setup-node 的 registry-url 会写
-      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` 并默认导出一个
-      # 假的占位 token（XXXXX-...），npm 优先拿它走 classic 鉴权而非 OIDC，
-      # registry 于是回一个误导性的 404（"not found / no permission"）。
-      # 置空该变量让 npm 忽略占位值、回落到 OIDC Trusted Publishing。
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ''
         run: |
           TAG=$(node -p "require('./package.json').version.includes('-') ? 'beta' : 'latest'")
           npm publish --registry=https://registry.npmjs.org --tag "$TAG"
