@@ -33,6 +33,7 @@ import {
   selectNewest,
   updateCommandFor,
   type UpdateCheckPayload,
+  type UpdateEnv,
 } from './update-check.ts'
 import { isUpdateAvailable } from './versions.ts'
 import { detectProfile } from './profile-detect.ts'
@@ -70,14 +71,31 @@ interface WebServerLike {
   register(route: WebRouteLike): () => void
 }
 
+/** Minimal structural type for DSH Desktop's public `desktopProfiles` service
+ *  (the host bundle ships no dsh-plugin-desktop types). */
+interface DesktopProfilesLike {
+  readonly current?: {
+    readonly name: string
+    readonly dir?: string
+  }
+}
+
 /** Query the npm registry and build the check payload. The probe result
  *  feeds the upgrade command's profile name and the install-source copy, so
- *  the Client never guesses either. */
-async function fetchLatestVersion(): Promise<UpdateCheckPayload> {
+ *  the Client never guesses either. Under DSH Desktop the target profile is
+ *  `desktopProfiles.current` (launcher-resolved, authoritative), so the
+ *  copied command targets the right profile there too. */
+async function fetchLatestVersion(options: {
+  env: UpdateEnv
+  desktopProfile?: DesktopProfilesLike['current']
+}): Promise<UpdateCheckPayload> {
   const current = pkg.version
-  const probe = await detectProfile()
+  const probe = await detectProfile(
+    options.desktopProfile !== undefined ? { desktopProfile: options.desktopProfile } : {},
+  )
   const base = {
     current,
+    env: options.env,
     profile: probe.name,
     profileDetected: probe.detected,
     installSource: probe.installSource,
@@ -131,9 +149,19 @@ async function fetchLatestVersion(): Promise<UpdateCheckPayload> {
   }
 }
 
-/** Answer the update-check route with the JSON contract from update-check.ts. */
-async function handleUpdateCheck(_req: HttpRequestLike, res: HttpResponseLike): Promise<void> {
-  const payload = await fetchLatestVersion()
+/** Answer the update-check route with the JSON contract from update-check.ts.
+ *  Probes the optional `desktopProfiles` service: when it is live this Host
+ *  runs inside DSH Desktop, so the copy adapts (target profile =
+ *  `desktopProfiles.current`, Desktop-flavoured hints). Otherwise it is the
+ *  standard dsh web/CLI route and the web copy + profile scan apply. */
+async function handleUpdateCheck(ctx: Context, _req: HttpRequestLike, res: HttpResponseLike): Promise<void> {
+  const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
+  const current = desktopProfiles?.current
+  const isDesktop = current?.name !== undefined && current.name !== ''
+  const payload = await fetchLatestVersion({
+    env: isDesktop ? 'desktop' : 'web',
+    ...(isDesktop ? { desktopProfile: current } : {}),
+  })
   res.writeHead(payload.ok ? 200 : 502, { 'content-type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(payload))
 }
@@ -148,6 +176,6 @@ export function apply(ctx: Context): void {
   ctx.effect(() => webServer.register({
     kind: 'exact',
     path: UPDATE_ROUTE_PATH,
-    handler: handleUpdateCheck,
+    handler: (req, res) => void handleUpdateCheck(ctx, req, res),
   }), 'dsh-catppuccin: update-check route')
 }

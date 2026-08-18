@@ -108,6 +108,32 @@ describe('detectProfile', () => {
     expect(probe).toEqual({ name: 'custom', detected: false, installSource: 'unknown' })
   })
 
+  it('lets the Desktop profile win over every probe and classify from its own dir', async () => {
+    const home = await fixtureDshHome({ [PACKAGE_NAME]: '^0.2.5' })
+    const custom = await mkdtemp(join(tmpdir(), 'dsh-catppuccin-desktop-'))
+    await writeFile(join(custom, 'package.json'), JSON.stringify({
+      dependencies: { [PACKAGE_NAME]: 'link:../dsh-catppuccin' },
+    }))
+    // argv says web, the home scan would find web — but Desktop is authoritative.
+    const probe = await detectProfile({
+      dshHome: home,
+      argv: ['--profile', 'web'],
+      desktopProfile: { name: 'desktop', dir: custom },
+    })
+    expect(probe).toEqual({ name: 'desktop', detected: true, installSource: 'link' })
+  })
+
+  it('honors the Desktop profile name even when its manifest is unreadable', async () => {
+    const home = await fixtureDshHome({ [PACKAGE_NAME]: '^0.2.5' })
+    const probe = await detectProfile({
+      dshHome: home,
+      argv: ['--profile', 'web'],
+      desktopProfile: { name: 'desktop' },
+    })
+    // No dir given → falls back to home/profiles/desktop, which does not exist.
+    expect(probe).toEqual({ name: 'desktop', detected: true, installSource: 'unknown' })
+  })
+
   it('returns a valid fallback when the DSH home does not exist', async () => {
     const probe = await detectProfile({ dshHome: join(tmpdir(), 'does-not-exist-dsh-home'), argv: [] })
     expect(probe).toEqual({ name: FALLBACK_PROFILE, detected: false, installSource: 'unknown' })

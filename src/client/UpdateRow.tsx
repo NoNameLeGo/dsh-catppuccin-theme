@@ -86,6 +86,10 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
 
   const localInstall = payload?.ok === true && payload.installSource !== undefined
     && payload.installSource !== 'registry'
+  // DSH Desktop adapts the copy: its target profile comes from the Desktop
+  // service and the hint/restart text says so, while standard dsh web keeps
+  // the terminal copy.
+  const isDesktop = payload?.ok === true && payload.env === 'desktop'
 
   return (
     <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
@@ -124,9 +128,11 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
                   {payload.updateCommand !== undefined && (
                     <>
                       <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                        {payload.profileDetected === true && payload.profile !== undefined
-                          ? t('update.commandHintDetected').replace('{profile}', payload.profile)
-                          : t('update.commandHint')}
+                        {isDesktop
+                          ? t('update.commandHintDesktop').replace('{profile}', payload.profile ?? '')
+                          : payload.profileDetected === true && payload.profile !== undefined
+                            ? t('update.commandHintDetected').replace('{profile}', payload.profile)
+                            : t('update.commandHint')}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                         <code style={{
@@ -159,7 +165,7 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
                         </div>
                       )}
                       <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                        {t('update.restartHint')}
+                        {t(isDesktop ? 'update.restartHintDesktop' : 'update.restartHint')}
                       </div>
                     </>
                   )}

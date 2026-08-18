@@ -88,6 +88,18 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 装完重启 `dsh web` 即可，`dsh plugin` 会自动把它加进 profile 的 bundles。
 其他 profile 把命令里的 `web` 换成对应名字即可（如 `headless`）。
 
+**[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)**：桌面版默认激活的 profile 就叫 `desktop`，把命令里的 `web`
+换成 `desktop` 即可：
+
+```sh
+dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
+```
+
+在桌面的 **DSH 终端**里运行即可（终端里的 `dsh plugin` 默认就作用于当前激活的
+profile，也可以直接写 `dsh plugin add @nonamelego/dsh-catppuccin`；若你在托盘里
+选了别的 profile，就把 `desktop` 换成那个名字），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 生效。
+从仓库安装的方式同理：`dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`。
+
 ### 方式二：从仓库安装
 
 ```sh
@@ -106,11 +118,12 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
 ```
 
 然后在 profile 的 `package.json` 中把 `@nonamelego/dsh-catppuccin` 加进 `dsh.profile.bundles`，
-重启 `dsh web` 即可。
+重启 `dsh web` 即可。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中使用时，把上面的路径换成桌面 profile
+（默认 `desktop`，位于 `~/.dsh/profiles/desktop`），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 即可。
 
 ## 使用
 
-1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）。
+1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）；在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中则直接打开桌面应用即可。
 2. 进入 **设置 → 常规**。
 3. 在 **外观** 区域下方找到 **Catppuccin** 行，选择主题：
    **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
@@ -149,6 +162,9 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
   升级到 `@latest`。
 - 检查走宿主进程的 Node fetch（无跨域问题）；离线或 registry 不可达时
   显示具体失败原因并支持重试。
+- **环境自适配**：在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中运行时，目标 profile 直接取桌面版的
+  当前 profile（不靠扫描猜测），提示与重启文案也切换为 Desktop 口径
+  （DSH 终端）；普通 dsh web / CLI 下保持原有终端命令。
 
 ## 玻璃拟态（Glassmorphism）
 
@@ -210,7 +226,9 @@ node scripts/generate-palettes.mjs
   A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
   发现新版会给出可复制的升级命令；也可以随时手动执行
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin`
-  （或重新 `add` 最新版）。
+  （或重新 `add` 最新版）。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中，把 `web` 换成 `desktop`
+  （`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin`），
+  或者直接在 DSH 终端里运行 `dsh plugin update`（默认作用于当前 profile）。
 
 ## 💝 致谢
 

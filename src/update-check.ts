@@ -91,6 +91,9 @@ export type UpdateErrorCode =
 /** How this package is installed inside the probed DSH profile. */
 export type InstallSource = 'registry' | 'link' | 'file' | 'git' | 'unknown'
 
+/** Runtime that answered the check — drives the copy (command hint / restart). */
+export type UpdateEnv = 'desktop' | 'web'
+
 /**
  * JSON payload of the update check. `ok: false` carries a human-readable
  * `error` plus a stable `code`; `ok: true` carries the comparison result.
@@ -115,6 +118,8 @@ export interface UpdateCheckPayload {
   profile?: string
   /** Whether the profile probe actually found the install (false = fallback). */
   profileDetected?: boolean
+  /** Runtime that answered: DSH Desktop vs standard dsh web (drives copy). */
+  env?: UpdateEnv
   /** How the package is installed in that profile (drives copy). */
   installSource?: InstallSource
   /** ISO timestamp of the check (registry lookup moment). */

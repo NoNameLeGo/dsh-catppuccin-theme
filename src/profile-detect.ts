@@ -69,11 +69,11 @@ export function installSourceOf(spec: string): InstallSource {
   return 'git'
 }
 
-/** Read one profile's manifest and return this package's install source. */
-async function inspectProfile(dshHome: string, name: string): Promise<InstallSource | undefined> {
+/** Read one profile's manifest at its manifest dir and return this package's install source. */
+async function inspectProfileAt(manifestDir: string): Promise<InstallSource | undefined> {
   try {
     const manifest = JSON.parse(
-      await readFile(join(dshHome, 'profiles', name, 'package.json'), 'utf8'),
+      await readFile(join(manifestDir, 'package.json'), 'utf8'),
     ) as { dependencies?: Record<string, unknown> }
     const spec = manifest.dependencies?.[PACKAGE_NAME]
     if (typeof spec !== 'string') return undefined
@@ -83,21 +83,51 @@ async function inspectProfile(dshHome: string, name: string): Promise<InstallSou
   }
 }
 
+/** Read one profile under the DSH home and return this package's install source. */
+async function inspectProfile(dshHome: string, name: string): Promise<InstallSource | undefined> {
+  return inspectProfileAt(join(dshHome, 'profiles', name))
+}
+
+/** The launcher-resolved profile under DSH Desktop (`desktopProfiles.current`). */
+export interface DesktopProfileHint {
+  /** Launcher-selected profile name. */
+  name: string
+  /** Absolute manifest dir; falls back to the DSH-home scan path when absent. */
+  dir?: string
+}
+
 /**
  * Probe the DSH profile this package is installed into.
- * Priority: the `--profile`/bare-name argv hint, then a scan of every
- * `profiles/` entry whose manifest lists this package as a direct dependency.
- * Falls back to `FALLBACK_PROFILE` with `detected: false` when nothing
- * matches (e.g. a dev install outside any profile).
+ * Priority: an authoritative `desktopProfile` (DSH Desktop's
+ * `desktopProfiles.current` — the Desktop docs say never infer the profile
+ * from argv / settings / `$DSH_HOME` when it is available), then the
+ * `--profile`/bare-name argv hint, then a scan of every `profiles/` entry
+ * whose manifest lists this package as a direct dependency. Falls back to
+ * `FALLBACK_PROFILE` with `detected: false` when nothing matches (e.g. a dev
+ * install outside any profile).
  */
 export async function detectProfile(options: {
   /** DSH home; defaults to $DSH_HOME or `~/.dsh`. */
   dshHome?: string
   /** Process argv slice; defaults to the running process's argv. */
   argv?: readonly string[]
+  /** Authoritative profile under DSH Desktop (`desktopProfiles.current`), when running there. */
+  desktopProfile?: DesktopProfileHint | undefined
 } = {}): Promise<ProfileProbe> {
   const dshHome = options.dshHome ?? (process.env.DSH_HOME?.trim() || join(homedir(), '.dsh'))
   const argv = options.argv ?? process.argv.slice(2)
+
+  // DSH Desktop wins over every probe: the launcher already resolved the
+  // active profile, so the upgrade command targets it directly. The install
+  // source still comes from reading that profile's manifest (via its explicit
+  // dir) so the "npm command does not apply" local-install hint keeps working.
+  const desktop = options.desktopProfile
+  if (desktop?.name) {
+    const dir = desktop.dir?.trim() || join(dshHome, 'profiles', desktop.name)
+    const source = await inspectProfileAt(dir)
+    return { name: desktop.name, detected: true, installSource: source ?? 'unknown' }
+  }
+
   const hint = profileHint(argv)
 
   if (hint !== undefined) {

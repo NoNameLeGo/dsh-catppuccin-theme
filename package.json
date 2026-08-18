@@ -1,7 +1,7 @@
 {
   "name": "@nonamelego/dsh-catppuccin",
   "description": "Catppuccin themes + a toggleable glassmorphism skin for the DeepSeek Harness web GUI — Latte, Frappé, Macchiato and Mocha registered into the official theme system (Appearance settings), fully remapping the --dsw-* token ladder, with adjustable frosted glass for the top bar, sidebar, composer, stats line and trajectory view.",
-  "version": "0.2.7-beta.1",
+  "version": "0.2.7-beta.2",
   "type": "module",
   "main": "lib/index.js",
   "repository": {
