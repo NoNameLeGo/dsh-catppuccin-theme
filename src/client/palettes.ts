@@ -29,7 +29,7 @@ export const CATPPUCCIN_LATTE: CatppuccinFlavorInfo = {
   accent: '#1e66f5',
   tokens: {
     "--dsw-static-amber-100": "color-mix(in srgb, #fe640b 20%, #eff1f5)",
-    "--dsw-static-amber-400": "#df8e1d",
+    "--dsw-static-amber-400": "color-mix(in srgb, #fe640b 70%, #eff1f5)",
     "--dsw-static-amber-500": "#fe640b",
     "--dsw-static-amber-600": "#fe640b",
     "--dsw-static-amber-900": "color-mix(in srgb, #fe640b 32%, #eff1f5)",
@@ -200,7 +200,7 @@ export const CATPPUCCIN_FRAPPE: CatppuccinFlavorInfo = {
   accent: '#8caaee',
   tokens: {
     "--dsw-static-amber-100": "color-mix(in srgb, #ef9f76 20%, #303446)",
-    "--dsw-static-amber-400": "#e5c890",
+    "--dsw-static-amber-400": "color-mix(in srgb, #ef9f76 70%, #303446)",
     "--dsw-static-amber-500": "#ef9f76",
     "--dsw-static-amber-600": "#ef9f76",
     "--dsw-static-amber-900": "color-mix(in srgb, #ef9f76 32%, #303446)",
@@ -371,7 +371,7 @@ export const CATPPUCCIN_MACCHIATO: CatppuccinFlavorInfo = {
   accent: '#8aadf4',
   tokens: {
     "--dsw-static-amber-100": "color-mix(in srgb, #f5a97f 20%, #24273a)",
-    "--dsw-static-amber-400": "#eed49f",
+    "--dsw-static-amber-400": "color-mix(in srgb, #f5a97f 70%, #24273a)",
     "--dsw-static-amber-500": "#f5a97f",
     "--dsw-static-amber-600": "#f5a97f",
     "--dsw-static-amber-900": "color-mix(in srgb, #f5a97f 32%, #24273a)",
@@ -542,7 +542,7 @@ export const CATPPUCCIN_MOCHA: CatppuccinFlavorInfo = {
   accent: '#89b4fa',
   tokens: {
     "--dsw-static-amber-100": "color-mix(in srgb, #fab387 20%, #1e1e2e)",
-    "--dsw-static-amber-400": "#f9e2af",
+    "--dsw-static-amber-400": "color-mix(in srgb, #fab387 70%, #1e1e2e)",
     "--dsw-static-amber-500": "#fab387",
     "--dsw-static-amber-600": "#fab387",
     "--dsw-static-amber-900": "color-mix(in srgb, #fab387 32%, #1e1e2e)",

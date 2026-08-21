@@ -34,7 +34,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { en, zh, type CatppuccinKey } from './locales.ts'
-import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorInfo } from './palettes.ts'
+import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
+import { SHIKI_TOKENS } from './shiki-tokens.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
@@ -124,16 +125,21 @@ export function apply(ctx: ClientContext): void {
   const theme = ctx.get('theme') as ThemeRuntime
 
   // Register the four flavour themes. Each carries the full --dsw-* token
-  // dictionary for its flavour; the presenter applies them as body inline
-  // variables when the theme is active.
+  // dictionary for its flavour plus the Catppuccin syntax-highlighting
+  // (--shiki-*) tokens; the presenter applies them as body inline variables
+  // when the theme is active.
   ctx.effect(() => {
-    const disposers = CATPPUCCIN_FLAVORS.map((flavor) =>
-      theme.register({
+    const disposers = CATPPUCCIN_FLAVORS.map((flavor) => {
+      // Flavour id for the shiki token lookup: themeId is "catppuccin-latte"
+      // → key is "latte".
+      const flavorId = flavor.themeId.replace('catppuccin-', '') as CatppuccinFlavorId
+      const shiki = SHIKI_TOKENS[flavorId]
+      return theme.register({
         id: flavor.themeId,
         colorScheme: flavor.colorScheme,
-        tokens: flavor.tokens as ThemeTokens,
-      }),
-    )
+        tokens: { ...flavor.tokens, ...shiki } as ThemeTokens,
+      })
+    })
     return () => {
       for (const dispose of disposers) dispose()
     }

@@ -98,7 +98,7 @@ const blueDarkPlan = {
 /** Semantic status families. */
 const greenPlan = { '100': ['green', 18], '400': ['green', 80], '500': ['green', 100], '900': ['green', 30] }
 const redPlan = { '50': ['red', 10], '100': ['red', 20], '400': ['red', 70], '500': ['red', 100], '600': ['red', 100], '900': ['red', 34] }
-const amberPlan = { '100': ['peach', 20], '400': ['yellow', 100], '500': ['peach', 100], '600': ['peach', 100], '900': ['peach', 32] }
+const amberPlan = { '100': ['peach', 20], '400': ['peach', 70], '500': ['peach', 100], '600': ['peach', 100], '900': ['peach', 32] }
 
 /* ------------------------------------------------------------------ *
  * static layer                                                        *
