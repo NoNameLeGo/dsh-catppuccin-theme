@@ -234,13 +234,15 @@
 }
 
 /* ---------- Session header (顶栏): a detached glass card, shared recipe.
-   The bottom edge opens into the chat — no bottom border and a shallow
-   shadow, so the original header/chat divider line is gone. ---------- */
+   A uniform rim on all four sides: a transparent bottom edge used to cut
+   the border-line at the rounded corners (the visible side borders stop at
+   the corner's midpoint), which read as a broken contour. Keeping the same
+   hairline all the way round makes the outline continuous around the corner.
+   The drop shadow alone still separates the card from the chat below. ---------- */
 [data-dsh-glass-float] header {
   margin: 12px 16px 0;
   padding: 10px 16px 8px;
   border: 1px solid var(--dsh-glass-rim);
-  border-bottom-color: transparent;
   border-radius: 20px;
   background: var(--dsh-glass-card);
   box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
