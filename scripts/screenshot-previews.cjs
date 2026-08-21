@@ -93,6 +93,9 @@ async function pickFlavor(page, label) {
   for (const f of FLAVORS) {
     await pickFlavor(page, f.label)
     const t = await probeTheme(page)
+    // ponytail: 断言读取的 --dsw-alias-bg-base 只在 body 上有值，root(documentElement) 恒为空；实测仅 Latte/Mocha
+    // 能切换为正确 base，Frappé/Macchiato 点击后仍停在 latte 的 #eff1f5（2026-08-21 实测），断言因而失败、不保存截图。
+    // 预览图提交用的是旧单张图；要重截时需先修好风味切换/断言目标元素，并确保 DSH 在 http://127.0.0.1:3080 运行。
     const applied = t.rootBg.toLowerCase() === BASE[f.name] || t.bodyBg.toLowerCase() === BASE[f.name]
     console.log(`flavour ${f.name}: colorScheme=${t.colorScheme} rootBg=${t.rootBg} bodyBg=${t.bodyBg} applied=${applied}`)
     if (!applied) throw new Error(`flavour ${f.name} did not apply (base ${BASE[f.name]} not found)`)
