@@ -166,37 +166,40 @@ export function apply(ctx: ClientContext): void {
     glass: glass.getRemoteState(),
   })
 
-  // Restore the persisted choice. Two stores feed one mutable `desired`
-  // flavour: localStorage (the in-browser cache — instant at boot and the
-  // cross-tab `storage` bus) and the Host's durable state file (the source of
-  // truth — required by DSH Desktop, which boots on a fresh random loopback
-  // port every launch so localStorage there always starts empty). Restoring is
-  // also a two-step race at boot: the flavour themes are registered by this
-  // plugin (so an immediate setTheme may run before registration), and the
-  // official Appearance scope adoption (`adopt()`) re-applies the stored
-  // light/dark/system preference once its scope loads, overriding us. So the
-  // desired flavour is re-asserted on every theme change within a short boot
-  // window; after that a theme change is a user action and must win.
+  // Restore the persisted choice and defend it against the built-in
+  // Appearance scope's `adopt()`. Two stores feed the desired flavour:
+  // localStorage (the in-browser cache — instant at boot and the cross-tab
+  // `storage` bus) and the Host's durable state file (the source of truth —
+  // required by DSH Desktop, which boots on a fresh random loopback port every
+  // launch so localStorage there always starts empty).
+  //
+  // The re-assert is not a fixed boot window. The built-in ThemeRuntime's
+  // `adopt()` re-applies the settings-document preference — defaulting to
+  // "system" when `ui-theme.preference` was never written — on every settings
+  // reload, and switching the model always reloads the settings document. So
+  // we keep listening and restore our flavour whenever the runtime preference
+  // falls back to "system" (the only built-in value adopt() writes back);
+  // explicit `light`/`dark` picks win, and choosing "off" in the Catppuccin
+  // row clears the persisted flavour before the switch so this guard does not
+  // fight it.
   ctx.effect(() => {
-    let desired: FlavorChoice = readFlavor()
-    let settled = false
-    const started = Date.now()
     const applyDesired = (): void => {
-      if (settled) return
-      if (Date.now() - started > 5000) {
-        settled = true
-        return
-      }
+      const desired = readFlavor()
       if (desired === 'off') return
+      const preference = theme.getTheme().preference
+      if (preference === desired) return
+      // Only "system" among the built-in preferences is the never-explicitly-
+      // chosen default that adopt() writes back on a settings-document reload;
+      // restore our flavour then. A user's explicit light/dark choice wins.
+      if (preference !== 'system') return
       try {
-        if (theme.getTheme().preference !== desired) theme.setTheme(desired)
+        theme.setTheme(desired)
       } catch {
-        // Theme not registered yet — the registry-update theme/change retries.
+        // Theme not registered yet — a later theme/change re-runs applyDesired.
       }
     }
     applyDesired()
     const disposer = ctx.on('theme/change', applyDesired)
-    const timer = window.setTimeout(() => { settled = true }, 5000)
     const onStorage = (event: StorageEvent): void => {
       if (event.key !== FLAVOR_STORAGE_KEY) return
       const next = readFlavor()
@@ -216,8 +219,8 @@ export function apply(ctx: ClientContext): void {
     })
 
     // Hydrate the durable source of truth without blocking paint. The Host
-    // file read is same-origin and answers in ms, so this resolves inside the
-    // boot window; if it ever arrives later the fast path keeps working.
+    // file read is same-origin and answers in ms; if it ever arrives later
+    // the fast path keeps working.
     let cancelled = false
     void readDurableStateRemote().then((result) => {
       if (cancelled) return
@@ -230,11 +233,9 @@ export function apply(ctx: ClientContext): void {
         return
       }
       // Durable state is the source of truth: overlay it, mirror it into
-      // localStorage (fast restore + cross-tab for later starts) and re-target
-      // the boot re-assert.
+      // localStorage (fast restore + cross-tab for later starts) and re-assert.
       writeFlavor(result.state.flavor)
       glass.applyRemote(result.state.glass)
-      desired = result.state.flavor
       applyDesired()
     })
 
@@ -242,11 +243,10 @@ export function apply(ctx: ClientContext): void {
       cancelled = true
       offGlass()
       disposer()
-      window.clearTimeout(timer)
       window.removeEventListener('storage', onStorage)
       cancelDurablePersist()
     }
-  }, 'catppuccin: boot restore')
+  }, 'catppuccin: theme restore')
 
   const injected = (): CatppuccinRowInjected => ({
     themes: CATPPUCCIN_FLAVORS.map((flavor) => ({
@@ -261,16 +261,21 @@ export function apply(ctx: ClientContext): void {
     subscribe: (listener) => ctx.on('theme/change', listener),
     select: (choice: FlavorChoice) => {
       if (choice === 'off') {
-        // Revert to the official default (system-following).
-        theme.setTheme('system')
+        // Revert to the official default (system-following). Persist the
+        // abandoned choice BEFORE setTheme: setTheme emits theme/change
+        // synchronously, so the restore guard must already read `off` here
+        // and not re-assert the previous flavour.
         writeFlavor('off')
+        theme.setTheme('system')
         scheduleDurablePersist(buildLocalState)
         return
       }
       const flavor = flavorInfo(choice)
       if (!flavor) return
-      theme.setTheme(flavor.themeId)
+      // Persist first so the restore guard (a theme/change listener) sees the
+      // new flavour when setTheme below emits synchronously.
       writeFlavor(flavor.themeId)
+      theme.setTheme(flavor.themeId)
       scheduleDurablePersist(buildLocalState)
     },
   })
