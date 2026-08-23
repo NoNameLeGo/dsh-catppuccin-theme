@@ -7,7 +7,8 @@
  */
 import { useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { GlassRowState } from './glass-layer.ts'
+import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
+import type { CatppuccinKey } from '../locales.ts'
 import css from './GlassRow.module.css'
 
 /** Injected business face: the layer state seat plus every knob write. */
@@ -98,6 +99,16 @@ function Segmented<T extends string>(props: {
   )
 }
 
+/** One-click material presets — blur/frost/brightness triples the row applies
+ *  through the existing setters (the debounced persist coalesces the burst
+ *  into one Host write). Brightness stays neutral (50) so every preset works
+ *  in both schemes; the sliders remain for fine tuning. */
+const GLASS_PRESETS: readonly { id: string; key: CatppuccinKey; blur: number; frost: number; brightness: number }[] = [
+  { id: 'clear', key: 'glass.presetClear', blur: 0, frost: 8, brightness: 50 },
+  { id: 'standard', key: 'glass.presetStandard', blur: SETTINGS_DEFAULTS.blur, frost: SETTINGS_DEFAULTS.frost, brightness: SETTINGS_DEFAULTS.brightness },
+  { id: 'frosted', key: 'glass.presetFrosted', blur: 12, frost: 45, brightness: 50 },
+]
+
 /**
  * Render the glass row: title, the master switch, and — while enabled — the
  * mode picker and every knob.
@@ -113,6 +124,11 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
   const bgMin = dark ? 0 : 50
   const bgMax = dark ? 50 : 100
   const bgDisplay = Math.min(bgMax, Math.max(bgMin, brightness))
+
+  // The preset whose knobs exactly match the live state (none = custom).
+  const activePreset = GLASS_PRESETS.find(
+    (p) => p.blur === blur && p.frost === frost && p.brightness === brightness,
+  )?.id ?? ''
 
   return (
     <div className={css.group}>
@@ -147,6 +163,21 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
               />
             </div>
             <div className={css.rowHint}>{t('glass.modeHint')}</div>
+            <div className={css.row}>
+              <span className={css.rowLabel}>{t('glass.presets')}</span>
+              <Segmented
+                label={t('glass.presets')}
+                value={activePreset}
+                options={GLASS_PRESETS.map((p) => ({ id: p.id, label: t(p.key) }))}
+                onSelect={(id) => {
+                  const preset = GLASS_PRESETS.find((p) => p.id === id)
+                  if (preset === undefined) return
+                  setBlur(preset.blur)
+                  setFrost(preset.frost)
+                  setBrightness(preset.brightness)
+                }}
+              />
+            </div>
             <Knob label={t('glass.blur')} value={blur} min={0} max={40} step={0.5} unit="px" onChange={setBlur} />
             <Knob label={t('glass.frost')} value={frost} min={0} max={100} step={1} unit="%" onChange={setFrost} />
             <Knob label={t('glass.brightness')} value={bgDisplay} min={bgMin} max={bgMax} step={1} unit="%" onChange={setBrightness} />
