@@ -161,12 +161,22 @@ async function fetchLatestVersion(options: {
   }
 }
 
+/** Short TTL for the cached registry verdict: repeated checks (settings row
+ *  re-opened, user re-clicks) don't re-hit npm; failures stay uncached so the
+ *  next click retries for real. */
+const UPDATE_CACHE_TTL_MS = 5 * 60 * 1000
+let updateCache: { at: number; payload: UpdateCheckPayload } | undefined
+
 /** Answer the update-check route with the JSON contract from update-check.ts.
  *  Probes the optional `desktopProfiles` service: when it is live this Host
  *  runs inside DSH Desktop, so the copy adapts (target profile =
  *  `desktopProfiles.current`, Desktop-flavoured hints). Otherwise it is the
  *  standard dsh web/CLI route and the web copy + profile scan apply. */
 async function handleUpdateCheck(ctx: Context, _req: HttpRequestLike, res: HttpResponseLike): Promise<void> {
+  if (updateCache !== undefined && Date.now() - updateCache.at < UPDATE_CACHE_TTL_MS) {
+    sendJson(res, 200, updateCache.payload)
+    return
+  }
   const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
   const current = desktopProfiles?.current
   const isDesktop = current?.name !== undefined && current.name !== ''
@@ -174,28 +184,35 @@ async function handleUpdateCheck(ctx: Context, _req: HttpRequestLike, res: HttpR
     env: isDesktop ? 'desktop' : 'web',
     ...(isDesktop ? { desktopProfile: current } : {}),
   })
-  res.writeHead(payload.ok ? 200 : 502, { 'content-type': 'application/json; charset=utf-8' })
-  res.end(JSON.stringify(payload))
+  if (payload.ok) updateCache = { at: Date.now(), payload }
+  sendJson(res, payload.ok ? 200 : 502, payload)
 }
 
 /** Soft cap on the durable-state write payload (a preference blob is tiny;
  *  anything larger is a malformed request). */
 const STATE_BODY_LIMIT = 32 * 1024
 
-/** Drain a request body as UTF-8 text, rejecting bodies over the cap. */
+/** Drain a request body as UTF-8 text, rejecting bodies over the cap.
+ *  Once settled (over-cap or errored) further chunks are ignored — the
+ *  promise is already answered and the buffers must not keep growing. */
 function readRequestBody(req: HttpRequestLike): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Uint8Array[] = []
     let total = 0
+    let settled = false
     req.on('data', (chunk: Uint8Array) => {
+      if (settled) return
       total += chunk.byteLength
       if (total > STATE_BODY_LIMIT) {
+        settled = true
         reject(new Error('state write body too large'))
         return
       }
       chunks.push(chunk)
     })
     req.on('end', () => {
+      if (settled) return
+      settled = true
       // Decode manually (no Buffer type in the structural contract):
       // node:http yields Uint8Array chunks, TextDecoder is a Node global.
       const decoder = new TextDecoder('utf-8')
@@ -204,7 +221,11 @@ function readRequestBody(req: HttpRequestLike): Promise<string> {
       text += decoder.decode()
       resolve(text)
     })
-    req.on('error', reject)
+    req.on('error', (error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    })
   })
 }
 
