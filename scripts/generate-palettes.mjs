@@ -143,6 +143,14 @@ function staticTokens(flavor) {
     }
     out[name] = hex
   }
+  // The brand-blue "900" step is a readable *label* colour sitting on a light
+  // tinted surface (the hero "预览版" badge via --dsw-alias-label-primary-bluish).
+  // The generic light plan mixes every step toward the light base surface, which
+  // washes 900 out to a pale tint. Pin it to a dark blue (mixed toward the dark
+  // text colour) so it stays legible on the light badge. Only this one step is
+  // consumed as text, so the override is safe; the dark flavours mix toward a
+  // dark base already and are left alone.
+  if (!dark) out['dsw-static-blue-900'] = mix(flavor, 'blue', 30, 'text')
   return out
 }
 

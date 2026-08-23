@@ -43,7 +43,7 @@ export const CATPPUCCIN_LATTE: CatppuccinFlavorInfo = {
     "--dsw-static-blue-600": "color-mix(in srgb, #1e66f5 82%, #eff1f5)",
     "--dsw-static-blue-75": "color-mix(in srgb, #1e66f5 16%, #eff1f5)",
     "--dsw-static-blue-800": "color-mix(in srgb, #1e66f5 50%, #eff1f5)",
-    "--dsw-static-blue-900": "color-mix(in srgb, #1e66f5 38%, #eff1f5)",
+    "--dsw-static-blue-900": "color-mix(in srgb, #1e66f5 30%, #4c4f69)",
     "--dsw-static-blue-950": "color-mix(in srgb, #1e66f5 26%, #eff1f5)",
     "--dsw-static-deepseek-100": "color-mix(in srgb, #1e66f5 22%, #eff1f5)",
     "--dsw-static-deepseek-200": "color-mix(in srgb, #1e66f5 34%, #eff1f5)",
