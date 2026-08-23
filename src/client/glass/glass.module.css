@@ -220,8 +220,15 @@
 /* Chat message bubbles: frosted glass over the solid page ground. A touch
    clearer than the panes (46% vs 52%) so long transcripts
    stay airy; the fill comes from theme tokens, so the four Catppuccin
-   palettes stay faithful instead of a fixed white/black tint. */
-[data-dsh-glass-float] [class*='bubble'] {
+   palettes stay faithful instead of a fixed white/black tint.
+   Scoped to the conversation transcript (data-conversation-scroll): the
+   bare `[class*='bubble']` substring also hits third-party widgets whose
+   class merely contains "bubble" (e.g. dsh-whale-widget's `.dshwv-bubble`,
+   a body-level SVG speech bubble) and frosted them with an unwanted
+   translucent box + rim + radius. The transcript holds only DSH's own
+   user / command-input bubbles, so narrowing here keeps the glass off
+   foreign bubble-shaped widgets without a per-plugin blacklist. */
+[data-dsh-glass-float] [data-conversation-scroll] [class*='bubble'] {
   border-radius: 14px;
   border: 1px solid var(--dsh-glass-rim-soft);
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(46% * var(--dsh-glass-frost, 1)), transparent);
@@ -577,10 +584,17 @@
 [data-dsh-glass-compat] [role='menu'],
 [data-dsh-glass-compat] [role='tooltip'],
 [data-dsh-glass-compat] [class*='card'],
-[data-dsh-glass-compat] [class*='bubble'],
 [data-dsh-glass-compat] [class*='panel'],
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
+  backdrop-filter: blur(12px);
+}
+
+/* Compat-mode bubbles are narrowed to the transcript like the float-mode
+   rule above, for the same reason: the generic `[class*='bubble']`
+   substring would blur foreign widgets (e.g. dsh-whale-widget's body-level
+   `.dshwv-bubble`) that only share the word "bubble" in their class name. */
+[data-dsh-glass-compat] [data-conversation-scroll] [class*='bubble'] {
   backdrop-filter: blur(12px);
 }
 
