@@ -8,7 +8,7 @@
  * terminal action (`dsh plugin … add @latest`) — the row never touches the
  * profile workspace.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UpdateCheckPayload, UpdateErrorCode } from '../update-check.ts'
 import type { CatppuccinKey } from './locales.ts'
@@ -49,7 +49,9 @@ function errorKey(code: UpdateErrorCode | undefined): CatppuccinKey {
 
 /**
  * Render the update-check row: title, description, a check button, and the
- * verdict once checked.
+ * verdict once checked. The check also runs once automatically when the row
+ * mounts (the Host caches the verdict for 5 minutes, so reopening settings
+ * does not re-hit the registry).
  * @param props - composed slot props.
  * @returns the row element tree.
  */
@@ -69,6 +71,11 @@ export function UpdateRow({ t, check }: UpdateRowProps): React.JSX.Element {
       setPhase('done')
     }
   }
+
+  // One silent check as soon as the row appears; the verdict renders in the
+  // same UI the manual button uses. The closure is the mount-render copy —
+  // it only ever runs once.
+  useEffect(() => { void runCheck() }, [])
 
   const buttonStyle: React.CSSProperties = {
     display: 'inline-flex',
