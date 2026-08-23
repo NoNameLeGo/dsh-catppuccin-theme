@@ -111,6 +111,33 @@ export function writeFlavor(choice: FlavorChoice): void {
   }
 }
 
+/** localStorage key recording the last built-in theme preference. */
+export const RESTORE_STORAGE_KEY = 'dsh.catppuccin.restore'
+
+/** Remember a built-in preference (system/light/dark) whenever the runtime is
+ *  not on a Catppuccin flavour, so switching the plugin off restores the
+ *  user's pre-plugin choice instead of dropping them onto 'system'. The boot
+ *  preference is the settings-document value, so this survives Desktop's
+ *  per-launch port churn without joining the durable state schema. */
+export function rememberBuiltinPreference(preference: string): void {
+  if ((CATPPUCCIN_FLAVOR_VALUES as readonly string[]).includes(preference)) return
+  try {
+    localStorage.setItem(RESTORE_STORAGE_KEY, preference)
+  } catch {
+    /* nothing to restore later — 'off' falls back to 'system' */
+  }
+}
+
+/** The preference to restore when turning the flavour off (default: system). */
+export function readRestoredPreference(): 'system' | 'light' | 'dark' {
+  try {
+    const raw = localStorage.getItem(RESTORE_STORAGE_KEY)
+    return raw === 'light' || raw === 'dark' ? raw : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
 /** Required services: slots + locale (settings rows) and theme (register + switch). */
 export const inject = ['slots', 'locale', 'theme']
 
@@ -184,6 +211,10 @@ export function apply(ctx: ClientContext): void {
   // fight it.
   ctx.effect(() => {
     const applyDesired = (): void => {
+      // Record the built-in preference on every non-flavour observation (boot,
+      // adopt() reloads, explicit Appearance changes) BEFORE any re-assert, so
+      // 'off' below can hand the user back exactly what they had.
+      rememberBuiltinPreference(theme.getTheme().preference)
       const desired = readFlavor()
       if (desired === 'off') return
       const preference = theme.getTheme().preference
@@ -261,12 +292,13 @@ export function apply(ctx: ClientContext): void {
     subscribe: (listener) => ctx.on('theme/change', listener),
     select: (choice: FlavorChoice) => {
       if (choice === 'off') {
-        // Revert to the official default (system-following). Persist the
-        // abandoned choice BEFORE setTheme: setTheme emits theme/change
-        // synchronously, so the restore guard must already read `off` here
-        // and not re-assert the previous flavour.
+        // Restore the built-in preference the user had before the flavour
+        // ('system' when nothing was recorded). Persist the abandoned choice
+        // BEFORE setTheme: setTheme emits theme/change synchronously, so the
+        // restore guard must already read `off` here and not re-assert the
+        // previous flavour.
         writeFlavor('off')
-        theme.setTheme('system')
+        theme.setTheme(readRestoredPreference())
         scheduleDurablePersist(buildLocalState)
         return
       }
