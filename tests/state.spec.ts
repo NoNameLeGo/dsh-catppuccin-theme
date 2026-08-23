@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
  * Durable state contract — the shared shape, the sanitization/clamping rules,
- * and the sync guards that keep `src/state.ts` aligned with the client's
- * registered flavour ids and shipped glass defaults. A drift here would
+ * and the sync guard that keeps `src/state.ts` aligned with the client's
+ * registered flavour ids (the glass knob defaults are derived from
+ * `DEFAULT_GLASS` directly, so no guard is needed). A drift here would
  * resurface the Desktop "theme does not stick across restart" bug as restored
  * but wrong values (the durable file is the source of truth on every boot).
  */
@@ -19,7 +20,6 @@ import {
 } from '../src/state.ts'
 import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
 import { CATPPUCCIN_FLAVOR_VALUES } from '../src/client/index.ts'
-import { SETTINGS_DEFAULTS } from '../src/client/glass/glass-layer.ts'
 
 describe('durable state defaults', () => {
   it('defaults to no Catppuccin flavour and no glass', () => {
@@ -92,13 +92,4 @@ describe('durable vs client sync guards', () => {
     expect(CATPPUCCIN_THEME_IDS).toEqual(CATPPUCCIN_FLAVOR_VALUES.filter((v) => v !== 'off'))
   })
 
-  it('the durable glass defaults equal the client layer shipped defaults', () => {
-    expect(DEFAULT_GLASS).toEqual({
-      enabled: false,
-      mode: SETTINGS_DEFAULTS.mode,
-      blur: SETTINGS_DEFAULTS.blur,
-      frost: SETTINGS_DEFAULTS.frost,
-      brightness: SETTINGS_DEFAULTS.brightness,
-    })
-  })
 })

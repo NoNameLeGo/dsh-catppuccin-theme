@@ -64,8 +64,8 @@ export interface CatppuccinState {
   glass: GlassState
 }
 
-/** Shipped glass defaults — aligned with `SETTINGS_DEFAULTS` in
- *  `src/client/glass/glass-layer.ts` (guarded by `tests/state.spec.ts`). */
+/** Shipped glass defaults — the single source of truth; the client glass layer
+ *  (`src/client/glass/glass-layer.ts`) derives its knob defaults from here. */
 export const DEFAULT_GLASS: GlassState = {
   enabled: false,
   mode: 'mica',

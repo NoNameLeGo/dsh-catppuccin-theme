@@ -27,7 +27,7 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the theme plugin's Context merge (ctx.theme + theme/change).
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
-import type { GlassState } from '../../state.ts'
+import { DEFAULT_GLASS, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -42,7 +42,7 @@ export const GLASS_COMPAT_ATTRIBUTE = 'data-dsh-glass-compat'
 export const GLASS_ENABLED_KEY = 'dsh.catppuccin.glass.enabled'
 
 /** Default state when nothing is stored yet: off (the stock UI stays stock). */
-export const DEFAULT_ENABLED = false
+export const DEFAULT_ENABLED = DEFAULT_GLASS.enabled
 
 /** Tunable glass knobs. */
 export interface GlassSettings {
@@ -65,17 +65,18 @@ export interface GlassRowState extends GlassSettings {
 }
 
 /**
- * Shipped knob defaults — aligned with the reference project
+ * Shipped knob defaults — the knob-only view of `DEFAULT_GLASS` in
+ * `src/state.ts` (the single source of truth, inlined into both bundles).
+ * The shipped look aligns with the reference project
  * (DSH-Transparent-UI-Plugin / Aqua): mica mode, blur 2px, frost 20
  * (the 0-100 slider maps to a 0-1.4 alpha multiplier via frost/50, so 20
- * reads as a light frost) and neutral backdrop brightness. MUST stay in sync
- * with `DEFAULT_GLASS` in `src/state.ts` (guarded by `tests/state.spec.ts`).
+ * reads as a light frost) and neutral backdrop brightness.
  */
 export const SETTINGS_DEFAULTS: GlassSettings = {
-  mode: 'mica',
-  blur: 2,
-  frost: 20,
-  brightness: 50,
+  mode: DEFAULT_GLASS.mode,
+  blur: DEFAULT_GLASS.blur,
+  frost: DEFAULT_GLASS.frost,
+  brightness: DEFAULT_GLASS.brightness,
 }
 
 /** Numeric knob keys and their localStorage names. */
