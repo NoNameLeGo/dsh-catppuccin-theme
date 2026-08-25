@@ -40,10 +40,7 @@ TUI 端自动同步四套官方主题色板。
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
 把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
-下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、重启自动恢复——
-偏好持久保存在 DSH home 下的 `catppuccin-state.json`（浏览器 localStorage
-作为同机的即时缓存），因此即使在 **DSH Desktop** 里每次启动端口都变化，
-主题和玻璃设置也能跨重启稳定恢复。
+下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、重启自动恢复。
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
 输入框、统计行、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
@@ -54,7 +51,7 @@ Catppuccin 主题。
 
 - 🎨 四个主题：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
 - 🧩 接入官方主题系统，与内置浅色 / 深色 / 跟随系统主题平级
-- 🎯 全界面配色覆盖（162 个配色变量），不只是一两个强调色
+- 🎯 全界面配色覆盖，不只是一两个强调色
 - ⚙️ 设置页一行切换，选择自动保存、重启自动恢复
 - 🌐 中英文双语文案（跟随系统语言）
 - 🪟 **玻璃质感**：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
@@ -62,7 +59,7 @@ Catppuccin 主题。
   背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
-- 🎨 玻璃配色取自当前主题的 token（color-mix 自动跟随四个 Catppuccin 色板）
+- 🎨 玻璃配色自动跟随当前 Catppuccin 主题
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令
 - 💻 **dsh-TUI 终端主题**：一条安装命令装进 dsh-TUI，四套主题自动同步到 `~/.dsh-tui/themes/`，见[安装 · dsh-TUI](#dsh-tui-终端版主题)
 
@@ -123,9 +120,8 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 ```
 
-在桌面的 **DSH 终端**里运行即可（终端里的 `dsh plugin` 默认就作用于当前激活的
-profile，也可以直接写 `dsh plugin add @nonamelego/dsh-catppuccin`；若你在托盘里
-选了别的 profile，就把 `desktop` 换成那个名字），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 生效。
+在桌面的 **DSH 终端**里运行即可（`dsh plugin` 默认作用于当前激活的 profile，
+若在托盘里选了别的 profile 就换成那个名字），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 生效。
 从仓库安装的方式同理：`dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`。
 
 ### 方式二：从仓库安装
@@ -136,18 +132,6 @@ dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 
 从 git 安装时 pnpm 可能要求允许构建脚本——按 pnpm 的提示把对应包加进 profile
 `pnpm-workspace.yaml` 的 `allowBuilds` 后重跑一次即可。
-
-### 方式三：本地链接（开发调试用）
-
-克隆到本地后，把包链接进 profile 并加入 bundles（下面的路径换成你自己的）：
-
-```sh
-pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppuccin
-```
-
-然后在 profile 的 `package.json` 中把 `@nonamelego/dsh-catppuccin` 加进 `dsh.profile.bundles`，
-重启 `dsh web` 即可。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中使用时，把上面的路径换成桌面 profile
-（默认 `desktop`，位于 `~/.dsh/profiles/desktop`），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 即可。
 
 ### dsh-TUI（终端版）主题
 
@@ -165,13 +149,16 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 包里带一个只做主题同步的小插件行（`dsh-catppuccin-tui-themes`，不依赖任何服务）：dsh-TUI 启动时自动把四套主题 JSON 同步到 `~/.dsh-tui/themes/`，之后升级包即同步新版配色。装完启动 `dsh --profile dsh-tui`，在 dsh-TUI 里用 `/theme` 选择 **Catppuccin Latte / Frappé / Macchiato / Mocha**，或直接 `/theme catppuccin-mocha` 切换（选择会持久化，下次启动自动恢复）。
 
-> 💡 已经为 Web GUI 装过本插件、同时也用 dsh-TUI 的话：不用重复安装——Web 端每次启动都会自动同步主题到 `~/.dsh-tui/themes/`（仅当该目录已存在，纯 Web 用户不受影响）。
+> 💡 已为 Web GUI 装过本插件、同时用 dsh-TUI 的话，无需重复安装：Web 端每次
+> 启动会自动同步主题到 `~/.dsh-tui/themes/`（仅当该目录已存在）。
 
-> 📁 不想在 dsh-tui profile 里装包的话，也可以手动复制：从仓库克隆后把 `themes/*.json` 拷进 `~/.dsh-tui/themes/`（Windows：`%USERPROFILE%\.dsh-tui\themes\`），效果相同，只是不随版本自动更新。
+> 📁 不想装包也可手动复制：把 `themes/*.json` 拷进 `~/.dsh-tui/themes/`
+> （Windows：`%USERPROFILE%\.dsh-tui\themes\`），只是不随版本自动更新。
 
-> ⚠️ `catppuccin-*.json` 这几个文件名归本插件所有，同步时会被覆盖；想自定义请复制一份改别的名字，其他主题文件不受影响。
+> ⚠️ `catppuccin-*.json` 归本插件所有、同步时会被覆盖；想自定义请改名另存。
 
-> 💡 TUI 主题只管 TUI 内部配色，终端背景由你的终端决定——建议终端本身也配上对应风味的 Catppuccin（见 [Catppuccin 官方 ports 列表](https://github.com/catppuccin/catppuccin#-ports)），整体观感最一致。
+> 💡 TUI 主题只管 TUI 内部配色，终端背景由你的终端决定——建议也配上对应
+> 风味的 Catppuccin（见 [Catppuccin ports 列表](https://github.com/catppuccin/catppuccin#-ports)），观感最一致。
 
 ## 使用
 
@@ -197,67 +184,39 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样），
   直接调和进纯色背景。
 
-玻璃配色取自当前主题的设计 token，切换 Latte / Frappé / Macchiato / Mocha
-时玻璃颜色自动跟随；设置最终持久保存在 DSH home 下的
-`catppuccin-state.json`（同主题一起，跨重启、跨端口恢复），浏览器
-localStorage 只作为即时缓存与多标签页同步——**DSH Desktop** 每次启动使用
-不同的随机回环端口，localStorage 因此无法跨重启保留，而 DSH home 下的文件
-不受端口影响，重启后自动恢复。
+玻璃配色自动跟随当前主题，切换 Latte / Frappé / Macchiato / Mocha 时即时
+变色；所有设置跨重启自动恢复。
 
 ### 检查 Catppuccin 插件更新
 
 在 **设置 → 常规** 的 **玻璃质感** 正下方找到 **检查 Catppuccin 插件更新** 行：
 
-- 点击 **检查更新**，插件宿主会查询 npm registry 上本插件（`dsh-catppuccin`）
-  的最新版本，并与当前安装版本比较（含预发布版本的语义化版本比较）；
-  宿主侧对检查结果缓存 5 分钟，短时间内反复点击不会重复请求 registry。
-- 已是最新 → 显示当前版本号；发现新版 → 显示新版本号，并给出可复制的
-  升级命令。命令中的 profile 名由宿主**自动探测**：优先取当前进程的
-  `--profile` 参数，否则扫描 `~/.dsh/profiles/*` 找到实际安装了本插件的
-  profile，无需手动替换（探测失败时才回退为 `web` 并提示手动确认）。
-- 检测到本插件为本地链接 / 源码安装（`link:` / `file:` / git）时会给出
-  提示：npm 升级命令不适用，应改用 `git pull` 或重新构建。
-- 通道策略：正式版安装只跟随 `latest` 标签；预发布版安装同时跟随
-  `beta` 标签（升级命令自动用 `@beta`），正式版超过你的预发布版本时提示
-  升级到 `@latest`。
-- 检查走宿主进程的 Node fetch（无跨域问题）；离线或 registry 不可达时
-  显示具体失败原因并支持重试。
-- **环境自适配**：在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中运行时，目标 profile 直接取桌面版的
-  当前 profile（不靠扫描猜测），提示与重启文案也切换为 Desktop 口径
-  （DSH 终端）；普通 dsh web / CLI 下保持原有终端命令。
+- 点击 **检查更新** 即对比 npm 上的最新版与当前版本：已是最新 → 显示当前
+  版本号；发现新版 → 显示新版本号并给出可复制的升级命令（命令中的 profile
+  名自动探测，无需手动替换；探测失败才回退为 `web`）。
+- 本插件为本地链接 / 源码安装（`link:` / `file:` / git）时不显示 npm 升级
+  命令，会提示改用 `git pull` 或重新构建。
+- 通道策略：正式版只跟随 `latest` 标签；预发布版同时跟随 `beta`（升级命令
+  自动带 `@beta`）。离线或网络失败时显示原因并可重试。
 
 ## 玻璃拟态（Glassmorphism）
 
-**玻璃拟态**是一种视觉风格：让界面面板像一片磨砂玻璃，透过它能看到背后的
-内容。它的三个关键要素是——
+**玻璃拟态**是一种视觉风格：界面面板像一片磨砂玻璃——半透明填充、
+背景模糊（`backdrop-filter: blur()`）和玻璃细节（描边、内高光、柔和投影），
+透过它能看到并柔化背后的内容。
 
-1. **半透明填充**：面板本身不画实底色，而是半透明的「玻璃」；
-2. **背景模糊**（`backdrop-filter: blur()`）：面板背后的内容（聊天记录、
-   页面底色）透过玻璃被柔化，与前景文字拉开层次；
-3. **玻璃细节**：细描边、内高光、柔和投影和较大圆角，模拟玻璃的厚度与边缘。
+本插件的具体效果：
 
-本插件的实现方式：
-
-- **配色自动跟随主题**：玻璃填充用 `color-mix()` 把当前主题的 token
-  （`--dsw-alias-bg-layer-1/2`）按磨砂度混合成半透明色，所以 Latte 是浅色
-  玻璃、Mocha 是深色玻璃，切换主题玻璃颜色即时跟随，无需额外配置；
 - **七个区域玻璃化**：顶栏、侧边栏、输入框、统计行、轨迹视图、聊天气泡
-  和新会话按钮都变成磨砂玻璃；云母模式下它们成为带圆角的悬浮卡片，聊天
-  内容滚动时会从顶栏玻璃下方穿过、被模糊；折叠侧边栏时导航条同样以悬浮
-  玻璃浮在聊天区边缘；
+  和新会话按钮；云母模式下成为带圆角的悬浮卡片，聊天内容滚动时从玻璃
+  下方穿过、被模糊；折叠侧边栏时导航条同样悬浮在聊天区边缘；
 - **页面边缘渐变模糊**：视口上下各有一条渐变模糊带，消息滚到边缘时被
-  柔化穿过——玻璃卡片保持清晰，内容在边界「融化」（借鉴
+  柔化穿过——内容在边界「融化」（借鉴
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
   的 Aqua 皮肤）；
-- **纯色背景**：页面底色就是当前主题的 `bg-base` 纯色（Latte `#eff1f5` /
-  Frappé `#303446` / Macchiato `#24273a` / Mocha `#1e1e2e`），零硬编码、
-  切色板自动跟随；背景亮度旋钮直接往这个纯色里调和白/黑；
-- **一键开关**：整个效果由 `data-dsh-glass` 属性统一门控，关闭即完全还原
-  原生界面，插件卸载时不留任何残留；无心智负担的 z-index 层级整理（侧边栏
-  9 / 顶栏与输入框 8）保证设置面板、浮动卡片互不遮挡；
-- 交互与实现思路参考了
-  [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
-  （Aqua 玻璃皮肤）的云母 / 兼容双模式与旋钮设计。
+- **配色自动跟随主题**：Latte 是浅色玻璃、Mocha 是深色玻璃，切换主题即时
+  变色；页面底色取当前主题纯色，背景亮度旋钮直接往纯色里调和白/黑；
+- **一键开关**：关闭即完全还原原生界面，插件卸载不留任何残留。
 
 ## 开发
 
@@ -273,6 +232,18 @@ pnpm build       # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js�
 ```sh
 node scripts/generate-palettes.mjs
 ```
+
+### 本地链接调试
+
+克隆到本地后，把包链接进 profile 并加入 bundles（路径换成你自己的）：
+
+```sh
+pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppuccin
+```
+
+再把 `@nonamelego/dsh-catppuccin` 加进 profile `package.json` 的
+`dsh.profile.bundles`，重启 `dsh web`。DSH Desktop 用
+`~/.dsh/profiles/desktop` 对应路径。
 
 ## 🙋 常见问题
 
