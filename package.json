@@ -22,6 +22,7 @@
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
+    "./tui-themes": "./lib/tui-themes.js",
     "./package.json": "./package.json"
   },
   "dsh": {
