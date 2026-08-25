@@ -62,6 +62,7 @@ Catppuccin 主题。
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色取自当前主题的 token（color-mix 自动跟随四个 Catppuccin 色板）
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令
+- 💻 **dsh-TUI 终端主题**：包内附带四套 dsh-TUI 主题 JSON（`themes/` 目录），拷进 `~/.dsh-tui/themes/` 即用，见[安装 · dsh-TUI](#dsh-tui-终端版主题)
 
 ## 预览
 
@@ -145,6 +146,21 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
 然后在 profile 的 `package.json` 中把 `@nonamelego/dsh-catppuccin` 加进 `dsh.profile.bundles`，
 重启 `dsh web` 即可。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中使用时，把上面的路径换成桌面 profile
 （默认 `desktop`，位于 `~/.dsh/profiles/desktop`），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 即可。
+
+### dsh-TUI（终端版）主题
+
+包内同时附带 [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) 的 Catppuccin 主题文件（`themes/` 目录下的四个 JSON）。这是**静态主题资产，与 Web GUI 插件相互独立**，不走 `dsh plugin`，把 JSON 拷进主题目录即可：
+
+```sh
+git clone https://github.com/NoNameLeGo/dsh-catppuccin-theme
+cp dsh-catppuccin-theme/themes/*.json ~/.dsh-tui/themes/
+```
+
+（Windows：把 `themes\` 下四个 JSON 复制到 `%USERPROFILE%\.dsh-tui\themes\`；已装 Web 版的话，也可直接从包的安装目录 `node_modules/@nonamelego/dsh-catppuccin/themes/` 复制。）
+
+然后在 dsh-TUI 里用 `/theme` 选择 **Catppuccin Latte / Frappé / Macchiato / Mocha**，或直接 `/theme catppuccin-mocha` 切换。
+
+> 💡 TUI 主题只管 TUI 内部配色，终端背景由你的终端决定——建议终端本身也配上对应风味的 Catppuccin（见 [Catppuccin 官方 ports 列表](https://github.com/catppuccin/catppuccin#-ports)），整体观感最一致。
 
 ## 使用
 

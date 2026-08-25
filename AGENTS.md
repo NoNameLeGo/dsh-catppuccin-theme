@@ -66,5 +66,6 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 ## 其它项目约定
 - 提交信息用中文 conventional 风格：`feat(...)` / `fix(...)` / `chore(release): ...` 等。
 - 玻璃质感（玻璃拟态）皮肤代码在 `src/client/glass/`；主题调色板由 `pnpm gen:palettes` 生成（`scripts/generate-palettes.mjs`）。
+- dsh-TUI 主题文件在 `themes/`（四个风味各一个 `~/.dsh-tui/themes/` 用 JSON），由 `pnpm gen:themes` 生成（`scripts/generate-tui-themes.mjs`，读同一份官方色板缓存）；改键映射后重跑并核对 dsh-TUI `src/theme.ts` 的 Theme 键。
 - 插件预览图生成脚本：`scripts/screenshot-previews.cjs`。
 - CI 发布配置：`.github/workflows/publish.yml`（OIDC Trusted Publishing，无 token 入库）。

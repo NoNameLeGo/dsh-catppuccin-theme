@@ -43,6 +43,7 @@
   "files": [
     "lib",
     "assets",
+    "themes",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -56,7 +57,8 @@
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "gen:palettes": "node scripts/generate-palettes.mjs"
+    "gen:palettes": "node scripts/generate-palettes.mjs",
+    "gen:themes": "node scripts/generate-tui-themes.mjs"
   },
   "license": "MIT",
   "peerDependencies": {
