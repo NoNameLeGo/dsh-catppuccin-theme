@@ -163,7 +163,7 @@ dsh plugin --profile dsh-tui add @nonamelego/dsh-catppuccin
 dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 ```
 
-包里带一个只做主题同步的小插件行（`dsh-catppuccin-tui-themes`，不依赖任何服务）：dsh-TUI 启动时自动把四套主题 JSON 同步到 `~/.dsh-tui/themes/`，之后升级包即同步新版配色。然后在 dsh-TUI 里用 `/theme` 选择 **Catppuccin Latte / Frappé / Macchiato / Mocha**，或直接 `/theme catppuccin-mocha` 切换（选择会持久化，下次启动自动恢复）。
+包里带一个只做主题同步的小插件行（`dsh-catppuccin-tui-themes`，不依赖任何服务）：dsh-TUI 启动时自动把四套主题 JSON 同步到 `~/.dsh-tui/themes/`，之后升级包即同步新版配色。装完启动 `dsh --profile dsh-tui`，在 dsh-TUI 里用 `/theme` 选择 **Catppuccin Latte / Frappé / Macchiato / Mocha**，或直接 `/theme catppuccin-mocha` 切换（选择会持久化，下次启动自动恢复）。
 
 > 💡 已经为 Web GUI 装过本插件、同时也用 dsh-TUI 的话：不用重复安装——Web 端每次启动都会自动同步主题到 `~/.dsh-tui/themes/`（仅当该目录已存在，纯 Web 用户不受影响）。
 
