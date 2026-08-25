@@ -33,8 +33,10 @@
 
 ## 简介
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web GUI
-（`dsh web`）的 [Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的
+[Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件——一个包同时适配
+**Web GUI**（`dsh web`）、**DSH Desktop** 与 **dsh-TUI** 终端：Web / 桌面端做全界面换色与玻璃质感，
+TUI 端自动同步四套官方主题色板。
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
 把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
