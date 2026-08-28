@@ -158,6 +158,31 @@ function staticTokens(flavor) {
  * alias + specific layers                                             *
  * ------------------------------------------------------------------ */
 
+/**
+ * Dark-flavour label readability overrides (issue #7).
+ *
+ * The official stylesheet's dark alias layer points the weak label tokens at
+ * the bluish ladder's mid steps (secondary -> 300, tertiary -> 400, caption ->
+ * 600, dimmed -> 750). Those steps are *light-to-mid greys* in the stock theme
+ * because the stock theme never redefines the static ladder. Our dark flavours
+ * map the very same steps to Catppuccin overlay/surface colours (which is what
+ * makes the ladder useful for surfaces), so the aliases inherit dark text on
+ * dark backgrounds — e.g. Macchiato caption (#494d64) on a menu (#363a4f)
+ * measured 1.35:1, nearly invisible.
+ *
+ * Fix: keep the ladder untouched and point these label aliases at the light end
+ * of the ramp instead. Hierarchy is preserved (primary bluish-50 > secondary
+ * 150 > tertiary 200 > caption 300 > dimmed 400) and every step lands on a
+ * readable Catppuccin text colour (subtext0/overlay2/overlay1/overlay0). Latte
+ * already reads the ladder light-end-first and is left alone. See issue #7.
+ */
+const darkLabelReadabilityOverrides = {
+  'dsw-alias-label-secondary': 'var(--dsw-static-neutral-bluish-150)',
+  'dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-200)',
+  'dsw-alias-label-caption': 'var(--dsw-static-neutral-bluish-300)',
+  'dsw-alias-label-dimmed': 'var(--dsw-static-neutral-bluish-400)',
+}
+
 /** Alias tokens: keep official values (var() refs resolve through our static overrides). */
 function aliasTokens(flavor) {
   const dark = catppuccin[flavor].dark
@@ -165,10 +190,16 @@ function aliasTokens(flavor) {
   const out = {}
   for (const [name, value] of Object.entries(table)) {
     // Hard-coded brand colour pin remapped to the Catppuccin brand blue;
-    // everything else keeps its official value.
-    out[name] = name === 'dsw-alias-brand-primary-new-colorprimary-new-color'
-      ? ctp(flavor, 'blue')
-      : value  }
+    // everything else keeps its official value, except the dark label
+    // readability overrides above.
+    if (name === 'dsw-alias-brand-primary-new-colorprimary-new-color') {
+      out[name] = ctp(flavor, 'blue')
+    } else if (dark && darkLabelReadabilityOverrides[name]) {
+      out[name] = darkLabelReadabilityOverrides[name]
+    } else {
+      out[name] = value
+    }
+  }
   return out
 }
 

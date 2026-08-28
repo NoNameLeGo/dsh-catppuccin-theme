@@ -76,6 +76,125 @@ describe('Catppuccin palettes', () => {
   })
 })
 
+describe('weak label readability on dark flavours (issue #7)', () => {
+  // Backgrounds the weak label aliases land on, resolved through their
+  // official var() chains: menus/cards (specific-menu -> bg-layer-3 ->
+  // bluish-800) and the page base (bg-base -> bluish-950).
+  const MENU = '--dsw-specific-menu'
+  const PAGE = '--dsw-alias-bg-base'
+
+  /** Resolve a var(--dsw-static-neutral-bluish-N) ref (or plain hex) to hex. */
+  function resolveHex(tokens: Record<string, string>, ref: string): string {
+    const m = ref.match(/^var\(--dsw-static-neutral-bluish-(\d+)\)$/)
+    if (m) {
+      const hex = tokens[`--dsw-static-neutral-bluish-${m[1]}`]
+      if (!hex) throw new Error(`missing bluish-${m[1]} referenced by ${ref}`)
+      return hex
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(ref)) return ref
+    throw new Error(`cannot resolve ${ref} — only bluish statics and hex are supported`)
+  }
+
+  /** Resolve an alias through its chain ({var -> var}* -> hex static). */
+  function resolveAlias(tokens: Record<string, string>, name: string, depth = 0): string {
+    const ref = tokens[name]
+    if (!ref) throw new Error(`missing token ${name}`)
+    if (depth > 4) throw new Error(`circular or too deep alias chain for ${name}`)
+    const m = ref.match(/^var\(--([a-z-0-9]+)\)$/)
+    if (m) {
+      const next = resolveAlias(tokens, `--${m[1]}`, depth + 1)
+      return resolveHex(tokens, next.startsWith('#') ? next : ref) // next is already hex
+    }
+    return resolveHex(tokens, ref)
+  }
+
+  function resolveAliasHex(tokens: Record<string, string>, name: string): string {
+    return resolveAlias(tokens, name)
+  }
+
+  function channel(c: number): number {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+
+  function luminance(hex: string): number {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+  }
+
+  function contrast(a: string, b: string): number {
+    const la = luminance(a)
+    const lb = luminance(b)
+    return la >= lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05)
+  }
+
+  const darkFlavors = CATPPUCCIN_FLAVORS.filter((f) => f.colorScheme === 'dark')
+
+  it('label aliases resolve to bluish statics (not literal colours or other families)', () => {
+    for (const f of darkFlavors) {
+      for (const token of [
+        '--dsw-alias-label-secondary',
+        '--dsw-alias-label-tertiary',
+        '--dsw-alias-label-caption',
+        '--dsw-alias-label-dimmed',
+      ]) {
+        expect(
+          f.tokens[token],
+          `${f.themeId} ${token}`,
+        ).toMatch(/^var\(--dsw-static-neutral-bluish-\d+\)$/)
+      }
+    }
+  })
+
+  it('dark label hierarchy stays monotonic on the menu surface (issue #7)', () => {
+    for (const f of darkFlavors) {
+      const menu = resolveAliasHex(f.tokens, MENU)
+      const levels = [
+        resolveAliasHex(f.tokens, '--dsw-alias-label-secondary'),
+        resolveAliasHex(f.tokens, '--dsw-alias-label-tertiary'),
+        resolveAliasHex(f.tokens, '--dsw-alias-label-caption'),
+        resolveAliasHex(f.tokens, '--dsw-alias-label-dimmed'),
+      ]
+      const ratios = levels.map((h) => contrast(h, menu))
+      for (let i = 1; i < ratios.length; i++) {
+        expect(
+          ratios[i - 1],
+          `${f.themeId} label level ${i - 1} (${ratios[i - 1]}) should stay above level ${i} (${ratios[i]})`,
+        ).toBeGreaterThan(ratios[i])
+      }
+    }
+  })
+
+  it('weak labels keep WCAG floors on menu and page surfaces (issue #7)', () => {
+    // Floors: worst flavour across the three dark flavours, minus headroom so
+    // future palette tweaks stay possible — but any slide back to the dark
+    // ladder steps (400/600/750 as text) fails.        menu  page
+    const floors: Record<string, { menu: number; page: number }> = {
+      '--dsw-alias-label-secondary': { menu: 4.0, page: 6.0 },
+      '--dsw-alias-label-tertiary': { menu: 3.0, page: 5.0 },
+      '--dsw-alias-label-caption': { menu: 2.5, page: 4.0 },
+      '--dsw-alias-label-dimmed': { menu: 2.0, page: 3.0 },
+    }
+    for (const f of darkFlavors) {
+      const menu = resolveAliasHex(f.tokens, MENU)
+      const page = resolveAliasHex(f.tokens, PAGE)
+      for (const [token, { menu: menuFloor, page: pageFloor }] of Object.entries(floors)) {
+        const text = resolveAliasHex(f.tokens, token)
+        expect(
+          contrast(text, menu),
+          `${f.themeId} ${token} on menu`,
+        ).toBeGreaterThanOrEqual(menuFloor)
+        expect(
+          contrast(text, page),
+          `${f.themeId} ${token} on page base`,
+        ).toBeGreaterThanOrEqual(pageFloor)
+      }
+    }
+  })
+})
+
 describe('flavour helpers', () => {
   it('maps theme ids and off', () => {
     expect(flavorFromThemeId('catppuccin-mocha')).toBe('catppuccin-mocha')
