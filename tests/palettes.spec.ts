@@ -135,6 +135,7 @@ describe('weak label readability on dark flavours (issue #7)', () => {
   it('label aliases resolve to bluish statics (not literal colours or other families)', () => {
     for (const f of darkFlavors) {
       for (const token of [
+        '--dsw-alias-label-primary-dimmed',
         '--dsw-alias-label-secondary',
         '--dsw-alias-label-tertiary',
         '--dsw-alias-label-caption',
@@ -152,6 +153,8 @@ describe('weak label readability on dark flavours (issue #7)', () => {
     for (const f of darkFlavors) {
       const menu = resolveAliasHex(f.tokens, MENU)
       const levels = [
+        resolveAliasHex(f.tokens, '--dsw-alias-label-primary'),
+        resolveAliasHex(f.tokens, '--dsw-alias-label-primary-dimmed'),
         resolveAliasHex(f.tokens, '--dsw-alias-label-secondary'),
         resolveAliasHex(f.tokens, '--dsw-alias-label-tertiary'),
         resolveAliasHex(f.tokens, '--dsw-alias-label-caption'),
@@ -172,6 +175,7 @@ describe('weak label readability on dark flavours (issue #7)', () => {
     // future palette tweaks stay possible — but any slide back to the dark
     // ladder steps (400/600/750 as text) fails.        menu  page
     const floors: Record<string, { menu: number; page: number }> = {
+      '--dsw-alias-label-primary-dimmed': { menu: 5.0, page: 7.0 },
       '--dsw-alias-label-secondary': { menu: 4.0, page: 6.0 },
       '--dsw-alias-label-tertiary': { menu: 3.0, page: 5.0 },
       '--dsw-alias-label-caption': { menu: 2.5, page: 4.0 },

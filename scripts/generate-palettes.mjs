@@ -171,12 +171,15 @@ function staticTokens(flavor) {
  * measured 1.35:1, nearly invisible.
  *
  * Fix: keep the ladder untouched and point these label aliases at the light end
- * of the ramp instead. Hierarchy is preserved (primary bluish-50 > secondary
- * 150 > tertiary 200 > caption 300 > dimmed 400) and every step lands on a
- * readable Catppuccin text colour (subtext0/overlay2/overlay1/overlay0). Latte
- * already reads the ladder light-end-first and is left alone. See issue #7.
+ * of the ramp instead, so the full hierarchy stays monotonic and readable:
+ * primary (bluish-50/text) > primary-dimmed (75/subtext1) > secondary
+ * (150/subtext0) > tertiary (200/overlay2) > caption (300/overlay1) > dimmed
+ * (400/overlay0). Latte already reads the ladder light-end-first and is left
+ * alone. See issue #7. The primary-dimmed step (75) was contributed via
+ * PR #8 review.
  */
 const darkLabelReadabilityOverrides = {
+  'dsw-alias-label-primary-dimmed': 'var(--dsw-static-neutral-bluish-75)',
   'dsw-alias-label-secondary': 'var(--dsw-static-neutral-bluish-150)',
   'dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-200)',
   'dsw-alias-label-caption': 'var(--dsw-static-neutral-bluish-300)',
