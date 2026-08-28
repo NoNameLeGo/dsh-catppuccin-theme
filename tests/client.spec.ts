@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FLAVOR_STORAGE_KEY,
   RESTORE_STORAGE_KEY,
+  builtinPickWins,
   flavorFromThemeId,
   flavorInfo,
   readFlavor,
@@ -72,6 +73,31 @@ describe('built-in preference restore', () => {
     expect(readRestoredPreference()).toBe('dark')
     localStorage.setItem(RESTORE_STORAGE_KEY, 'junk')
     expect(readRestoredPreference()).toBe('system')
+  })
+})
+
+describe('builtinPickWins (issue #6 restore guard)', () => {
+  it('never lets "system" win over the persisted flavour', () => {
+    expect(builtinPickWins('system', null)).toBe(false)
+    expect(builtinPickWins('system', 'system')).toBe(false)
+    expect(builtinPickWins('system', 'light')).toBe(false)
+  })
+
+  it('lets light/dark win only when explicitly picked this session', () => {
+    expect(builtinPickWins('light', 'light')).toBe(true)
+    expect(builtinPickWins('dark', 'dark')).toBe(true)
+    // Boot/adopt-acquired values (no live pick recorded) never win — the
+    // settings document's persisted light/dark must not bury the flavour.
+    expect(builtinPickWins('light', null)).toBe(false)
+    expect(builtinPickWins('dark', null)).toBe(false)
+    // A live pick of the OTHER built-in value is not this preference.
+    expect(builtinPickWins('light', 'dark')).toBe(false)
+    expect(builtinPickWins('dark', 'light')).toBe(false)
+  })
+
+  it('non built-in preferences (flavour ids) never win', () => {
+    expect(builtinPickWins('catppuccin-latte', 'catppuccin-latte')).toBe(false)
+    expect(builtinPickWins('catppuccin-mocha', null)).toBe(false)
   })
 })
 

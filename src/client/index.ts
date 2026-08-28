@@ -138,6 +138,32 @@ export function readRestoredPreference(): 'system' | 'light' | 'dark' {
   }
 }
 
+/** Built-in preferences the Appearance row can explicitly pick. */
+const BUILTIN_PREFERENCES = ['light', 'dark', 'system'] as const
+type BuiltinPreference = (typeof BUILTIN_PREFERENCES)[number]
+
+function isBuiltinPreference(value: string): value is BuiltinPreference {
+  return (BUILTIN_PREFERENCES as readonly string[]).includes(value)
+}
+
+/** Whether an observed built-in preference wins over the persisted flavour.
+ *  Only a light/dark value the user explicitly picked in THIS session — the
+ *  recorded `liveBuiltinPick` from the setTheme wrapper — wins. Values adopted
+ *  from the settings document at boot/reload (`livePick` null) never win
+ *  (issue #6: a doc persisted as `ui-theme.preference: light` was mistaken for
+ *  a user choice and buried the flavour on every refresh/restart), and
+ *  "system" never wins: while a flavour is on, the Catppuccin row is the
+ *  active controller and the Appearance row must not bury the persisted
+ *  choice. A user's explicit light/dark pick still wins immediately (matching
+ *  livePick) and choosing "off" in the Catppuccin row restores it. */
+export function builtinPickWins(
+  preference: string,
+  livePick: BuiltinPreference | null,
+): boolean {
+  if (preference !== 'light' && preference !== 'dark') return false
+  return preference === livePick
+}
+
 /** Required services: slots + locale (settings rows) and theme (register + switch). */
 export const inject = ['slots', 'locale', 'theme']
 
@@ -201,15 +227,32 @@ export function apply(ctx: ClientContext): void {
   // launch so localStorage there always starts empty).
   //
   // The re-assert is not a fixed boot window. The built-in ThemeRuntime's
-  // `adopt()` re-applies the settings-document preference — defaulting to
-  // "system" when `ui-theme.preference` was never written — on every settings
-  // reload, and switching the model always reloads the settings document. So
-  // we keep listening and restore our flavour whenever the runtime preference
-  // falls back to "system" (the only built-in value adopt() writes back);
-  // explicit `light`/`dark` picks win, and choosing "off" in the Catppuccin
-  // row clears the persisted flavour before the switch so this guard does not
-  // fight it.
+  // `adopt()` re-applies the settings-document preference on every settings
+  // reload — and switching the model always reloads the settings document —
+  // writing "system" when `ui-theme.preference` was never written, or the
+  // persisted light/dark when the document holds one. adopt() writes the
+  // runtime preference directly and bypasses setTheme, so the setTheme wrapper
+  // below is the one seam that tells explicit picks apart: we restore our
+  // flavour whenever the runtime preference is NOT a built-in value the user
+  // clicked in the Appearance row THIS session, and choosing "off" in the
+  // Catppuccin row clears the persisted flavour before the switch so this
+  // guard does not fight it.
   ctx.effect(() => {
+    // Session-live record of the user's last EXPLICIT built-in pick, kept by
+    // the setTheme wrapper below. The wrapper is the only seam that
+    // distinguishes "the user clicked light/dark/system in the Appearance
+    // row" from "ThemeRuntime.adopt() copied the settings document's value
+    // at boot/reload" — adopt() writes the preference directly and never goes
+    // through setTheme, so a doc-adopted light/dark leaves this null and the
+    // guard below cannot mistake it for a user choice. Picking a Catppuccin
+    // flavour (or the wrapper's own flavour restore) clears the record.
+    let liveBuiltinPick: BuiltinPreference | null = null
+    const originalSetTheme = theme.setTheme
+    theme.setTheme = (id) => {
+      liveBuiltinPick = isBuiltinPreference(id) ? id : null
+      originalSetTheme.call(theme, id)
+    }
+
     const applyDesired = (): void => {
       // Record the built-in preference on every non-flavour observation (boot,
       // adopt() reloads, explicit Appearance changes) BEFORE any re-assert, so
@@ -219,10 +262,12 @@ export function apply(ctx: ClientContext): void {
       if (desired === 'off') return
       const preference = theme.getTheme().preference
       if (preference === desired) return
-      // Only "system" among the built-in preferences is the never-explicitly-
-      // chosen default that adopt() writes back on a settings-document reload;
-      // restore our flavour then. A user's explicit light/dark choice wins.
-      if (preference !== 'system') return
+      // A built-in preference only wins if the user explicitly picked it in
+      // THIS session (matching liveBuiltinPick). "system" and boot/adopt()
+      // values adopted from the settings document (liveBuiltinPick null) are
+      // stale for the plugin — the Catppuccin row choice is newer than the
+      // document's light/dark, so restore the flavour then.
+      if (builtinPickWins(preference, liveBuiltinPick)) return
       try {
         theme.setTheme(desired)
       } catch {
@@ -276,6 +321,9 @@ export function apply(ctx: ClientContext): void {
       disposer()
       window.removeEventListener('storage', onStorage)
       cancelDurablePersist()
+      // Undo the setTheme wrapper so a stopped plugin leaves the runtime as
+      // it found it.
+      theme.setTheme = originalSetTheme
     }
   }, 'catppuccin: theme restore')
 
