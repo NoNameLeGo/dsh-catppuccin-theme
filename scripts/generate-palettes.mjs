@@ -158,6 +158,23 @@ function staticTokens(flavor) {
  * alias + specific layers                                             *
  * ------------------------------------------------------------------ */
 
+/**
+ * Dark flavours: re-point the text aliases at the Catppuccin text ramp.
+ * The official dark alias table assumes the static ladder keeps its light
+ * grayscale values (bluish-400 = #adb2b8, bluish-600 = #81858c), but our dark
+ * ladder remaps those rungs to overlay/surface colours, so the inherited refs
+ * render dark-grey-on-dark (label-tertiary 2.4:1, label-caption 1.35:1 on menu
+ * surfaces — issue #7). Map the five-level text hierarchy onto the Catppuccin
+ * ramp text -> subtext1 -> subtext0 -> overlay2 -> overlay1 so every level
+ * keeps a readable contrast on dark surfaces.
+ */
+const darkTextRamp = {
+  'dsw-alias-label-primary-dimmed': 'var(--dsw-static-neutral-bluish-75)',
+  'dsw-alias-label-secondary': 'var(--dsw-static-neutral-bluish-100)',
+  'dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-200)',
+  'dsw-alias-label-caption': 'var(--dsw-static-neutral-bluish-300)',
+}
+
 /** Alias tokens: keep official values (var() refs resolve through our static overrides). */
 function aliasTokens(flavor) {
   const dark = catppuccin[flavor].dark
@@ -169,6 +186,7 @@ function aliasTokens(flavor) {
     out[name] = name === 'dsw-alias-brand-primary-new-colorprimary-new-color'
       ? ctp(flavor, 'blue')
       : value  }
+  if (dark) Object.assign(out, darkTextRamp)
   return out
 }
 

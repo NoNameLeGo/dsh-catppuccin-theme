@@ -58,6 +58,59 @@ describe('Catppuccin palettes', () => {
     expect(mocha.tokens['--dsw-static-neutral-bluish-950']).toBe('#11111b')
   })
 
+  describe('dark flavour text contrast (issue #7)', () => {
+    /** Follow var(--x) chains inside one flavour's token dictionary. */
+    const resolve = (tokens: Record<string, string>, name: string): string => {
+      let value = tokens[name]
+      for (let depth = 0; typeof value === 'string' && value.startsWith('var(') && depth < 10; depth++) {
+        value = tokens[value.slice(4, -1)]
+      }
+      return value
+    }
+    const luminance = (hex: string): number => {
+      const channel = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+      return 0.2126 * channel[0] + 0.7152 * channel[1] + 0.0722 * channel[2]
+    }
+    const contrast = (a: string, b: string): number => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+      return (hi + 0.05) / (lo + 0.05)
+    }
+    /** The five-level text hierarchy, brightest first. */
+    const TEXT_LEVELS = [
+      '--dsw-alias-label-primary',
+      '--dsw-alias-label-primary-dimmed',
+      '--dsw-alias-label-secondary',
+      '--dsw-alias-label-tertiary',
+      '--dsw-alias-label-caption',
+    ] as const
+    /** Worst-case floors on the menu surface (the darkest text surface pairing). */
+    const MENU_FLOORS: Record<(typeof TEXT_LEVELS)[number], number> = {
+      '--dsw-alias-label-primary': 6.0,
+      '--dsw-alias-label-primary-dimmed': 5.0,
+      '--dsw-alias-label-secondary': 4.0,
+      '--dsw-alias-label-tertiary': 3.4,
+      '--dsw-alias-label-caption': 2.75,
+    }
+
+    it('text levels keep their order and stay readable on dark surfaces', () => {
+      for (const f of CATPPUCCIN_FLAVORS) {
+        if (f.colorScheme !== 'dark') continue
+        const menu = resolve(f.tokens, '--dsw-specific-menu')
+        const base = resolve(f.tokens, '--dsw-alias-bg-base')
+        const ratios = TEXT_LEVELS.map((level) => contrast(resolve(f.tokens, level), menu))
+        for (let i = 1; i < ratios.length; i++) {
+          expect(ratios[i], `${f.themeId} ${TEXT_LEVELS[i]} dimmer than ${TEXT_LEVELS[i - 1]}`).toBeLessThan(ratios[i - 1])
+        }
+        for (const level of TEXT_LEVELS) {
+          const colour = resolve(f.tokens, level)
+          expect(contrast(colour, menu), `${f.themeId} ${level} on menu`).toBeGreaterThanOrEqual(MENU_FLOORS[level])
+          expect(contrast(colour, base), `${f.themeId} ${level} on base`).toBeGreaterThanOrEqual(MENU_FLOORS[level])
+        }
+      }
+    })
+  })
+
   it('brand pin resolves to the Catppuccin blue', () => {
     const latte = CATPPUCCIN_FLAVORS.find((f) => f.themeId === 'catppuccin-latte')!
     expect(latte.tokens['--dsw-alias-brand-primary-new-colorprimary-new-color']).toBe('#1e66f5')
