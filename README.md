@@ -13,6 +13,8 @@
 	<a href="https://www.npmjs.com/package/@nonamelego/dsh-catppuccin"><img src="https://img.shields.io/npm/dt/@nonamelego/dsh-catppuccin?colorA=363a4f&colorB=f5a97f&style=for-the-badge"></a>
 </p>
 
+**中文** | [English](README.en.md)
+
 ## 目录
 
 - [简介](#简介)
