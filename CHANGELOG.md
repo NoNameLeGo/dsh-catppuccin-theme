@@ -8,7 +8,41 @@
 
 ## [Unreleased]
 
-- 无
+### 计划（0.5.0，重构）
+
+- **持久化迁移到官方 settings 机制**：DSH 0.1.2 起 settings namespace 不再受
+  allowlist 限制（任意插件可 `ctx.settings.register` / `installSettingsSection`，
+  client 侧 `ctx.settingsScope.bind`）。计划删除自建的 `/catppuccin/state`
+  GET/PUT 路由、`src/host-state.ts`、`src/state-sync.ts` 的大部分与
+  `$DSH_HOME/catppuccin-state.json`，改用官方文档持久化（同样跨 Desktop
+  重启），大大减少自维护代码。
+- **设置行槽位（可选）**：Catppuccin / 玻璃 / 更新检查行可从
+  `settings.general.item` 迁到新版 `settings.plugin.item`（keyed 卡片槽，
+  Host 注册 namespace 后自动配对）。
+
+## [0.4.3] - 2026-08-29
+
+### 修复
+
+- **兼容 DSH 0.1.2-alpha.1（dsh-client-runtime 移除）**：0.1.2 起
+  `@deepseek-ai/dsh-client-runtime` 包被整体移除（slots 职责并入
+  `dsh-client-ui-renderer`，新版 web 组合不再提供该服务）。插件 client 半区
+  的 `dsh.client.inject` 声明了已不存在的 runtime 服务，会导致 client 半区
+  永久等待、主题与设置行不生效。现将 inject 目标改为
+  `@deepseek-ai/dsh-client-ui-renderer`，`ClientContext` 类型改从
+  `@deepseek-ai/cordis` 导入，并移除 tsdown 中对已废弃 runtime /client 的
+  external 豁免（该豁免现会生成运行时无法解析的 require，改为由纯度门在
+  构建期拦截）；devDeps 的 client 类型包从 `^0.1.0-rc.6` 升至
+  `^0.1.1-rc.2`（npm 当前可用版本，0.1.2 发布后再对齐）。
+  **注（临时类型 bridge）**：devDeps 中保留
+  `@deepseek-ai/dsh-client-runtime@^0.1.1-rc.2` 仅用于类型编译——0.1.1-rc.2
+  的 `dsh-client-ui-settings` / `ctx.slots` Context merge 仍由该包类型提供
+  （`dsh-client-ui-renderer` 自带 `ctx.slots` merge 是从 0.1.2 才开始的）。
+  运行时不注入该服务，0.1.2 发布、devDeps 对齐后即可移除。
+- 其余 API 经验证兼容：ThemeRuntime（register/setTheme/getTheme/theme/change）、
+  `--dsw-*`/`--dsw-alias-*`/`--shiki-*` token（名称与值零差异）、webServer
+  路由注册、slots/locale 注册、`settings.general.item` 槽位、React 18、
+  `dsh plugin --profile` CLI、cordis 4.0.1 均未变化。
 
 ## [0.4.2] - 2026-08-29
 
