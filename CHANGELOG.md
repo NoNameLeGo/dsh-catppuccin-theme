@@ -8,17 +8,13 @@
 
 ## [Unreleased]
 
-### 计划（0.5.0，重构）
+### 计划（0.5.0，重构——已决策：待 DSH 0.1.2 正式稳定后再做）
 
-- **持久化迁移到官方 settings 机制**：DSH 0.1.2 起 settings namespace 不再受
-  allowlist 限制（任意插件可 `ctx.settings.register` / `installSettingsSection`，
-  client 侧 `ctx.settingsScope.bind`）。计划删除自建的 `/catppuccin/state`
-  GET/PUT 路由、`src/host-state.ts`、`src/state-sync.ts` 的大部分与
-  `$DSH_HOME/catppuccin-state.json`，改用官方文档持久化（同样跨 Desktop
-  重启），大大减少自维护代码。
-- **设置行槽位（可选）**：Catppuccin / 玻璃 / 更新检查行可从
-  `settings.general.item` 迁到新版 `settings.plugin.item`（keyed 卡片槽，
-  Host 注册 namespace 后自动配对）。
+> **决策（2026-08-29）**：先发 0.4.3（兼容修复）。0.5.0 重构**非必需**——0.4.3 后插件在 0.1.1-rc.2 与 0.1.2-alpha.1 均正常，自建持久化稳定运行。重构是工程质量优化（少维护一套自建持久化），等 DSH 0.1.2 正式发布、官方 settings 机制稳定后再实施，届时 devDeps 同步对齐并移除 runtime 类型 bridge。
+
+- **持久化迁移到官方 settings 机制**：DSH 0.1.1-rc.2 起 settings namespace 已放开 allowlist（"注册即暴露"），`ctx.settings.register` / `installSettingsSection`（host）+ `ctx.settingsScope.bind`（client）两版 API 一致。计划删除自建的 `/catppuccin/state` GET/PUT 路由、`src/host-state.ts`、`src/state-sync.ts` 的大部分与 `$DSH_HOME/catppuccin-state.json`，改用官方文档持久化（同样跨 Desktop 重启）。
+  - **实现要点（向下兼容约束）**：① host 用 `installSettingsSection`（optional wiring），无 settings 服务的 profile 保持等待不崩；② client 保留 localStorage 兜底（settingsScope `status` 非 `ready` 时降级，仅影响跨重启持久）；③ 老用户 `catppuccin-state.json` 一次性迁移进官方 namespace（文件保留作回退）；④ `src/index.ts` 顶部过时的 allowlist 注释同步更新为"注册即暴露"事实。
+- **设置行槽位（可选）**：Catppuccin / 玻璃 / 更新检查行可从 `settings.general.item` 迁到 `settings.plugin.item`（keyed 卡片槽，rc.2 与 0.1.2 均支持，Host 注册 namespace 后自动配对）。
 
 ## [0.4.3] - 2026-08-29
 
