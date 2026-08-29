@@ -55,6 +55,22 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # 方案 A：changelog 门禁——正式版（版本号不含 `-`）发布前必须已在
+      # CHANGELOG.md 写好对应版本条目，防止「忘了更新日志」。
+      # 预发布（beta）跳过：beta 迭代频繁，正式化时再补正式条目。
+      - name: Verify changelog entry
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          case "$VERSION" in
+            *-*) echo "预发布 $VERSION：跳过 changelog 校验"; exit 0 ;;
+          esac
+          grep -qE "^## \[$VERSION\]" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md 缺少 [$VERSION] 条目，拒绝发布"
+            echo "::error::生成草稿：pnpm changelog:gen && pnpm changelog:gen -- --write"
+            exit 1
+          }
+          echo "✓ CHANGELOG.md 已包含 [$VERSION] 条目"
+
       # 仓库 .npmrc 指向 npmmirror，发布必须显式走 npmjs 才能命中 OIDC 信任。
       # prerelease 版本（如 0.2.5-beta.0）npm 强制要求 --tag，按版本自动选择：
       # 正式版 → latest，预发布 → beta。

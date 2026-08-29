@@ -32,7 +32,13 @@
 
 ### 1. 升版本 + 本地验证
 1. 编辑 `package.json` 的 `version`（连同本次要发布的代码改动）
-2. 本地自测：`pnpm build && pnpm test`（CI 也会跑同样步骤，但先自查）
+2. **更新 CHANGELOG.md**：在 `## [Unreleased]` 追加条目，或发版时把草稿生成后润色成 `## [<version>] - <日期>` 节。生成草稿：
+   ```bash
+   pnpm changelog:gen            # 打印 上一 tag..HEAD 的草稿（按 conventional 分组）
+   pnpm changelog:gen -- --write # 直接写入 [Unreleased] 节
+   ```
+   然后人工润色（补日期、合并条目、删噪音）。**正式版发版前必须已有对应 `## [<version>]` 条目**——publish.yml 的 `Verify changelog entry` 步会拦截缺失（预发布跳过该校验）。
+3. 本地自测：`pnpm build && pnpm test`（CI 也会跑同样步骤，但先自查）
 
 ### 2. 提交 + 打 tag + 推送（触发发布）
 ```bash
@@ -65,6 +71,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 
 ## 其它项目约定
 - 提交信息用中文 conventional 风格：`feat(...)` / `fix(...)` / `chore(release): ...` 等。
+- **CHANGELOG 双语**：希望 changelog 条目附带英文摘要时，在 commit 正文里写一行 `EN: <英文摘要>`（大小写不敏感）；`pnpm changelog:gen` 会自动把它渲染为 `- **中文标题**（EN: 英文）`。没有 `EN:` 行的 commit 只输出中文——双语是可选增强，不强制每条都要写英文。
 - 玻璃质感（玻璃拟态）皮肤代码在 `src/client/glass/`；主题调色板由 `pnpm gen:palettes` 生成（`scripts/generate-palettes.mjs`）。
 - dsh-TUI 主题文件在 `themes/`（四个风味各一个 `~/.dsh-tui/themes/` 用 JSON），由 `pnpm gen:themes` 生成（`scripts/generate-tui-themes.mjs`，读同一份官方色板缓存）；改键映射后重跑并核对 dsh-TUI `src/theme.ts` 的 Theme 键。
 - TUI 安装入口是 `src/tui-themes.ts`（子路径导出 `./tui-themes`，cordis.patch.yml 第二行）：激活时幂等同步主题到 `~/.dsh-tui/themes/`；dsh-TUI 没有主题注册 API，目录是唯一接缝，`catppuccin-*.json` 命名空间归本插件所有、同步即覆盖。
