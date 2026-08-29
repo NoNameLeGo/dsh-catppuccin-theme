@@ -270,7 +270,21 @@
 
 /* ---------- Sidebar (侧边栏): header-style glass card; the token fill on
    the column and its inner chrome goes transparent so the glass reads. The
-   root width inline-style is released so content follows the glass panel. ---------- */
+   root width inline-style is released so content follows the glass panel.
+   IMPORTANT — the column itself must stay free of backdrop-filter (and any
+   transform / filter / contain): each of those would make the element the
+   containing block of its position:fixed descendants, re-anchoring overlay
+   panels from the viewport to the column. Every plugin that opens a fixed
+   popover from a sidebar slot (dsh-cost-dashboard's div.cd-footerPanel and
+   .cd-footerMask are a pure-div pair with no role=dialog, so no :has()
+   dialog guard can see them) then lands inside the column, and the column's
+   overflow:hidden clips it into a narrow strip. The frosted fill + blur
+   therefore live on a ::before CHILD layer instead: a pseudo-element is not
+   an ancestor of the column's content, so its backdrop-filter blurs the
+   page ground behind the card without ever re-anchoring a fixed descendant
+   — the generic fix, no per-plugin selectors, all sidebar-slot popovers
+   (menus, dialogs, third-party dashboards) keep the viewport containing
+   block. ---------- */
 [data-dsh-glass-float] [class*='sidebarCol'] {
   --dsw-specific-sidebar-fill: transparent;
   position: relative;
@@ -286,27 +300,31 @@
      meets the chat, stronger on light glass, subdued on dark. */
   border-right-color: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 40%, transparent);
   border-radius: 20px;
-  background: var(--dsh-glass-card);
-  box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
+  box-shadow: var(--dsh-glass-drop);
   overflow: hidden;
+}
+
+/* The glass sheet: translucent fill + backdrop blur + top edge light drawn
+   on a child layer (negative z-index paints below the in-flow content, so
+   the sidebar's own rows stay readable on top of it; plain content needs
+   no extra z-index). The outer drop shadow stays on the column — it lives
+   outside the border box where the sheet cannot cover it. The radius
+   transition matches the rail collapse animation in the rule below. */
+[data-dsh-glass-float] [class*='sidebarCol']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dsh-glass-card);
+  box-shadow: var(--dsh-glass-edge);
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  z-index: -1;
+  pointer-events: none;
+  transition: border-radius 150ms var(--ds-ease-in-out);
 }
 
 [data-dsh-glass-float] body[data-ds-dark-theme] [class*='sidebarCol'] {
   border-right-color: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 22%, transparent);
-}
-
-/* While the settings dialog is open, the sidebar must not carry ANY
-   backdrop-filter: it re-anchors the dialog's fixed overlay into the
-   column (the panel traps at the column width instead of its designed
-   width) — ported from Aqua. */
-[data-dsh-glass-float] [class*='sidebarCol']:has([role='dialog']) {
-  backdrop-filter: none;
-}
-
-/* The sidebar's own glass blur (kept off the rule above so the dialog
-   guard can drop it cleanly). */
-[data-dsh-glass-float] [class*='sidebarCol'] {
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
 
 /* Collapsed rail: floats too (mica mode) — same geometry as the original
