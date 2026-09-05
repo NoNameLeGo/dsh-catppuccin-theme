@@ -47,17 +47,19 @@
     "themes",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "*.map"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
-    "prepare": "tsdown",
-    "watch": "tsdown --watch",
+    "build": "node scripts/gen-glass-css.mjs && tsdown",
+    "prepare": "node scripts/gen-glass-css.mjs && tsdown",
+    "watch": "node scripts/gen-glass-css.mjs && tsdown --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
+    "docs:api": "typedoc",
     "gen:palettes": "node scripts/generate-palettes.mjs",
     "gen:themes": "node scripts/generate-tui-themes.mjs",
     "changelog:gen": "node scripts/gen-changelog.mjs"
@@ -68,16 +70,16 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-brand": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-client-locale": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-renderer": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-settings": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-client-ui-theme": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-brand": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-session": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-scope": "^0.1.2-rc.1",
     "@deepseek-ai/dsh-invariants": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-scope": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-session": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-settings": "^0.1.2-rc.1",
     "@deepseek-ai/schemastery": "^3.18.2",
     "@types/node": "^26.2.0",
     "@types/react": "~18.3.1",
@@ -85,6 +87,7 @@
     "lightningcss": "^1.32.0",
     "react": "^18.2.0",
     "tsdown": "^0.22.2",
+    "typedoc": "^0.28.20",
     "typescript": "^5.7.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.8"

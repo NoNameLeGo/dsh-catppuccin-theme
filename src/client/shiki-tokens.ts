@@ -12,9 +12,18 @@
  * plugin's own --dsw-* overrides (foreground -> label-primary, background ->
  * markdown-code-block), so they automatically track the active flavour.  Every
  * other token is a literal hex from the Catppuccin palette.
+ *
+ * Styles (item M): the table is two-dimensional `SHIKI_TOKENS[flavor][style]`.
+ * DSH's shiki.css only consumes the --shiki-* variables as colours (no style
+ * attributes ride them — the highlighter owns font styles), so the
+ * `italic-comments` variant is expressed as the comment colour hierarchy
+ * difference it CAN carry: comments step down to the flavour's `subtext0`
+ * (softer, clearly secondary) instead of `overlay2`. If a future DSH ships a
+ * style-token layer, the variant should switch to font-style there instead.
  */
 
 import type { CatppuccinFlavorId } from './palettes.ts'
+import type { ShikiStyle } from '../state.ts'
 
 /** Shiki token names as defined by DSH's shiki.css. */
 export type ShikiTokenName =
@@ -52,7 +61,7 @@ export type ShikiTokens = Record<ShikiTokenName, string>
  * flavour's --dsw-* overrides; the rest are literal hex.
  */
 
-export const SHIKI_TOKENS: Record<CatppuccinFlavorId, ShikiTokens> = {
+const BASE: Record<CatppuccinFlavorId, ShikiTokens> = {
   latte: {
     '--shiki-foreground':             'var(--dsw-alias-label-primary)',
     '--shiki-background':             'var(--dsw-alias-markdown-code-block)',
@@ -107,5 +116,40 @@ export const SHIKI_TOKENS: Record<CatppuccinFlavorId, ShikiTokens> = {
     '--shiki-token-string-expression': '#a6e3a1', // green
     '--shiki-token-punctuation':      '#9399b2', // overlay2
     '--shiki-token-link':             '#89b4fa', // blue
+  },
+}
+
+/** Official Catppuccin `subtext0` per flavour — the comment colour of the
+ *  `italic-comments` variant (a step softer than `overlay2`, so comments
+ *  read clearly as secondary). */
+const SUBTEXT0: Record<CatppuccinFlavorId, string> = {
+  latte:    '#6c6f85',
+  frappe:   '#a5adce',
+  macchiato: '#a5adcb',
+  mocha:    '#a6adc8',
+}
+
+/** Re-point the comment token of a base dictionary. */
+function withComment(tokens: ShikiTokens, comment: string): ShikiTokens {
+  return { ...tokens, '--shiki-token-comment': comment }
+}
+
+/** Per-flavour × per-style shiki token dictionaries. */
+export const SHIKI_TOKENS: Record<CatppuccinFlavorId, Record<ShikiStyle, ShikiTokens>> = {
+  latte: {
+    default: BASE.latte,
+    'italic-comments': withComment(BASE.latte, SUBTEXT0.latte),
+  },
+  frappe: {
+    default: BASE.frappe,
+    'italic-comments': withComment(BASE.frappe, SUBTEXT0.frappe),
+  },
+  macchiato: {
+    default: BASE.macchiato,
+    'italic-comments': withComment(BASE.macchiato, SUBTEXT0.macchiato),
+  },
+  mocha: {
+    default: BASE.mocha,
+    'italic-comments': withComment(BASE.mocha, SUBTEXT0.mocha),
   },
 }

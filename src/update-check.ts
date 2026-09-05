@@ -5,6 +5,9 @@
  * This module is dependency-free so both bundles inline it.
  */
 import { compareVersions, parseVersion } from './versions.ts'
+import type { UpdateChannel } from './state.ts'
+
+export type { UpdateChannel } from './state.ts'
 
 /** The plugin's own npm name (the registry lookup key). */
 export const PACKAGE_NAME = '@nonamelego/dsh-catppuccin'
@@ -23,9 +26,6 @@ export const UPDATE_ROUTE_PATH = '/catppuccin/check-update'
 
 /** Network budget for the Host's registry lookup. */
 export const UPDATE_FETCH_TIMEOUT_MS = 8000
-
-/** Release channels the check knows about. */
-export type UpdateChannel = 'latest' | 'beta'
 
 /** The `dist-tags` object of an npm packument. */
 export interface DistTags {
@@ -53,22 +53,36 @@ export function updateCommandFor(channel: UpdateChannel, profile: string): strin
 
 /**
  * Pick the newest release worth reporting for the given install:
- * - a stable install only chases the `latest` tag (never downgrades onto a
- *   beta), so a stable user on the last stable sees "up to date";
- * - a prerelease install (e.g. a `beta`-tagged version) also chases `beta`,
- *   so beta users see newer betas — and a stable release that outranks their
- *   prerelease promotes them via `@latest`.
+ * - with NO channel preference: a stable install chases only `latest` (never
+ *   downgrades onto a beta), while a prerelease install (e.g. a
+ *   `beta`-tagged version) also chases `beta` — so beta users see newer
+ *   betas, and a stable release that outranks their prerelease promotes
+ *   them via `@latest`;
+ * - an explicit `beta` preference (the settings row's prerelease pick)
+ *   chases `beta` even from a stable install — beta testers opt in without
+ *   changing their install; the newest of the two tags still wins, so a
+ *   newer stable promotes them back onto `@latest`;
+ * - an explicit `latest` preference pins the check to the stable tag —
+ *   never a beta, even from a prerelease install.
  * @param current - the installed version.
  * @param tags - the registry's dist-tags.
+ * @param preferredChannel - optional persisted channel preference (item I).
  * @returns the newest candidate and its channel, or null when nothing applies.
  */
-export function selectNewest(current: string, tags: DistTags): NewestRelease | null {
+export function selectNewest(current: string, tags: DistTags, preferredChannel?: UpdateChannel): NewestRelease | null {
   const candidates: NewestRelease[] = []
   if (tags.latest !== undefined) candidates.push({ version: tags.latest, channel: 'latest' })
-  const parsed = parseVersion(current)
-  if (tags.beta !== undefined && parsed !== null && parsed.prerelease.length > 0) {
-    candidates.push({ version: tags.beta, channel: 'beta' })
+  if (preferredChannel === 'beta') {
+    // Beta chase, opt-in: follow the beta tag even from a stable install.
+    if (tags.beta !== undefined) candidates.push({ version: tags.beta, channel: 'beta' })
+  } else if (preferredChannel === undefined) {
+    // No preference: prerelease installs chase beta on top of latest.
+    const parsed = parseVersion(current)
+    if (tags.beta !== undefined && parsed !== null && parsed.prerelease.length > 0) {
+      candidates.push({ version: tags.beta, channel: 'beta' })
+    }
   }
+  // preferredChannel === 'latest': candidates hold the stable tag only.
   if (candidates.length === 0) return null
   let best = candidates[0]
   for (const candidate of candidates.slice(1)) {
@@ -79,11 +93,16 @@ export function selectNewest(current: string, tags: DistTags): NewestRelease | n
 
 /** Stable machine-readable outcome code (borrowed from the plugin-update
  *  error-code discipline of dsh-vision-toolkit): the Client maps it to copy
- *  instead of sniffing human text. */
+ *  instead of sniffing human text. `network.*` splits the old catch-all
+ *  `network` (item U): `network.local` means the browser→Host hop failed
+ *  (host unreachable / DNS — "check your network"), `network.upstream` means
+ *  the Host reached the registry but the lookup timed out ("npm is
+ *  temporarily unavailable"). */
 export type UpdateErrorCode =
   | 'ok'
-  | 'network'           // the same-origin fetch itself failed (client side)
-  | 'registry-unreachable' // npm registry could not be reached or timed out
+  | 'network.local'      // the same-origin fetch itself failed (client side)
+  | 'network.upstream'   // the Host's registry fetch timed out
+  | 'registry-unreachable' // npm registry could not be reached (fetch threw)
   | 'registry-http'     // registry answered with a non-2xx status
   | 'no-dist-tags'      // registry returned no usable dist-tags
   | 'invalid-response'  // registry response could not be parsed

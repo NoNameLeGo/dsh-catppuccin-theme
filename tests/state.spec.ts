@@ -18,6 +18,7 @@ import {
   defaultSettingsSection,
   defaultState,
   isDefaultState,
+  migrate,
   sanitizeState,
   settingsSectionFromState,
   settingsSectionsEqual,
@@ -27,7 +28,7 @@ import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
 import { CATPPUCCIN_FLAVOR_VALUES } from '../src/client/index.ts'
 
 describe('durable state defaults', () => {
-  it('defaults to no Catppuccin flavour and no glass', () => {
+  it('defaults to no Catppuccin flavour, no glass, auto-check on, stable channel', () => {
     expect(defaultState()).toEqual({
       version: STATE_VERSION,
       flavor: 'off',
@@ -38,6 +39,10 @@ describe('durable state defaults', () => {
         frost: 20,
         brightness: 50,
       },
+      autoCheck: true,
+      updateChannel: 'latest',
+      overrides: {},
+      shikiStyle: 'default',
     })
   })
 
@@ -46,6 +51,10 @@ describe('durable state defaults', () => {
     expect(isDefaultState(sanitizeState({ flavor: 'catppuccin-mocha' }))).toBe(false)
     expect(isDefaultState(sanitizeState({ glass: { enabled: true } }))).toBe(false)
     expect(isDefaultState(sanitizeState({ glass: { blur: 10 } }))).toBe(false)
+    expect(isDefaultState(sanitizeState({ autoCheck: false }))).toBe(false)
+    expect(isDefaultState(sanitizeState({ updateChannel: 'beta' }))).toBe(false)
+    expect(isDefaultState(sanitizeState({ overrides: { '--dsw-static-blue-500': '#89b4fa' } }))).toBe(false)
+    expect(isDefaultState(sanitizeState({ shikiStyle: 'italic-comments' }))).toBe(false)
   })
 
   it('uses the settled namespace and the legacy file name for migration', () => {
@@ -85,9 +94,67 @@ describe('sanitizeState', () => {
     expect(sanitizeState({ glass: { mode: 'weird' } }).glass.mode).toBe('mica')
   })
 
+  it('defaults the preference fields and accepts only their enum values', () => {
+    expect(sanitizeState({}).autoCheck).toBe(true)
+    expect(sanitizeState({ autoCheck: true }).autoCheck).toBe(true)
+    expect(sanitizeState({ autoCheck: false }).autoCheck).toBe(false)
+    expect(sanitizeState({ autoCheck: 'false' }).autoCheck).toBe(true) // non-boolean → default
+    expect(sanitizeState({}).updateChannel).toBe('latest')
+    expect(sanitizeState({ updateChannel: 'beta' }).updateChannel).toBe('beta')
+    expect(sanitizeState({ updateChannel: 'canary' }).updateChannel).toBe('latest')
+    expect(sanitizeState({}).shikiStyle).toBe('default')
+    expect(sanitizeState({ shikiStyle: 'italic-comments' }).shikiStyle).toBe('italic-comments')
+    expect(sanitizeState({ shikiStyle: 'rainbow' }).shikiStyle).toBe('default')
+  })
+
+  it('keeps only string values under -- prefixed keys in overrides', () => {
+    expect(sanitizeState({ overrides: { '--dsw-static-blue-500': '#89b4fa', '--x': 1, plain: '#000', '--empty': '' } }).overrides)
+      .toEqual({ '--dsw-static-blue-500': '#89b4fa', '--empty': '' })
+    expect(sanitizeState({ overrides: 'junk' }).overrides).toEqual({})
+    expect(sanitizeState({}).overrides).toEqual({})
+  })
+
   it('is idempotent — sanitizing a sanitized state changes nothing', () => {
-    const once = sanitizeState({ flavor: 'catppuccin-latte', glass: { enabled: true, blur: 9 } })
+    const once = sanitizeState({
+      flavor: 'catppuccin-latte',
+      glass: { enabled: true, blur: 9 },
+      autoCheck: false,
+      updateChannel: 'beta',
+      overrides: { '--dsw-static-blue-500': '#89b4fa' },
+      shikiStyle: 'italic-comments',
+    })
     expect(sanitizeState(once)).toEqual(once)
+  })
+})
+
+describe('migrate (item Y)', () => {
+  it('defaults non-object input', () => {
+    for (const input of [undefined, null, 42, 'x']) {
+      expect(migrate(input)).toEqual(defaultState())
+    }
+  })
+
+  it('rolls a v1 document forward with the new fields defaulted', () => {
+    const migrated = migrate({ version: 1, flavor: 'catppuccin-mocha', glass: { enabled: true, frosted: 'typo', blur: 30 } })
+    expect(migrated.version).toBe(STATE_VERSION)
+    expect(migrated.flavor).toBe('catppuccin-mocha')
+    expect(migrated.glass.enabled).toBe(true)
+    expect(migrated.glass.blur).toBe(30)
+    expect(migrated.glass.frost).toBe(DEFAULT_GLASS.frost) // unknown key defaulted
+    expect(migrated.autoCheck).toBe(true)
+    expect(migrated.updateChannel).toBe('latest')
+    expect(migrated.overrides).toEqual({})
+    expect(migrated.shikiStyle).toBe('default')
+  })
+
+  it('a version-less document is treated as v1', () => {
+    expect(migrate({ flavor: 'catppuccin-frappe' }).flavor).toBe('catppuccin-frappe')
+  })
+
+  it('a document from a NEWER plugin keeps every understood field (no nuke on downgrade)', () => {
+    const migrated = migrate({ version: 99, flavor: 'catppuccin-latte', autoCheck: false })
+    expect(migrated.flavor).toBe('catppuccin-latte')
+    expect(migrated.autoCheck).toBe(false)
   })
 })
 
@@ -105,14 +172,30 @@ describe('settings-document section helpers (0.5.0)', () => {
     expect(defaultSettingsSection()).toEqual({
       flavor: 'off',
       glass: { ...DEFAULT_GLASS },
+      autoCheck: true,
+      updateChannel: 'latest',
+      overrides: {},
+      shikiStyle: 'default',
     })
     expect(withoutVersion).not.toHaveProperty('version')
   })
 
   it('settingsSectionFromState drops the version and copies the glass knobs', () => {
-    const state = sanitizeState({ flavor: 'catppuccin-frappe', glass: { enabled: true, blur: 9 } })
+    const state = sanitizeState({
+      flavor: 'catppuccin-frappe',
+      glass: { enabled: true, blur: 9 },
+      updateChannel: 'beta',
+      overrides: { '--dsw-static-blue-500': '#89b4fa' },
+    })
     const section = settingsSectionFromState(state)
-    expect(section).toEqual({ flavor: 'catppuccin-frappe', glass: state.glass })
+    expect(section).toEqual({
+      flavor: 'catppuccin-frappe',
+      glass: state.glass,
+      autoCheck: true,
+      updateChannel: 'beta',
+      overrides: { '--dsw-static-blue-500': '#89b4fa' },
+      shikiStyle: 'default',
+    })
     expect(section).not.toHaveProperty('version')
     // The returned glass is a detached copy — mutating it cannot move state.
     section.glass.blur = 77
@@ -120,11 +203,18 @@ describe('settings-document section helpers (0.5.0)', () => {
   })
 
   it('stateFromSettingsSection re-sanitizes a document section into full state', () => {
-    const section = settingsSectionFromState(sanitizeState({ flavor: 'catppuccin-macchiato', glass: { blur: 3 } }))
+    const section = settingsSectionFromState(sanitizeState({
+      flavor: 'catppuccin-macchiato',
+      glass: { blur: 3 },
+      autoCheck: false,
+      shikiStyle: 'italic-comments',
+    }))
     const state = stateFromSettingsSection(section)
     expect(state.version).toBe(STATE_VERSION)
     expect(state.flavor).toBe('catppuccin-macchiato')
     expect(state.glass.blur).toBe(3)
+    expect(state.autoCheck).toBe(false)
+    expect(state.shikiStyle).toBe('italic-comments')
     // Hand-edited garbage is clamped back to sane values.
     expect(stateFromSettingsSection({ flavor: 'garbage', glass: { blur: 9999 } } as never).flavor).toBe('off')
     expect(stateFromSettingsSection({ flavor: 'garbage', glass: { blur: 9999 } } as never).glass.blur).toBe(40)
@@ -135,5 +225,13 @@ describe('settings-document section helpers (0.5.0)', () => {
     expect(settingsSectionsEqual(base, defaultSettingsSection())).toBe(true)
     expect(settingsSectionsEqual(base, { ...base, flavor: 'catppuccin-latte' })).toBe(false)
     expect(settingsSectionsEqual(base, { ...base, glass: { ...base.glass, blur: 10 } })).toBe(false)
+    expect(settingsSectionsEqual(base, { ...base, autoCheck: false })).toBe(false)
+    expect(settingsSectionsEqual(base, { ...base, updateChannel: 'beta' })).toBe(false)
+    expect(settingsSectionsEqual(base, { ...base, shikiStyle: 'italic-comments' })).toBe(false)
+    expect(settingsSectionsEqual(base, { ...base, overrides: { '--dsw-static-blue-500': '#89b4fa' } })).toBe(false)
+    expect(settingsSectionsEqual(
+      { ...base, overrides: { '--a': '1', '--b': '2' } },
+      { ...base, overrides: { '--b': '2', '--a': '1' } },
+    )).toBe(true)
   })
 })

@@ -8,6 +8,23 @@
 
 ## [Unreleased]
 
+### 非视觉改进批次（2026-09-06，按 docs/plugin-improvements.md 实施）
+
+> 只实施无视觉判断的改进项；视觉项（预览图/skin 调优等）由视觉模型或人工复核收尾，见 `docs/plugin-improvements.md` 跟踪表。
+
+- **持久化读侧一致性（C/X）**：`persistStateToScope` 写回前比对 snapshot revision——文档在防抖窗口内被外部推进且非本方回显时放弃本地写并重采纳远端状态；UpdateRow 显示「另一窗口已更新，本地改动未保存」横幅。写侧 fencing 仍由 `scope.mutate` 负责，未重复造乐观锁。（EN: read-side durability guard + conflict banner）
+- **glass seam stamper 防抖（N）**：MutationObserver 回调按 `requestAnimationFrame` 合批，每帧最多一次 stamp、无变更帧零开销。（EN: rAF-batched seam stamping）
+- **glass CSS 懒加载（II）**：`glass.module.css` 不再随 bundle 急切注入——构建脚本生成 `glass-css.gen.ts` 文本，`GlassLayer` 启用时才挂 `<style>`、关闭即移除。（EN: lazy-mounted glass stylesheet）
+- **host half 拆分（A）**：update-check 路由迁出 `src/index.ts` 到 `src/update-check/host.ts`（index ≤120 行）。（EN: extracted update-check host module）
+- **更新检查增强（H/I/U/V/W）**：`autoCheck` 开关（启动 + 每 6h 自动检查）；渠道 segmented（latest/beta，`selectNewest` 三态 + 按渠道分桶缓存）；错误码细分为 `network.local` / `network.upstream`；失败 30s 后自动重试一次；ETag 条件请求（304 复用缓存）。（EN: auto-check, channel pick, error-code split, one retry, ETag caching）
+- **token 覆盖与懒注册（K/JJ/M）**：`overrides` KV 覆盖（CatppuccinRow 折叠编辑器，注册时合并）；主题改懒注册——只注册当前风味、选中时按需注册；`shikiStyle` 二维表（default / italic-comments）+ 选择器。（EN: token overrides, lazy theme registration, shiki style pick）
+- **TUI 同步加固（R/S/T）**：owned 文件漂移默认 `.bak` 备份后再写（可选 overwrite/preserve）；`dryRun` 只报告 planned writes；`catppuccin-community/` 子目录 write-if-missing 同步。（EN: backup-on-conflict, dry-run, community themes）
+- **契约与迁移（Y）**：`src/state.ts` 新增 `migrate(raw)` 版本迁移入口，`docs/state-migrations.md` 记录约定。（EN: state migration entry + doc）
+- **e2e（EE）**：`tests/e2e/update-check.e2e.spec.ts` 用真 cordis + 真 HTTP 服务断言路由契约/渠道/缓存/304/502 与 settings 注册。（EN: real-cordis e2e for the update route）
+- **palette 锁定（L）**：`generate-palettes.mjs --pin <sha>` 把上游 commit 写进 `palettes.ts` 头部 `// UPSTREAM_PIN`。（EN: upstream pin flag）
+- **国际化与可访问性（CC/DD/J/AA）**：新增 ja/ko/es/fr/de 字典（key 集合同步由 `tests/locales.spec.ts` 锁定）；风味副标题；row 帮助徽标（上游无 tooltip API，原生 title 落地）；glass segmented roving tabindex + 方向键。（EN: 5 new locales, flavour subtitles, help affordance, segmented keyboard nav）
+- **DX（GG/HH/KK）**：`CONTRIBUTING.md` 贡献指南；typedoc 生成 `docs/api/`（`pnpm docs:api`）；host 侧构建开 sourcemap 并发布 `*.map`。（EN: contributing guide, typedoc, sourcemaps）
+
 ### 0.5.0：持久化重构到官方 settings 机制（已实施，待发版）
 
 > **决策（2026-08-29）**：先发 0.4.3（兼容修复）。0.5.0 重构**非必需**——0.4.3 后插件在 0.1.1-rc.2 与 0.1.2-alpha.1 均正常，自建持久化稳定运行。重构是工程质量优化（少维护一套自建持久化），等 DSH 0.1.2 正式发布、官方 settings 机制稳定后再实施，届时 devDeps 同步对齐并移除 runtime 类型 bridge。

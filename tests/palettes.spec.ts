@@ -255,6 +255,7 @@ describe('shiki syntax highlighting tokens', () => {
     '--shiki-token-punctuation',
     '--shiki-token-link',
   ] as const
+  const STYLES = ['default', 'italic-comments'] as const
 
   it('covers all four flavours', () => {
     expect(Object.keys(SHIKI_TOKENS).sort()).toEqual([
@@ -265,37 +266,49 @@ describe('shiki syntax highlighting tokens', () => {
     ])
   })
 
-  it('every flavour has all required shiki tokens', () => {
-    for (const [flavorId, tokens] of Object.entries(SHIKI_TOKENS)) {
-      for (const token of REQUIRED_TOKENS) {
-        expect(tokens[token], `${flavorId} ${token}`).toBeTruthy()
+  it('every flavour carries both styles (item M)', () => {
+    for (const flavorId of Object.keys(SHIKI_TOKENS)) {
+      expect(Object.keys(SHIKI_TOKENS[flavorId as keyof typeof SHIKI_TOKENS]).sort()).toEqual([...STYLES])
+    }
+  })
+
+  it('every flavour × style has all required shiki tokens', () => {
+    for (const [flavorId, styles] of Object.entries(SHIKI_TOKENS)) {
+      for (const style of STYLES) {
+        for (const token of REQUIRED_TOKENS) {
+          expect(styles[style][token], `${flavorId} ${style} ${token}`).toBeTruthy()
+        }
       }
     }
   })
 
   it('foreground and background use var() references', () => {
-    for (const [, tokens] of Object.entries(SHIKI_TOKENS)) {
-      expect(tokens['--shiki-foreground']).toBe('var(--dsw-alias-label-primary)')
-      expect(tokens['--shiki-background']).toBe('var(--dsw-alias-markdown-code-block)')
+    for (const styles of Object.values(SHIKI_TOKENS)) {
+      for (const tokens of Object.values(styles)) {
+        expect(tokens['--shiki-foreground']).toBe('var(--dsw-alias-label-primary)')
+        expect(tokens['--shiki-background']).toBe('var(--dsw-alias-markdown-code-block)')
+      }
     }
   })
 
   it('all token colours are valid hex or var()', () => {
     const hexRe = /^#[0-9a-fA-F]{6}$/
     const varRe = /^var\(--[a-zA-Z-]+\)$/
-    for (const [, tokens] of Object.entries(SHIKI_TOKENS)) {
-      for (const token of REQUIRED_TOKENS) {
-        const value = tokens[token]
-        expect(
-          hexRe.test(value) || varRe.test(value),
-          `${token} = ${value} is not a valid hex colour or var() ref`,
-        ).toBe(true)
+    for (const styles of Object.values(SHIKI_TOKENS)) {
+      for (const tokens of Object.values(styles)) {
+        for (const token of REQUIRED_TOKENS) {
+          const value = tokens[token]
+          expect(
+            hexRe.test(value) || varRe.test(value),
+            `${token} = ${value} is not a valid hex colour or var() ref`,
+          ).toBe(true)
+        }
       }
     }
   })
 
   it('Mocha constants match the Catppuccin palette', () => {
-    const m = SHIKI_TOKENS.mocha
+    const m = SHIKI_TOKENS.mocha.default
     expect(m['--shiki-token-constant']).toBe('#fab387') // peach
     expect(m['--shiki-token-string']).toBe('#a6e3a1')   // green
     expect(m['--shiki-token-comment']).toBe('#9399b2')   // overlay2
@@ -307,7 +320,7 @@ describe('shiki syntax highlighting tokens', () => {
   })
 
   it('Latte constants match the Catppuccin palette', () => {
-    const l = SHIKI_TOKENS.latte
+    const l = SHIKI_TOKENS.latte.default
     expect(l['--shiki-token-constant']).toBe('#fe640b') // peach
     expect(l['--shiki-token-string']).toBe('#40a02b')   // green
     expect(l['--shiki-token-comment']).toBe('#7c7f93')   // overlay2
@@ -321,17 +334,26 @@ describe('shiki syntax highlighting tokens', () => {
   it('each dark flavour has distinct palette-derived colours', () => {
     // Frappé, Macchiato, and Mocha should all have different hex values
     // because their palettes differ.
-    const f = SHIKI_TOKENS.frappe
-    const ma = SHIKI_TOKENS.macchiato
-    const mo = SHIKI_TOKENS.mocha
+    const f = SHIKI_TOKENS.frappe.default
+    const ma = SHIKI_TOKENS.macchiato.default
+    const mo = SHIKI_TOKENS.mocha.default
     // At least the peach (constant) should differ across flavours.
     const peaches = new Set([f['--shiki-token-constant'], ma['--shiki-token-constant'], mo['--shiki-token-constant']])
     expect(peaches.size).toBe(3)
   })
 
   it('string and string-expression are identical within each flavour', () => {
-    for (const [, tokens] of Object.entries(SHIKI_TOKENS)) {
-      expect(tokens['--shiki-token-string-expression']).toBe(tokens['--shiki-token-string'])
+    for (const styles of Object.values(SHIKI_TOKENS)) {
+      for (const tokens of Object.values(styles)) {
+        expect(tokens['--shiki-token-string-expression']).toBe(tokens['--shiki-token-string'])
+      }
+    }
+  })
+
+  it('the italic-comments variant softens the comment colour to subtext0 (item M)', () => {
+    for (const [flavorId, styles] of Object.entries(SHIKI_TOKENS)) {
+      const comments = new Set([styles.default['--shiki-token-comment'], styles['italic-comments']['--shiki-token-comment']])
+      expect(comments.size, `${flavorId} variant must differ from the default`).toBe(2)
     }
   })
 })

@@ -5,7 +5,7 @@
  * compatibility), blur, frost and backdrop brightness. Every write goes
  * straight through to the glass layer, so the skin moves live.
  */
-import { useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
 import type { CatppuccinKey } from '../locales.ts'
@@ -74,7 +74,10 @@ function Knob(props: {
   )
 }
 
-/** A two-option segmented picker. */
+/** A two-option segmented picker with roving tabindex (item AA): only the
+ *  selected cell is tabbable, Arrow/Home/End move focus WITHOUT selecting,
+ *  and Enter/Space (or click) commits — the WAI-ARIA roving-tabindex
+ *  pattern for segmented controls. */
 function Segmented<T extends string>(props: {
   label: string
   value: T
@@ -82,14 +85,61 @@ function Segmented<T extends string>(props: {
   onSelect: (value: T) => void
 }): React.JSX.Element {
   const { label, value, options, onSelect } = props
+  const [focused, setFocused] = useState<T | null>(null)
+  const refs = useRef(new Map<T, HTMLButtonElement>())
+
+  const moveFocus = (direction: 1 | -1 | 'home' | 'end'): void => {
+    const current = focused ?? value
+    const index = options.findIndex((option) => option.id === current)
+    let next: number
+    if (direction === 'home') next = 0
+    else if (direction === 'end') next = options.length - 1
+    else next = Math.min(options.length - 1, Math.max(0, index + direction))
+    const target = options[next]
+    if (target === undefined) return
+    setFocused(target.id)
+    refs.current.get(target.id)?.focus()
+  }
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        event.preventDefault()
+        moveFocus(-1)
+        break
+      case 'ArrowRight':
+      case 'ArrowDown':
+        event.preventDefault()
+        moveFocus(1)
+        break
+      case 'Home':
+        event.preventDefault()
+        moveFocus('home')
+        break
+      case 'End':
+        event.preventDefault()
+        moveFocus('end')
+        break
+    }
+  }
+
   return (
     <div className={css.segmented} role="group" aria-label={label}>
       {options.map((option) => (
         <button
           key={option.id}
+          ref={(node) => {
+            if (node === null) refs.current.delete(option.id)
+            else refs.current.set(option.id, node)
+          }}
           type="button"
           className={option.id === value ? css.segActive : css.seg}
           aria-pressed={option.id === value}
+          tabIndex={option.id === (focused ?? value) ? 0 : -1}
+          onFocus={() => { setFocused(option.id) }}
+          onBlur={() => { setFocused((now) => (now === option.id ? null : now)) }}
+          onKeyDown={onKeyDown}
           onClick={() => { onSelect(option.id) }}
         >
           {option.label}
@@ -132,7 +182,31 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
 
   return (
     <div className={css.group}>
-      <div className={css.title}>{t('glass.title')}</div>
+      <div className={css.title}>
+        {t('glass.title')}
+        <span
+          role="img"
+          aria-label={t('glass.helpLabel')}
+          title={t('glass.help')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            border: '1px solid var(--dsw-alias-border-l2)',
+            color: 'var(--dsw-alias-label-tertiary)',
+            fontSize: 11,
+            lineHeight: 1,
+            cursor: 'help',
+            userSelect: 'none',
+            marginLeft: 6,
+          }}
+        >
+          ?
+        </span>
+      </div>
       <div className={css.description}>{t('glass.description')}</div>
       <div className={css.controls}>
         <div className={css.row}>

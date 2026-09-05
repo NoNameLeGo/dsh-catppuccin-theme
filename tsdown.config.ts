@@ -10,6 +10,9 @@ export default clientBundle(
       // 的包名是 @deepseek-ai/schemastery（0.5.0 起 host 半区真实值导入它来
       // 构造 settings schema，external 必须用全名否则会被打进 bundle）。
       external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-settings', '@deepseek-ai/schemastery'],
+      // 发布 sourcemap（item KK）：用户报错的 stack trace 可读；配合 package.json
+      // `files` 里的 "*.map" 一起发布。client 半区在 tsdown.client.ts 里本来就开。
+      sourcemap: true,
     },
   },
 )

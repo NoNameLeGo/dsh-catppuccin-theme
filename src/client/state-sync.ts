@@ -21,6 +21,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
   CATPPUCCIN_SETTINGS_NS,
   settingsSectionFromState,
+  settingsSectionsEqual,
   stateFromSettingsSection,
   type CatppuccinSettingsSection,
   type CatppuccinState,
@@ -67,20 +68,79 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
     { op: 'set', path: ['glass', 'blur'], value: section.glass.blur },
     { op: 'set', path: ['glass', 'frost'], value: section.glass.frost },
     { op: 'set', path: ['glass', 'brightness'], value: section.glass.brightness },
+    { op: 'set', path: ['autoCheck'], value: section.autoCheck },
+    { op: 'set', path: ['updateChannel'], value: section.updateChannel },
+    { op: 'set', path: ['overrides'], value: section.overrides },
+    { op: 'set', path: ['shikiStyle'], value: section.shikiStyle },
   ]
 }
 
-/** Persist the local state through the scope as one atomic mutation.
- *  Resolves `true` when the write was issued. */
+/** Outcome of one durable persist attempt (item C/X). */
+export type PersistOutcome =
+  /** The mutation was issued (the Host may still fence-stall it later). */
+  | 'written'
+  /** The local state already equals the document — nothing to write. */
+  | 'noop'
+  /** The document moved past the revision the local state was derived from:
+   *  the local change is a stale write-back and was NOT written — the
+   *  remote (newer) state wins and the caller should adopt it + notify. */
+  | 'stale'
+  /** The write failed (transport error / rejected mutation). */
+  | 'error'
+
+/**
+ * Read-side consistency guard for the durable persist (items C/X).
+ *
+ * The WRITE side is already revision-fenced by `scope.mutate(...)` (the
+ * Host rejects an outdated revision), so no optimistic locking is re-built
+ * here. What the fence cannot see is a STALE LOCAL VIEW: tab A reads an old
+ * localStorage value, the user changes flavour, and the debounced flush
+ * writes that old-based state over tab B's already-committed newer choice.
+ *
+ * The guard compares the revision the local state was derived from
+ * (`baseRevision`, captured at schedule time) with the snapshot revision at
+ * flush time:
+ *  - equal → the document did not move while we were debouncing → write.
+ *  - moved, and the remote section equals our own last written section →
+ *    the movement is our own write's echo, safe to write the newer change.
+ *  - moved otherwise → an external edit landed mid-debounce; the local
+ *    change is stale, so it is abandoned and `stale` is returned so the
+ *    caller can adopt the remote state and surface the conflict.
+ * Also returns `noop` when the local state already equals the document
+ * (the normal echo back of our own committed writes; previously this wrote
+ * a redundant identical mutation).
+ */
 export async function persistStateToScope(
   scope: SettingsScope<CatppuccinSettingsSection>,
   state: CatppuccinState,
-): Promise<boolean> {
+  options: {
+    /** Snapshot revision the local state was derived from (captured at
+     *  schedule time). Omit to skip the read-side guard entirely. */
+    baseRevision?: number | undefined
+    /** Section of the last successfully issued write (our own echo
+     *  fingerprint — revision movement matching it is not a conflict). */
+    lastWrittenSection?: CatppuccinSettingsSection | undefined
+  } = {},
+): Promise<PersistOutcome> {
   try {
+    const snapshot = scope.getSnapshot()
+    if (!isScopeUsable(snapshot)) return 'error'
+    const remote = durableStateFromSnapshot(snapshot)
+    const localSection = settingsSectionFromState(state)
+    if (remote !== null && settingsSectionsEqual(settingsSectionFromState(remote), localSection)) {
+      return 'noop'
+    }
+    const { baseRevision, lastWrittenSection } = options
+    if (baseRevision !== undefined && snapshot.revision !== undefined && snapshot.revision !== baseRevision) {
+      const ourOwnEcho = lastWrittenSection !== undefined
+        && remote !== null
+        && settingsSectionsEqual(settingsSectionFromState(remote), lastWrittenSection)
+      if (!ourOwnEcho) return 'stale'
+    }
     await scope.mutate(stateToMutateOps(state))
-    return true
+    return 'written'
   } catch {
-    return false
+    return 'error'
   }
 }
 

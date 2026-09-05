@@ -18,7 +18,10 @@ import Schema from '@deepseek-ai/schemastery'
 import {
   CATPPUCCIN_SETTINGS_NS,
   CATPPUCCIN_THEME_IDS,
+  DEFAULT_AUTO_CHECK,
   DEFAULT_GLASS,
+  DEFAULT_SHIKI_STYLE,
+  DEFAULT_UPDATE_CHANNEL,
   defaultSettingsSection,
   type CatppuccinSettingsSection,
 } from './state.ts'
@@ -29,7 +32,11 @@ export { CATPPUCCIN_SETTINGS_NS }
  * The schemastery schema resolving the namespace's value. Every field maps
  * 1:1 onto the shared contract in `src/state.ts`; `defaultSettingsSection()`
  * is the composition `base` registered alongside it, so an absent user
- * section resolves to the shipped defaults.
+ * section resolves to the shipped defaults. Fields added after v1
+ * (`autoCheck` / `updateChannel` / `overrides` / `shikiStyle`) carry their
+ * own schema defaults, so an older document resolves them instead of
+ * breaking — the same forward-compatibility the client-side `sanitizeState`
+ * provides.
  */
 export const CatppuccinSettingsSchema = Schema.object({
   flavor: Schema.union([...CATPPUCCIN_THEME_IDS, 'off']).default('off'),
@@ -40,6 +47,10 @@ export const CatppuccinSettingsSchema = Schema.object({
     frost: Schema.number().min(0).max(100).default(DEFAULT_GLASS.frost),
     brightness: Schema.number().min(0).max(100).default(DEFAULT_GLASS.brightness),
   }),
+  autoCheck: Schema.boolean().default(DEFAULT_AUTO_CHECK),
+  updateChannel: Schema.union(['latest', 'beta']).default(DEFAULT_UPDATE_CHANNEL),
+  overrides: Schema.dict(Schema.string()).default({}),
+  shikiStyle: Schema.union(['default', 'italic-comments']).default(DEFAULT_SHIKI_STYLE),
 })
 
 /** The composition `base` for the namespace: the shipped defaults. */

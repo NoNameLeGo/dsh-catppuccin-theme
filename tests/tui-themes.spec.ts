@@ -37,7 +37,7 @@ describe('syncTuiThemes', () => {
     expect(syncTuiThemes(BUNDLED, home)).toEqual([])
   })
 
-  it('overwrites a drifted owned file back to the shipped copy', () => {
+  it('backs up a drifted owned file and writes the shipped copy (default conflict = backup)', () => {
     const home = join(scratch, 'fresh-home')
     const dest = join(home, 'themes', 'catppuccin-mocha.json')
     writeFileSync(dest, '{ "hijacked": true }')
@@ -45,6 +45,41 @@ describe('syncTuiThemes', () => {
     expect(readFileSync(dest, 'utf8')).toBe(
       readFileSync(join(BUNDLED, 'catppuccin-mocha.json'), 'utf8'),
     )
+    // The user's customization survives next to it (item R).
+    expect(readFileSync(`${dest}.bak`, 'utf8')).toBe('{ "hijacked": true }')
+  })
+
+  it('preserve leaves a drifted owned file alone', () => {
+    const home = join(scratch, 'preserve-home')
+    mkdirSync(home)
+    syncTuiThemes(BUNDLED, home) // fresh home: everything in sync afterwards
+    const dest = join(home, 'themes', 'catppuccin-mocha.json')
+    writeFileSync(dest, '{ "mine": true }')
+    expect(syncTuiThemes(BUNDLED, home, { onConflict: 'preserve' })).toEqual([])
+    expect(readFileSync(dest, 'utf8')).toBe('{ "mine": true }')
+  })
+
+  it('overwrite restores the historical force-sync behavior', () => {
+    const home = join(scratch, 'overwrite-home')
+    mkdirSync(home)
+    syncTuiThemes(BUNDLED, home) // fresh home: everything in sync afterwards
+    const dest = join(home, 'themes', 'catppuccin-mocha.json')
+    writeFileSync(dest, '{ "nope": true }')
+    expect(syncTuiThemes(BUNDLED, home, { onConflict: 'overwrite' })).toEqual(['catppuccin-mocha.json'])
+    expect(readFileSync(dest, 'utf8')).toBe(readFileSync(join(BUNDLED, 'catppuccin-mocha.json'), 'utf8'))
+    expect(() => readFileSync(`${dest}.bak`)).toThrow() // no backup under overwrite
+  })
+
+  it('dry-run reports the planned writes without touching the disk (item S)', () => {
+    const home = join(scratch, 'dryrun-home')
+    mkdirSync(home)
+    syncTuiThemes(BUNDLED, home) // fresh home: everything in sync afterwards
+    const dest = join(home, 'themes', 'catppuccin-mocha.json')
+    writeFileSync(dest, '{ "custom": true }')
+    const planned = syncTuiThemes(BUNDLED, home, { dryRun: true })
+    expect(planned).toEqual(['catppuccin-mocha.json'])
+    expect(readFileSync(dest, 'utf8')).toBe('{ "custom": true }') // untouched
+    expect(() => readFileSync(`${dest}.bak`)).toThrow() // no backup taken
   })
 
   it('never touches files outside the catppuccin-*.json namespace', () => {
@@ -54,5 +89,36 @@ describe('syncTuiThemes', () => {
     writeFileSync(userTheme, '{ "name": "my-custom" }')
     syncTuiThemes(BUNDLED, home)
     expect(readFileSync(userTheme, 'utf8')).toBe('{ "name": "my-custom" }')
+  })
+
+  it('synces community themes write-if-missing and never overwrites (item T)', () => {
+    const home = join(scratch, 'community-home')
+    const communityDir = join(home, 'themes', 'catppuccin-community')
+    mkdirSync(communityDir, { recursive: true })
+    writeFileSync(join(communityDir, 'comrade.json'), '{ "name": "comrade" }')
+    writeFileSync(join(communityDir, 'occupied.json'), '{ "name": "community-copy" }')
+    // An existing theme with the same name must win over the community copy.
+    writeFileSync(join(home, 'themes', 'occupied.json'), '{ "name": "user-copy" }')
+    expect(syncTuiThemes(BUNDLED, home, { communityDir }).sort()).toEqual([
+      'catppuccin-frappe.json',
+      'catppuccin-latte.json',
+      'catppuccin-macchiato.json',
+      'catppuccin-mocha.json',
+      'comrade.json',
+    ])
+    expect(readFileSync(join(home, 'themes', 'occupied.json'), 'utf8')).toBe('{ "name": "user-copy" }')
+    // Second run: everything is in sync, community included.
+    expect(syncTuiThemes(BUNDLED, home, { communityDir })).toEqual([])
+  })
+
+  it('no-ops when the community dir is absent', () => {
+    const home = join(scratch, 'no-community-home')
+    mkdirSync(home)
+    expect(syncTuiThemes(BUNDLED, home, { communityDir: join(home, 'themes', 'catppuccin-community') })).toEqual([
+      'catppuccin-frappe.json',
+      'catppuccin-latte.json',
+      'catppuccin-macchiato.json',
+      'catppuccin-mocha.json',
+    ])
   })
 })

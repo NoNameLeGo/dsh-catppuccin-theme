@@ -20,6 +20,13 @@
  */
 export const STATE_VERSION = 1
 
+/** Release channels the update check knows about (a persisted preference;
+ *  `selectNewest` in `update-check.ts` consumes it). */
+export type UpdateChannel = 'latest' | 'beta'
+
+/** Shiki syntax-highlighting style variants (see `src/client/shiki-tokens.ts`). */
+export type ShikiStyle = 'default' | 'italic-comments'
+
 /** Settings namespace both halves address: Host registers it, Client binds
  *  it through `ctx.settingsScope` (see `src/settings-catppuccin.ts`). */
 export const CATPPUCCIN_SETTINGS_NS = 'catppuccin'
@@ -65,6 +72,14 @@ export interface CatppuccinState {
   flavor: FlavorValue
   /** Glass-layer settings (enable flag + knobs). */
   glass: GlassState
+  /** Automatically re-check for updates (boot + periodic, while on). */
+  autoCheck: boolean
+  /** Release channel the update check chases. */
+  updateChannel: UpdateChannel
+  /** Per-token `--dsw-*` overrides merged LAST into the active theme. */
+  overrides: Record<string, string>
+  /** Shiki syntax-highlighting style variant. */
+  shikiStyle: ShikiStyle
 }
 
 /** The settings-document section: `CatppuccinState` minus the synthetic
@@ -75,6 +90,14 @@ export interface CatppuccinSettingsSection {
   flavor: FlavorValue
   /** Glass-layer settings (enable flag + knobs). */
   glass: GlassState
+  /** Automatically re-check for updates (boot + periodic, while on). */
+  autoCheck: boolean
+  /** Release channel the update check chases. */
+  updateChannel: UpdateChannel
+  /** Per-token `--dsw-*` overrides merged LAST into the active theme. */
+  overrides: Record<string, string>
+  /** Shiki syntax-highlighting style variant. */
+  shikiStyle: ShikiStyle
 }
 
 /** Shipped glass defaults — the single source of truth; the client glass layer
@@ -87,13 +110,38 @@ export const DEFAULT_GLASS: GlassState = {
   brightness: 50,
 }
 
+/** Shipped update-check preference: automatic checks on. */
+export const DEFAULT_AUTO_CHECK = true
+/** Shipped update-check channel: chase the stable `latest` tag. */
+export const DEFAULT_UPDATE_CHANNEL: UpdateChannel = 'latest'
+/** Shipped syntax-highlighting style. */
+export const DEFAULT_SHIKI_STYLE: ShikiStyle = 'default'
+
 /** A fully default state: no Catppuccin flavour and no glass. */
 export function defaultState(): CatppuccinState {
   return {
     version: STATE_VERSION,
     flavor: 'off',
     glass: { ...DEFAULT_GLASS },
+    autoCheck: DEFAULT_AUTO_CHECK,
+    updateChannel: DEFAULT_UPDATE_CHANNEL,
+    overrides: {},
+    shikiStyle: DEFAULT_SHIKI_STYLE,
   }
+}
+
+/**
+ * Keep only well-formed custom token overrides: string values under a `--`
+ * key (the token shape `--dsw-*` names). Everything else is dropped so a
+ * hand-edited document can never smuggle junk into the theme registration.
+ */
+export function sanitizeOverrides(input: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (typeof input !== 'object' || input === null) return out
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === 'string' && key.startsWith('--')) out[key] = value
+  }
+  return out
 }
 
 /** Clamp a finite number into [min, max]; non-finite values fall back. */
@@ -131,7 +179,35 @@ export function sanitizeState(input: unknown): CatppuccinState {
   state.glass.frost = clampFinite(glass.frost, 0, 100, DEFAULT_GLASS.frost)
   state.glass.brightness = clampFinite(glass.brightness, 0, 100, DEFAULT_GLASS.brightness)
 
+  // Preference fields: absent values keep their shipped defaults, so a v1
+  // document (predating them) rolls forward without a migration step.
+  state.autoCheck = raw.autoCheck !== false
+  state.updateChannel = raw.updateChannel === 'beta' ? 'beta' : 'latest'
+  state.overrides = sanitizeOverrides(raw.overrides)
+  state.shikiStyle = raw.shikiStyle === 'italic-comments' ? 'italic-comments' : 'default'
+
   return state
+}
+
+/**
+ * Version-aware migration of an arbitrary persisted document. Version 1
+ * documents roll forward through `sanitizeState` (every field added since
+ * v1 has a sanitize-time default, so no structural step exists yet); future
+ * versions chain their steps here, oldest first. Documents from a NEWER
+ * plugin keep every field `sanitizeState` understands instead of being
+ * nuked — a downgrade never destroys user state. The version-upgrade
+ * convention lives in `docs/state-migrations.md` (item Y).
+ */
+export function migrate(raw: unknown): CatppuccinState {
+  if (typeof raw !== 'object' || raw === null) return defaultState()
+  const record = raw as Record<string, unknown>
+  const version = typeof record.version === 'number' ? record.version : 1
+  // Future schema steps chain here, oldest first:
+  //   let current: unknown = record
+  //   if (version < 2) current = migrateV1toV2(current)
+  //   if (version < 3) current = migrateV2toV3(current)
+  // (the state contract of each step is spelled out in docs/state-migrations.md)
+  return sanitizeState(record)
 }
 
 /** Whether a normalized state carries nothing beyond the shipped defaults —
@@ -145,6 +221,10 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.blur === expected.glass.blur
     && state.glass.frost === expected.glass.frost
     && state.glass.brightness === expected.glass.brightness
+    && state.autoCheck === expected.autoCheck
+    && state.updateChannel === expected.updateChannel
+    && Object.keys(state.overrides).length === 0
+    && state.shikiStyle === expected.shikiStyle
 }
 
 /** Default settings-document section: no flavour and no glass (mirrors
@@ -153,6 +233,10 @@ export function defaultSettingsSection(): CatppuccinSettingsSection {
   return {
     flavor: 'off',
     glass: { ...DEFAULT_GLASS },
+    autoCheck: DEFAULT_AUTO_CHECK,
+    updateChannel: DEFAULT_UPDATE_CHANNEL,
+    overrides: {},
+    shikiStyle: DEFAULT_SHIKI_STYLE,
   }
 }
 
@@ -161,6 +245,10 @@ export function settingsSectionFromState(state: CatppuccinState): CatppuccinSett
   return {
     flavor: state.flavor,
     glass: { ...state.glass },
+    autoCheck: state.autoCheck,
+    updateChannel: state.updateChannel,
+    overrides: { ...state.overrides },
+    shikiStyle: state.shikiStyle,
   }
 }
 
@@ -179,4 +267,9 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.blur === b.glass.blur
     && a.glass.frost === b.glass.frost
     && a.glass.brightness === b.glass.brightness
+    && a.autoCheck === b.autoCheck
+    && a.updateChannel === b.updateChannel
+    && a.shikiStyle === b.shikiStyle
+    && Object.keys(a.overrides).every((key) => b.overrides[key] === a.overrides[key])
+    && Object.keys(b.overrides).every((key) => a.overrides[key] === b.overrides[key])
 }

@@ -119,16 +119,22 @@ function hostSnapshot(value: CatppuccinSettingsSection, user?: unknown): Setting
 }
 
 /** Minimal scope double recording mutations. */
-function scopeDouble(): { scope: SettingsScope<CatppuccinSettingsSection>; mutations: unknown[][] } {
+function scopeDouble(options: {
+  snapshot?: SettingsScopeSnapshot<CatppuccinSettingsSection>
+  mutate?: () => Promise<void>
+} = {}): { scope: SettingsScope<CatppuccinSettingsSection>; mutations: unknown[][] } {
   const mutations: unknown[][] = []
   return {
     mutations,
     scope: {
-      getSnapshot() { throw new Error('not used') },
+      getSnapshot() { return options.snapshot ?? hostSnapshot(defaultSettingsSection()) },
       subscribe() { return () => {} },
       set() { return Promise.resolve() },
       unset() { return Promise.resolve() },
-      mutate(ops) { mutations.push(ops as never); return Promise.resolve() },
+      mutate(ops) {
+        mutations.push(ops as never)
+        return options.mutate !== undefined ? options.mutate() : Promise.resolve()
+      },
     } as unknown as SettingsScope<CatppuccinSettingsSection>,
   }
 }
@@ -163,20 +169,75 @@ describe('persistStateToScope', () => {
   it('writes one atomic mutation covering the whole section', async () => {
     const { scope, mutations } = scopeDouble()
     const state = { ...defaultState(), flavor: 'catppuccin-latte' as never, glass: { ...defaultState().glass, blur: 77 } }
-    expect(await persistStateToScope(scope, state)).toBe(true)
+    expect(await persistStateToScope(scope, state)).toBe('written')
     expect(mutations).toHaveLength(1)
     const ops = mutations[0] as { op: string; path: string[]; value: unknown }[]
     const byPath = Object.fromEntries(ops.map((op) => [op.path.join('.'), op.value]))
     expect(byPath['flavor']).toBe('catppuccin-latte')
     expect(byPath['glass.blur']).toBe(77)
     expect(byPath['glass.enabled']).toBe(false)
+    expect(byPath['autoCheck']).toBe(true)
+    expect(byPath['updateChannel']).toBe('latest')
+    expect(byPath['overrides']).toEqual({})
+    expect(byPath['shikiStyle']).toBe('default')
   })
 
-  it('reports false when the write rejects', async () => {
+  it('reports error when the write rejects', async () => {
+    const local = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
     const flaky = {
+      getSnapshot() { return hostSnapshot(defaultSettingsSection()) },
       mutate() { return Promise.reject(new Error('conflict')) },
     } as unknown as SettingsScope<CatppuccinSettingsSection>
-    expect(await persistStateToScope(flaky, defaultState())).toBe(false)
+    expect(await persistStateToScope(flaky, local)).toBe('error')
+  })
+
+  it('is a noop when the local state already equals the document', async () => {
+    const local = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
+    const { scope, mutations } = scopeDouble({ snapshot: hostSnapshot(settingsSectionFromState(local)) })
+    expect(await persistStateToScope(scope, local)).toBe('noop')
+    expect(mutations).toHaveLength(0)
+  })
+
+  it('writes when the base revision matches the snapshot (no remote movement)', async () => {
+    const { scope, mutations } = scopeDouble({ snapshot: { ...hostSnapshot(defaultSettingsSection()), revision: 7 } })
+    const state = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
+    expect(await persistStateToScope(scope, state, { baseRevision: 7 })).toBe('written')
+    expect(mutations).toHaveLength(1)
+  })
+
+  it('abandons a stale write-back when the document moved past the base revision (item C/X)', async () => {
+    // Tab B committed a newer document: the snapshot revision moved from the
+    // base (3) our local state was derived from to 4, and the remote section
+    // is NOT our own last-written echo — the local write would clobber it.
+    const remote = settingsSectionFromState({ ...defaultState(), flavor: 'catppuccin-mocha' as never })
+    const { scope, mutations } = scopeDouble({
+      snapshot: { ...hostSnapshot(remote), revision: 4 },
+    })
+    const state = { ...defaultState(), flavor: 'catppuccin-latte' as never }
+    const outcome = await persistStateToScope(scope, state, { baseRevision: 3 })
+    expect(outcome).toBe('stale')
+    expect(mutations).toHaveLength(0)
+  })
+
+  it('still writes when the revision moved but the remote equals our own last write (echo)', async () => {
+    // Our own just-committed write folded back into the mirror: remote is
+    // the very section we wrote last, so the movement is not a conflict.
+    const ours = settingsSectionFromState({ ...defaultState(), flavor: 'catppuccin-latte' as never })
+    const { scope, mutations } = scopeDouble({
+      snapshot: { ...hostSnapshot(ours), revision: 4 },
+    })
+    const state = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
+    const outcome = await persistStateToScope(scope, state, { baseRevision: 3, lastWrittenSection: ours })
+    expect(outcome).toBe('written')
+    expect(mutations).toHaveLength(1)
+  })
+
+  it('reports error for a not-ready or memory-mode snapshot', async () => {
+    const flaky = {
+      getSnapshot() { return { ...hostSnapshot(defaultSettingsSection()), status: 'loading' as const } },
+      mutate() { return Promise.resolve() },
+    } as unknown as SettingsScope<CatppuccinSettingsSection>
+    expect(await persistStateToScope(flaky, defaultState())).toBe('error')
   })
 })
 

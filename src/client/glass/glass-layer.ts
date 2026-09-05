@@ -30,6 +30,7 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the theme plugin's Context merge (ctx.theme + theme/change).
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
+import { GLASS_CSS_TEXT } from './glass-css.gen.ts'
 import { DEFAULT_GLASS, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
@@ -43,6 +44,16 @@ export const GLASS_COMPAT_ATTRIBUTE = 'data-dsh-glass-compat'
 
 /** localStorage key carrying the layer enable flag. */
 export const GLASS_ENABLED_KEY = 'dsh.catppuccin.glass.enabled'
+
+/** Plugin identity stamped onto the lazily-mounted glass <style> tag (the
+ *  shell's unload cleanup keys off `data-plugin`). */
+const GLASS_STYLE_PLUGIN = '@nonamelego/dsh-catppuccin'
+const GLASS_STYLE_TAG_ID = 'glass.module.css'
+
+/** The lazily-mounted glass stylesheet <style> tag (undefined while the
+ *  layer is off — item II: the glass CSS only enters the document while
+ *  the glass layer is enabled, instead of being injected at plugin load). */
+let glassStyleTag: HTMLStyleElement | null = null
 
 /** Default state when nothing is stored yet: off (the stock UI stays stock). */
 export const DEFAULT_ENABLED = DEFAULT_GLASS.enabled
@@ -381,6 +392,7 @@ export class GlassLayer {
   }
 
   private mount(): void {
+    this.ensureStyle()
     document.documentElement.setAttribute(GLASS_ATTRIBUTE, '')
     this.applySettings()
     this.ensureFades()
@@ -394,6 +406,33 @@ export class GlassLayer {
     for (const node of document.querySelectorAll('[data-dsh-glass-fade]')) node.remove()
     this.seamDisposer?.()
     this.seamDisposer = undefined
+    this.releaseStyle()
+  }
+
+  /** Mount the glass stylesheet <style> tag (lazy — first enable only;
+   *  re-append when toggling back on). The CSS text ships in the bundle as
+   *  `GLASS_CSS_TEXT` (see `glass-css.gen.ts`), so no document work happens
+   *  while the layer is off and only a detached/re-attached tag marks the
+   *  on/off boundary after the first mount. */
+  private ensureStyle(): void {
+    if (glassStyleTag !== null) {
+      document.head.append(glassStyleTag)
+      return
+    }
+    const tag = document.createElement('style')
+    tag.dataset.plugin = GLASS_STYLE_PLUGIN
+    tag.dataset.pluginCss = GLASS_STYLE_TAG_ID
+    tag.textContent = GLASS_CSS_TEXT
+    document.head.append(tag)
+    glassStyleTag = tag
+  }
+
+  /** Remove the lazily-mounted stylesheet tag (the layer's CSS leaves the
+   *  document with it; the body attribute removal already made every rule
+   *  inert). */
+  private releaseStyle(): void {
+    glassStyleTag?.remove()
+    glassStyleTag = null
   }
 
   /** Insert the page-edge fade bands (or reuse the existing ones). */

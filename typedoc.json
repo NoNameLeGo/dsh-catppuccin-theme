@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "@nonamelego/dsh-catppuccin",
+  "entryPoints": [
+    "src/client/index.ts",
+    "src/state.ts",
+    "src/client/palettes.ts",
+    "src/tui-themes.ts",
+    "src/update-check.ts"
+  ],
+  "out": "docs/api",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "tsconfig": "tsconfig.json"
+}

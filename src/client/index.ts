@@ -28,7 +28,10 @@
  * that choice is pushed to the document. Every user change is written to
  * localStorage immediately and pushed to the scope (debounced) so it
  * survives the next Desktop restart. Without a usable scope (memory mode /
- * absent transport) everything degrades to localStorage alone.
+ * absent transport) everything degrades to localStorage alone. The debounced
+ * write is read-side guarded (item C/X): a flush whose base revision the
+ * document has moved past abandons the stale write, re-adopts the remote
+ * state, and tells the update row "另一窗口已更新，本地改动未保存".
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -42,7 +45,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // and the settingsScope Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
-import { en, zh, type CatppuccinKey } from './locales.ts'
+import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
 import { SHIKI_TOKENS } from './shiki-tokens.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
@@ -51,12 +54,18 @@ import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
 import type { UpdateCheckPayload } from '../update-check.ts'
 import { UPDATE_ROUTE_PATH } from '../update-check.ts'
 import {
+  DEFAULT_AUTO_CHECK,
+  DEFAULT_SHIKI_STYLE,
+  DEFAULT_UPDATE_CHANNEL,
   isDefaultState,
   settingsSectionFromState,
   settingsSectionsEqual,
   STATE_VERSION,
+  type CatppuccinSettingsSection,
   type CatppuccinState,
   type FlavorValue,
+  type ShikiStyle,
+  type UpdateChannel,
 } from '../state.ts'
 import {
   bindCatppuccinScope,
@@ -66,9 +75,10 @@ import {
   persistStateToScope,
   scheduleDurablePersist,
 } from './state-sync.ts'
-// Side-effect import: the glass stylesheet (auto-injected as a plugin-owned
-// <style> tag; every rule is gated on the data-dsh-glass attribute).
-import './glass/glass.module.css'
+// The glass stylesheet is intentionally NOT imported here: it ships as the
+// generated `GLASS_CSS_TEXT` string (`glass-css.gen.ts`, built by
+// scripts/gen-glass-css.mjs) and `GlassLayer` mounts/removes the <style>
+// tag on enable/disable — item II (lazy glass CSS).
 
 /** Locale namespace owned by this plugin. */
 export const NS = 'catppuccin'
@@ -82,6 +92,21 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** localStorage key carrying the persisted flavour choice. */
 export const FLAVOR_STORAGE_KEY = 'dsh.catppuccin.flavor'
+
+/** localStorage key recording the last built-in theme preference. */
+export const RESTORE_STORAGE_KEY = 'dsh.catppuccin.restore'
+
+/** localStorage key carrying the auto-check update preference (item H). */
+export const AUTO_CHECK_KEY = 'dsh.catppuccin.autoCheck'
+
+/** localStorage key carrying the update channel preference (item I). */
+export const UPDATE_CHANNEL_KEY = 'dsh.catppuccin.updateChannel'
+
+/** localStorage key carrying the user token overrides JSON (item K). */
+export const OVERRIDES_KEY = 'dsh.catppuccin.overrides'
+
+/** localStorage key carrying the shiki style preference (item M). */
+export const SHIKI_STYLE_KEY = 'dsh.catppuccin.shikiStyle'
 
 /** Accepted flavour values — the four registered theme ids plus `off`. These
  *  MUST stay in sync with the registered themes (guarded by
@@ -125,9 +150,6 @@ export function writeFlavor(choice: FlavorChoice): void {
   }
 }
 
-/** localStorage key recording the last built-in theme preference. */
-export const RESTORE_STORAGE_KEY = 'dsh.catppuccin.restore'
-
 /** Remember a built-in preference (system/light/dark) whenever the runtime is
  *  not on a Catppuccin flavour, so switching the plugin off restores the
  *  user's pre-plugin choice instead of dropping them onto 'system'. The boot
@@ -149,6 +171,82 @@ export function readRestoredPreference(): 'system' | 'light' | 'dark' {
     return raw === 'light' || raw === 'dark' ? raw : 'system'
   } catch {
     return 'system'
+  }
+}
+
+/** Read the persisted auto-check flag (absent means the shipped default: on). */
+export function readAutoCheck(): boolean {
+  try {
+    const raw = localStorage.getItem(AUTO_CHECK_KEY)
+    return raw === null ? DEFAULT_AUTO_CHECK : raw === 'true'
+  } catch {
+    return DEFAULT_AUTO_CHECK
+  }
+}
+
+/** Persist the auto-check flag. */
+export function writeAutoCheck(value: boolean): void {
+  try {
+    localStorage.setItem(AUTO_CHECK_KEY, String(value))
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+/** Read the persisted update channel (absent means `latest`). */
+export function readUpdateChannel(): UpdateChannel {
+  try {
+    return localStorage.getItem(UPDATE_CHANNEL_KEY) === 'beta' ? 'beta' : DEFAULT_UPDATE_CHANNEL
+  } catch {
+    return DEFAULT_UPDATE_CHANNEL
+  }
+}
+
+/** Persist the update channel. */
+export function writeUpdateChannel(value: UpdateChannel): void {
+  try {
+    localStorage.setItem(UPDATE_CHANNEL_KEY, value)
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+/** Read the persisted token overrides (unparseable/absent → empty map). */
+export function readOverrides(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(OVERRIDES_KEY)
+    if (raw === null) return {}
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, string> : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Persist the token overrides (storage failures keep the in-memory state). */
+export function writeOverrides(value: Record<string, string>): void {
+  try {
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(value))
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+/** Read the persisted shiki style (absent means the shipped default). */
+export function readShikiStyle(): ShikiStyle {
+  try {
+    return localStorage.getItem(SHIKI_STYLE_KEY) === 'italic-comments' ? 'italic-comments' : DEFAULT_SHIKI_STYLE
+  } catch {
+    return DEFAULT_SHIKI_STYLE
+  }
+}
+
+/** Persist the shiki style. */
+export function writeShikiStyle(value: ShikiStyle): void {
+  try {
+    localStorage.setItem(SHIKI_STYLE_KEY, value)
+  } catch {
+    /* in-memory state still applies */
   }
 }
 
@@ -183,35 +281,65 @@ export function builtinPickWins(
 export const inject = ['slots', 'locale', 'theme', 'settingsScope']
 
 /**
- * Register the Catppuccin dictionaries, the four flavour themes, and the
- * settings row.
+ * Register the Catppuccin dictionaries, the flavour themes (lazy — item JJ:
+ * only the active flavour is registered, the rest on first selection), and
+ * the settings rows.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'catppuccin: dictionaries')
-
-  const theme = ctx.get('theme') as ThemeRuntime
-
-  // Register the four flavour themes. Each carries the full --dsw-* token
-  // dictionary for its flavour plus the Catppuccin syntax-highlighting
-  // (--shiki-*) tokens; the presenter applies them as body inline variables
-  // when the theme is active.
+  // Bilingual balance is enforced by the typed register call (zh + en);
+  // ja/ko/es/fr/de ride the untyped language-pack form and are registered
+  // as selectable languages (fallback chain → en) so the dictionaries are
+  // reachable without an external language pack (item CC).
   ctx.effect(() => {
-    const disposers = CATPPUCCIN_FLAVORS.map((flavor) => {
-      // Flavour id for the shiki token lookup: themeId is "catppuccin-latte"
-      // → key is "latte".
-      const flavorId = flavor.themeId.replace('catppuccin-', '') as CatppuccinFlavorId
-      const shiki = SHIKI_TOKENS[flavorId]
-      return theme.register({
-        id: flavor.themeId,
-        colorScheme: flavor.colorScheme,
-        tokens: { ...flavor.tokens, ...shiki } as ThemeTokens,
-      })
-    })
+    const disposers = [
+      ctx.locale.register(NS, { zh, en }),
+      ctx.locale.register(NS, 'ja', ja),
+      ctx.locale.register(NS, 'ko', ko),
+      ctx.locale.register(NS, 'es', es),
+      ctx.locale.register(NS, 'fr', fr),
+      ctx.locale.register(NS, 'de', de),
+      ctx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }),
+      ctx.locale.addLanguage({ id: 'ko', label: '한국어', fallback: 'en' }),
+      ctx.locale.addLanguage({ id: 'es', label: 'Español', fallback: 'en' }),
+      ctx.locale.addLanguage({ id: 'fr', label: 'Français', fallback: 'en' }),
+      ctx.locale.addLanguage({ id: 'de', label: 'Deutsch', fallback: 'en' }),
+    ]
     return () => {
       for (const dispose of disposers) dispose()
     }
-  }, 'catppuccin: flavour themes')
+  }, 'catppuccin: dictionaries')
+
+  const theme = ctx.get('theme') as ThemeRuntime
+
+  // Lazy theme registration (item JJ): at most the flavour currently in use
+  // is registered; selecting a flavour registers it on demand and the fiber
+  // disposer releases every registration. Overrides (item K) and the shiki
+  // style (item M) are read at registration time, so a preference change
+  // re-registers the active flavour with the merged tokens.
+  const themeDisposers = new Map<string, () => void>()
+  const registerThemeFor = (flavor: CatppuccinFlavorInfo): void => {
+    if (themeDisposers.has(flavor.themeId)) return
+    // Flavour id for the shiki token lookup: themeId is "catppuccin-latte"
+    // → key is "latte".
+    const flavorId = flavor.themeId.replace('catppuccin-', '') as CatppuccinFlavorId
+    const shiki = SHIKI_TOKENS[flavorId][readShikiStyle()]
+    const disposer = theme.register({
+      id: flavor.themeId,
+      colorScheme: flavor.colorScheme,
+      tokens: { ...flavor.tokens, ...shiki, ...readOverrides() } as ThemeTokens,
+    })
+    themeDisposers.set(flavor.themeId, disposer)
+  }
+  const ensureThemeRegistered = (themeId: string): void => {
+    const flavor = flavorInfo(themeId)
+    if (flavor !== undefined) registerThemeFor(flavor)
+  }
+  const disposeThemeRegistrations = (): void => {
+    for (const dispose of themeDisposers.values()) dispose()
+    themeDisposers.clear()
+  }
+  ctx.effect(() => disposeThemeRegistrations, 'catppuccin: flavour theme disposers')
 
   // The glass layer: a toggleable glassmorphism skin on top of the Catppuccin
   // themes. It owns its lifecycle (enable flag + knobs persist in
@@ -228,8 +356,8 @@ export function apply(ctx: ClientContext): void {
 
   // The current durable snapshot: flavour from the localStorage cache (the
   // authoritative write target of the settings row) plus the glass layer's
-  // remote state. Passed to the debounced scope persist by reference so the
-  // flush always captures the freshest values.
+  // remote state and the preference fields. Passed to the debounced scope
+  // persist by reference so the flush always captures the freshest values.
   const buildLocalState = (): CatppuccinState => ({
     version: STATE_VERSION,
     // `FlavorChoice` widens to `string` (palettes carry `themeId: string`), but
@@ -237,16 +365,70 @@ export function apply(ctx: ClientContext): void {
     // same set as `FlavorValue`, guarded by tests/state.spec.ts.
     flavor: readFlavor() as FlavorValue,
     glass: glass.getRemoteState(),
+    autoCheck: readAutoCheck(),
+    updateChannel: readUpdateChannel(),
+    overrides: readOverrides(),
+    shikiStyle: readShikiStyle(),
   })
+
+  // Preference pub/sub: the settings rows read/write autoCheck, channel,
+  // overrides and shikiStyle through localStorage; any change re-renders the
+  // rows (emitPrefs) and the conflict counter feeds the update row's
+  // "另一窗口已更新" banner (item X).
+  const prefsListeners = new Set<() => void>()
+  const emitPrefs = (): void => {
+    for (const listener of prefsListeners) listener()
+  }
+  let conflictCount = 0
+  const conflictListeners = new Set<() => void>()
+  const emitConflict = (): void => {
+    conflictCount += 1
+    for (const listener of conflictListeners) listener()
+  }
+
+  // Re-register the active flavour after an override/shiki-style change so
+  // the new token mix applies (the disposed registration is replaced by one
+  // carrying the merged overrides).
+  const reapplyThemePrefs = (): void => {
+    const active = theme.getTheme().preference
+    const flavor = flavorInfo(active)
+    if (flavor === undefined || !themeDisposers.has(flavor.themeId)) return
+    disposeThemeRegistrations()
+    registerThemeFor(flavor)
+  }
 
   // Debounced push of the current local state into the settings document.
   // When the scope is not usable (memory mode / absent transport) the write
   // is skipped entirely — localStorage stays the only store, exactly the
-  // pre-0.5.0 route-missing fallback.
+  // pre-0.5.0 route-missing fallback. The write is read-side guarded (item
+  // C/X): a flush whose base revision the document moved past returns
+  // `stale`, the local change is abandoned, and the remote state is
+  // re-adopted + surfaced in the update row.
+  let lastWrittenSection: CatppuccinSettingsSection | undefined
+  let handleStaleConflict: (() => void) | undefined
   const persistLocal = (): void => {
-    if (!isScopeUsable(scope.getSnapshot())) return
-    void persistStateToScope(scope, buildLocalState())
+    const snapshot = scope.getSnapshot()
+    if (!isScopeUsable(snapshot)) return
+    const state = buildLocalState()
+    const baseRevision = snapshot.revision
+    void persistStateToScope(scope, state, { baseRevision, lastWrittenSection }).then((outcome) => {
+      if (outcome === 'written') {
+        lastWrittenSection = settingsSectionFromState(state)
+      } else if (outcome === 'stale') {
+        emitConflict()
+        handleStaleConflict?.()
+      }
+    })
   }
+
+  // Auto-check (item H): the last verdict the periodic checker stored (the
+  // update row surfaces it on mount) plus the arm hook the preference
+  // setter re-invokes on toggle (the timers themselves live in the restore
+  // effect below, so they die with the fiber).
+  const AUTO_CHECK_BOOT_DELAY_MS = 3000
+  const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+  let lastAutoResult: UpdateCheckPayload | null = null
+  let armAutoCheck: (() => void) | undefined
 
   // Restore the persisted choice and defend it against the built-in
   // Appearance scope's `adopt()`. Two stores feed the desired flavour:
@@ -297,6 +479,8 @@ export function apply(ctx: ClientContext): void {
       // stale for the plugin — the Catppuccin row choice is newer than the
       // document's light/dark, so restore the flavour then.
       if (builtinPickWins(preference, liveBuiltinPick)) return
+      // Lazy registration (item JJ): the theme must exist before setTheme.
+      ensureThemeRegistered(desired)
       try {
         theme.setTheme(desired)
       } catch {
@@ -309,6 +493,7 @@ export function apply(ctx: ClientContext): void {
       if (event.key !== FLAVOR_STORAGE_KEY) return
       const next = readFlavor()
       if (next !== 'off') {
+        ensureThemeRegistered(next)
         try {
           theme.setTheme(next)
         } catch {
@@ -355,17 +540,55 @@ export function apply(ctx: ClientContext): void {
       )) return // our own echo — nothing to adopt
       writeFlavor(state.flavor)
       glass.applyRemote(state.glass)
+      writeAutoCheck(state.autoCheck)
+      writeUpdateChannel(state.updateChannel)
+      writeOverrides(state.overrides)
+      writeShikiStyle(state.shikiStyle)
+      emitPrefs()
+      reapplyThemePrefs()
       applyDesired()
     }
     applyScopeSnapshot()
     const offScope = scope.subscribe(applyScopeSnapshot)
+
+    // Auto-check (item H): warm the Host's verdict cache at boot and every
+    // 6 hours while the preference is on. The row surfaces the last result
+    // and the Host cache keeps re-opens instant; failures stay uncached so
+    // the next cycle retries for real.
+    const runAutoCheck = async (): Promise<void> => {
+      try {
+        const response = await fetch(`${UPDATE_ROUTE_PATH}?channel=${readUpdateChannel()}`, {
+          headers: { accept: 'application/json' },
+        })
+        if (response.ok) lastAutoResult = await response.json() as UpdateCheckPayload
+      } catch {
+        /* best-effort; the row's retry discipline covers the user-visible UX */
+      }
+    }
+    let bootTimer: number | undefined
+    let intervalTimer: number | undefined
+    const armAutoCheckImpl = (): void => {
+      window.clearTimeout(bootTimer)
+      window.clearInterval(intervalTimer)
+      if (!readAutoCheck()) return
+      bootTimer = window.setTimeout(() => { void runAutoCheck() }, AUTO_CHECK_BOOT_DELAY_MS)
+      intervalTimer = window.setInterval(() => { void runAutoCheck() }, AUTO_CHECK_INTERVAL_MS)
+    }
+    armAutoCheck = armAutoCheckImpl
+    armAutoCheckImpl()
+
+    handleStaleConflict = () => applyScopeSnapshot()
 
     return () => {
       offScope()
       offGlass()
       disposer()
       window.removeEventListener('storage', onStorage)
+      window.clearTimeout(bootTimer)
+      window.clearInterval(intervalTimer)
       cancelDurablePersist()
+      handleStaleConflict = undefined
+      armAutoCheck = undefined
       // Undo the setTheme wrapper so a stopped plugin leaves the runtime as
       // it found it.
       theme.setTheme = originalSetTheme
@@ -398,10 +621,30 @@ export function apply(ctx: ClientContext): void {
       const flavor = flavorInfo(choice)
       if (!flavor) return
       // Persist first so the restore guard (a theme/change listener) sees the
-      // new flavour when setTheme below emits synchronously.
+      // new flavour when setTheme below emits synchronously. Lazy
+      // registration: the theme must exist before setTheme (item JJ).
       writeFlavor(flavor.themeId)
+      ensureThemeRegistered(flavor.themeId)
       theme.setTheme(flavor.themeId)
       scheduleDurablePersist(persistLocal)
+    },
+    overrides: () => readOverrides(),
+    setOverrides: (overrides: Record<string, string>) => {
+      writeOverrides(overrides)
+      emitPrefs()
+      reapplyThemePrefs()
+      scheduleDurablePersist(persistLocal)
+    },
+    shikiStyle: () => readShikiStyle(),
+    setShikiStyle: (style: ShikiStyle) => {
+      writeShikiStyle(style)
+      emitPrefs()
+      reapplyThemePrefs()
+      scheduleDurablePersist(persistLocal)
+    },
+    subscribePrefs: (listener: () => void) => {
+      prefsListeners.add(listener)
+      return () => { prefsListeners.delete(listener) }
     },
   })
 
@@ -436,14 +679,37 @@ export function apply(ctx: ClientContext): void {
   // only fetches the same-origin route and renders the verdict. Upgrade stays
   // a terminal action — the row just surfaces the CLI command.
   const updateInjected = (): UpdateRowInjected => ({
-    check: async () => {
+    check: async (channel: UpdateChannel) => {
       try {
-        const response = await fetch(UPDATE_ROUTE_PATH, { headers: { accept: 'application/json' } })
+        const response = await fetch(`${UPDATE_ROUTE_PATH}?channel=${channel}`, { headers: { accept: 'application/json' } })
         return await response.json() as UpdateCheckPayload
       } catch {
-        return { ok: false, code: 'network', error: 'network' }
+        return { ok: false, code: 'network.local', error: 'network.local' }
       }
     },
+    autoCheck: () => readAutoCheck(),
+    setAutoCheck: (value: boolean) => {
+      writeAutoCheck(value)
+      emitPrefs()
+      scheduleDurablePersist(persistLocal)
+      armAutoCheck?.() // re-arm the boot/periodic timers on toggle
+    },
+    channel: () => readUpdateChannel(),
+    setChannel: (channel: UpdateChannel) => {
+      writeUpdateChannel(channel)
+      emitPrefs()
+      scheduleDurablePersist(persistLocal)
+    },
+    subscribePrefs: (listener: () => void) => {
+      prefsListeners.add(listener)
+      return () => { prefsListeners.delete(listener) }
+    },
+    lastAutoResult: () => lastAutoResult,
+    subscribeConflict: (listener: () => void) => {
+      conflictListeners.add(listener)
+      return () => { conflictListeners.delete(listener) }
+    },
+    conflictCount: () => conflictCount,
   })
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({

@@ -60,11 +60,39 @@ function stampAll(): void {
 
 /**
  * Stamp the seams once, then keep them stamped as React remounts nodes.
- * @returns a disposer that disconnects the observer.
+ *
+ * The observer callback is debounced through `requestAnimationFrame` (item
+ * N): DSH chat streaming mutates the DOM per token, and re-stamping on
+ * every single mutation would re-run every selector per token. One frame
+ * merges all mutations into one `stampAll()` — a streamed burst of N
+ * mutations costs 1 stamp pass, and a frame with no mutations costs
+ * nothing (the dirty flag skips the no-op stamp). Stamping stays idempotent
+ * and cheap: `stamp()` only sets attributes that are missing.
+ *
+ * @returns a disposer that disconnects the observer and cancels any
+ *  pending frame.
  */
 export function startGlassSeamStamper(): () => void {
   stampAll()
-  const observer = new MutationObserver(() => { stampAll() })
+  let frame: number | undefined
+  let dirty = false
+  const stampFrame = (): void => {
+    frame = undefined
+    if (!dirty) return
+    dirty = false
+    stampAll()
+  }
+  const schedule = (): void => {
+    dirty = true
+    if (frame !== undefined) return
+    frame = requestAnimationFrame(stampFrame)
+  }
+  const observer = new MutationObserver(schedule)
   observer.observe(document.documentElement, { childList: true, subtree: true })
-  return () => { observer.disconnect() }
+  return () => {
+    observer.disconnect()
+    if (frame !== undefined) cancelAnimationFrame(frame)
+    frame = undefined
+    dirty = false
+  }
 }
