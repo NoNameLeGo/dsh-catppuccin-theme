@@ -271,11 +271,13 @@ Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`
   A: The stock Appearance row only lists the built-in light / dark / follow-system
   preferences. The four flavours live in the **Catppuccin** row right below it.
 - **Q: "How is my theme choice remembered?"**
-  A: The choice persists in `catppuccin-state.json` under the DSH home (shared across
-  every DSH instance on the machine), with localStorage as an in-browser cache and
-  cross-tab sync. So plain `dsh web`, `dsh web --port <custom>`, and **DSH Desktop**
-  (which boots on a fresh random loopback port every launch) all restore the preference
-  automatically. The glass switch and every knob persist the same way.
+  A: The choice persists in DSH's official settings document (the `catppuccin` namespace,
+  stored under the DSH home, shared across every DSH instance on the machine), with
+  localStorage as an in-browser cache and cross-tab sync. So plain `dsh web`,
+  `dsh web --port <custom>`, and **DSH Desktop** (which boots on a fresh random loopback
+  port every launch) all restore the preference automatically. The glass switch and every
+  knob persist the same way. Since 0.5.0, a legacy `catppuccin-state.json` is migrated
+  into the settings document once on first launch (the file is kept as a rollback copy).
 - **Q: "How do I know if this plugin has a new version?"**
   A: Settings → General → **Check Catppuccin plugin updates** compares against npm in one
   click and gives a copyable upgrade command; or run

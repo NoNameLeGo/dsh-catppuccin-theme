@@ -8,13 +8,18 @@
 
 ## [Unreleased]
 
-### 计划（0.5.0，重构——已决策：待 DSH 0.1.2 正式稳定后再做）
+### 0.5.0：持久化重构到官方 settings 机制（已实施，待发版）
 
 > **决策（2026-08-29）**：先发 0.4.3（兼容修复）。0.5.0 重构**非必需**——0.4.3 后插件在 0.1.1-rc.2 与 0.1.2-alpha.1 均正常，自建持久化稳定运行。重构是工程质量优化（少维护一套自建持久化），等 DSH 0.1.2 正式发布、官方 settings 机制稳定后再实施，届时 devDeps 同步对齐并移除 runtime 类型 bridge。
+> **进展（2026-09-05）**：调研确认 DSH 0.1.2 尚在 rc 阶段（最新 `0.1.2-rc.1`，2026-09-03 发布，API 已冻结）；rc.1 实际 API 与下列计划有两处出入，已按实际 API 实施：① host 侧 0.1.2 系列**已无独立函数 `installSettingsSection`**（0.1.1-rc.2 还有），改为 provider 方法 `ctx.settings.installSection(owner, ns, schema, entry, hooks)`（optional wiring：settings 服务存在时注册、消失时回退 entry config）；② **`settings.plugin.item` 槽位不存在**——实测 0.1.1-rc.2 与 0.1.2-rc.1 的 slots 表完全一致（`settings.trigger/header/action/close/section/plugins.tab/onboarding/general.item`），原"迁到 plugin.item 卡片槽"可选项作废，设置行继续用 `settings.general.item`。另实测 `dsh-host-apiproxy` 0.1.1-rc.2（最新）的 `settings.describe` 已无 allowlist 过滤，"注册即暴露"成立；0.1.2-rc.1 的 `dsh-client-ui-settings` 不再从 `dsh-client-runtime` 导入类型（自含 `settings-contract.ts`），renderer 自带 `ctx.slots` merge，故 runtime 类型 bridge 已随 devDeps 对齐一并移除。
 
-- **持久化迁移到官方 settings 机制**：DSH 0.1.1-rc.2 起 settings namespace 已放开 allowlist（"注册即暴露"），`ctx.settings.register` / `installSettingsSection`（host）+ `ctx.settingsScope.bind`（client）两版 API 一致。计划删除自建的 `/catppuccin/state` GET/PUT 路由、`src/host-state.ts`、`src/state-sync.ts` 的大部分与 `$DSH_HOME/catppuccin-state.json`，改用官方文档持久化（同样跨 Desktop 重启）。
-  - **实现要点（向下兼容约束）**：① host 用 `installSettingsSection`（optional wiring），无 settings 服务的 profile 保持等待不崩；② client 保留 localStorage 兜底（settingsScope `status` 非 `ready` 时降级，仅影响跨重启持久）；③ 老用户 `catppuccin-state.json` 一次性迁移进官方 namespace（文件保留作回退）；④ `src/index.ts` 顶部过时的 allowlist 注释同步更新为"注册即暴露"事实。
-- **设置行槽位（可选）**：Catppuccin / 玻璃 / 更新检查行可从 `settings.general.item` 迁到 `settings.plugin.item`（keyed 卡片槽，rc.2 与 0.1.2 均支持，Host 注册 namespace 后自动配对）。
+- **持久化迁移到官方 settings 机制**：删除自建的 `/catppuccin/state` GET/PUT 路由、`src/host-state.ts`、`src/state-sync.ts` 的 fetch 包装与 `$DSH_HOME/catppuccin-state.json` 的写入，改用官方文档持久化（同样跨 Desktop 重启）。
+  - host 侧 `src/index.ts` 用 `ctx.inject(['settings'])` + `ctx.settings.installSection(ctx, 'catppuccin', schema, defaultSettingsSection, hooks)` 注册命名空间（optional wiring：无 settings 服务的 profile 静默跳过、保持 composition 纯值运行）；顶部的过时 allowlist 注释同步更新为"注册即暴露"事实。schema 定义在 `src/settings-catppuccin.ts`（schemastery，与 `src/state.ts` 共享 `CatppuccinSettingsSection` 契约）。
+  - client 侧 `src/client/index.ts` 改用 `ctx.settingsScope.bind({ namespace: 'catppuccin' })`：scope 快照就绪且 `mode === 'host'` 时以文档为源 hydrate（回声写跳过、外部编辑文档胜出），`user` 层为空时把本会话 localStorage 选择推入文档；`snapshot status` 非 `ready`/mode 非 `host` 时降级 localStorage 兜底（仅影响跨重启持久）。
+  - **老用户迁移**：`src/legacy-state.ts` 只读 `catppuccin-state.json`，启动时若文档尚无 user 层则一次性 `settings.update` 迁入；文件保留作回退，迁移失败非致命。
+  - 玻璃质感层持久化同样改走 settings 文档（`glass-layer.ts` 的 `getRemoteState`/`applyRemote` 接口不变，`src/client/state-sync.ts` 改为 scope mutate 全量原子写 + debounce）。
+  - **devDeps 对齐 `0.1.2-rc.1`**：cordis `^4.0.1 → ^4.0.2`，全部 `dsh-client-*` / `dsh-*` 类型包升 `0.1.2-rc.1`（含 dsh-brand/dsh-session/dsh-scope/dsh-invariants peer），新增 `@deepseek-ai/dsh-settings` + `@deepseek-ai/schemastery` 类型依赖，删除 `@deepseek-ai/dsh-client-runtime`（0.1.2 起移除，类型 bridge 不再需要）；`tsdown.config.ts` 的 lib external 修正为 `@deepseek-ai/schemastery`（原名写错导致被打进 host bundle，50.6kB→21.0kB）。
+- **测试同步**：`tests/host-state.spec.ts` → `tests/legacy-state.spec.ts`（只读迁移源）；`tests/client.spec.ts` 的 fetch 包装测试 → `isScopeUsable` / `durableStateFromSnapshot` / `persistStateToScope`（mutate ops 全量原子写）/ debounce；`tests/state.spec.ts` 移除 `STATE_ROUTE_PATH` 断言、新增 settings section 辅助函数测试（共 91 个测试全绿）。
 
 ## [0.4.3] - 2026-08-29
 

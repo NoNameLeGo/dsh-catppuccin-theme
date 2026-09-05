@@ -28,7 +28,7 @@
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **下次发版版本号**：当前 `0.4.0`（0.4.0 新增 dsh-TUI 主题支持：一条命令装进 dsh-tui profile、启动自动同步四套主题、`/theme` 切换）。后续按常规 semver 判断：新特性走 `0.5.0`，修复走 `0.4.x`；预发布仍用 `-beta.n` 后缀。
+> ⚠️ **下次发版版本号**：当前 `0.4.3`（0.4.0 新增 dsh-TUI 主题支持：一条命令装进 dsh-tui profile、启动自动同步四套主题、`/theme` 切换；0.4.3 兼容 DSH 0.1.2-alpha.1 移除 dsh-client-runtime）。**0.5.0 重构已实施（存于 [Unreleased]，待发版）**：持久化迁移到官方 settings 机制（host 注册 `catppuccin` namespace、client 走 `ctx.settingsScope`、老文件一次性迁移），devDeps 已对齐 `0.1.2-rc.1` 并删除 runtime 类型 bridge。发版前记得把 [Unreleased] 的 0.5.0 条目落成 `## [0.5.0] - <日期>`（publish.yml 校验正式版必须已有对应条目）。后续按常规 semver 判断：新特性走 `0.5.x`，修复走 `0.4.x`；预发布仍用 `-beta.n` 后缀。
 
 ### 1. 升版本 + 本地验证
 1. 编辑 `package.json` 的 `version`（连同本次要发布的代码改动）

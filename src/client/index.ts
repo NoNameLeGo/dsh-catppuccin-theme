@@ -9,28 +9,37 @@
  * lists the four flavours; selecting one switches the theme and persists the
  * flavour.
  *
- * Persistence is two-tier. The choice lives in two stores:
+ * Persistence is two-tier since 0.5.0. The choice lives in two stores:
  *  - localStorage keys (`dsh.catppuccin.*`) — the in-browser cache: instant
- *    restore at boot and the cross-tab `storage` event bus;
- *  - the Host durable file (`$DSH_HOME/catppuccin-state.json`, served by
- *    `/catppuccin/state`, written by `src/host-state.ts`) — the source of
- *    truth. It exists because DSH Desktop launches `@deepseek-ai/dsh` with
- *    `--port 0` (a fresh random loopback port every launch) and localStorage
- *    is scoped per origin including the port, so a localStorage-only choice
- *    is silently emptied on every Desktop restart. The Host settings wire is
- *    not used: it only serves an explicit allowlist of namespaces (a
- *    plugin-owned namespace answers `settings-not-exposed`).
- * At boot the plugin fast-applies localStorage, then hydrates the Host file
- * and mirrors it back into localStorage; if the Host has nothing but this
- * browser session already chose something, that choice is migrated to the
- * Host. Every user change is written to localStorage immediately and pushed to
- * the Host (debounced) so it survives the next Desktop restart.
+ *    restore at boot, the cross-tab `storage` event bus, and the fallback
+ *    when the settings transport is unavailable;
+ *  - the official settings document (namespace `catppuccin`, registered by
+ *    the Host half in `src/index.ts`) — the source of truth, bound here
+ *    through `ctx.settingsScope`. It exists because DSH Desktop launches
+ *    `@deepseek-ai/dsh` with `--port 0` (a fresh random loopback port every
+ *    launch) and localStorage is scoped per origin including the port, so a
+ *    localStorage-only choice is silently emptied on every Desktop restart;
+ *    the settings document lives under the DSH home and survives that. The
+ *    pre-0.5.0 Host file + `/catppuccin/state` route are gone — the Host
+ *    migrates the old file into the document once.
+ * At boot the plugin fast-applies localStorage, then hydrates from the scope
+ * snapshot once it resolves and mirrors it back into localStorage; if the
+ * document holds nothing while this browser session already chose something,
+ * that choice is pushed to the document. Every user change is written to
+ * localStorage immediately and pushed to the scope (debounced) so it
+ * survives the next Desktop restart. Without a usable scope (memory mode /
+ * absent transport) everything degrades to localStorage alone.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the settings-surface SlotMap merge (settings.general.item).
+// Type-only: pulls the renderer's Context merge (ctx.slots) — since DSH
+// 0.1.2 the slots registry lives in dsh-client-ui-renderer (the old
+// dsh-client-runtime package is gone).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the settings-surface SlotMap merge (settings.general.item)
+// and the settingsScope Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { en, zh, type CatppuccinKey } from './locales.ts'
@@ -43,13 +52,18 @@ import type { UpdateCheckPayload } from '../update-check.ts'
 import { UPDATE_ROUTE_PATH } from '../update-check.ts'
 import {
   isDefaultState,
+  settingsSectionFromState,
+  settingsSectionsEqual,
   STATE_VERSION,
   type CatppuccinState,
   type FlavorValue,
 } from '../state.ts'
 import {
+  bindCatppuccinScope,
   cancelDurablePersist,
-  readDurableStateRemote,
+  durableStateFromSnapshot,
+  isScopeUsable,
+  persistStateToScope,
   scheduleDurablePersist,
 } from './state-sync.ts'
 // Side-effect import: the glass stylesheet (auto-injected as a plugin-owned
@@ -164,8 +178,9 @@ export function builtinPickWins(
   return preference === livePick
 }
 
-/** Required services: slots + locale (settings rows) and theme (register + switch). */
-export const inject = ['slots', 'locale', 'theme']
+/** Required services: slots + locale (settings rows), theme (register +
+ *  switch), and the settings scope (durable persistence). */
+export const inject = ['slots', 'locale', 'theme', 'settingsScope']
 
 /**
  * Register the Catppuccin dictionaries, the four flavour themes, and the
@@ -200,15 +215,20 @@ export function apply(ctx: ClientContext): void {
 
   // The glass layer: a toggleable glassmorphism skin on top of the Catppuccin
   // themes. It owns its lifecycle (enable flag + knobs persist in
-  // localStorage as the in-browser cache; the durable copy is the Host file
-  // hydrated/pushed below; every effect is released with this fiber). It is
-  // created before the boot-restore effect so hydration can overlay the
+  // localStorage as the in-browser cache; the durable copy is the settings
+  // document hydrated/pushed below; every effect is released with this fiber).
+  // It is created before the boot-restore effect so hydration can overlay the
   // persisted glass state onto the layer.
   const glass = new GlassLayer(ctx)
 
+  // The official settings scope for the Catppuccin namespace (registered by
+  // the Host half). The document is the source of truth; the scope derives
+  // from the shared mirror on this fiber and never blocks on the transport.
+  const scope = bindCatppuccinScope(ctx)
+
   // The current durable snapshot: flavour from the localStorage cache (the
   // authoritative write target of the settings row) plus the glass layer's
-  // remote state. Passed to the debounced Host persist by reference so the
+  // remote state. Passed to the debounced scope persist by reference so the
   // flush always captures the freshest values.
   const buildLocalState = (): CatppuccinState => ({
     version: STATE_VERSION,
@@ -219,10 +239,19 @@ export function apply(ctx: ClientContext): void {
     glass: glass.getRemoteState(),
   })
 
+  // Debounced push of the current local state into the settings document.
+  // When the scope is not usable (memory mode / absent transport) the write
+  // is skipped entirely — localStorage stays the only store, exactly the
+  // pre-0.5.0 route-missing fallback.
+  const persistLocal = (): void => {
+    if (!isScopeUsable(scope.getSnapshot())) return
+    void persistStateToScope(scope, buildLocalState())
+  }
+
   // Restore the persisted choice and defend it against the built-in
   // Appearance scope's `adopt()`. Two stores feed the desired flavour:
   // localStorage (the in-browser cache — instant at boot and the cross-tab
-  // `storage` bus) and the Host's durable state file (the source of truth —
+  // `storage` bus) and the settings document (the source of truth —
   // required by DSH Desktop, which boots on a fresh random loopback port every
   // launch so localStorage there always starts empty).
   //
@@ -291,32 +320,48 @@ export function apply(ctx: ClientContext): void {
 
     // Any glass change (enable flag or knob) coalesces into one durable write.
     const offGlass = glass.subscribe(() => {
-      scheduleDurablePersist(buildLocalState)
+      scheduleDurablePersist(persistLocal)
     })
 
-    // Hydrate the durable source of truth without blocking paint. The Host
-    // file read is same-origin and answers in ms; if it ever arrives later
-    // the fast path keeps working.
-    let cancelled = false
-    void readDurableStateRemote().then((result) => {
-      if (cancelled) return
-      if (!result.available) return // route missing — localStorage-only still works
-      if (result.state === null) {
-        // Nothing durable yet. If this browser session already chose something
-        // (e.g. a localStorage-only preference from before this fix), migrate
-        // it to the Host so it survives a later Desktop restart.
-        if (!isDefaultState(buildLocalState())) scheduleDurablePersist(buildLocalState)
+    // Hydrate the durable source of truth without blocking paint. The scope
+    // derives from the shared settings mirror (no wire read of its own), so
+    // this is sync once the mirror has resolved; if it arrives later, the
+    // subscription below catches it — the localStorage fast path keeps
+    // working in the meantime.
+    //
+    // The hydration is echo-safe: the Host folds our own committed writes
+    // back into the mirror, and when the echoed section equals the local
+    // state (the normal case after a change we just persisted) we skip the
+    // write-back. A section that differs is an external edit (another
+    // surface, a hand-edited document, a reload) — the document wins.
+    const applyScopeSnapshot = (): void => {
+      const snapshot = scope.getSnapshot()
+      const state = durableStateFromSnapshot(snapshot)
+      if (state === null) return // loading / memory / absent — localStorage-only
+      const local = buildLocalState()
+      if (snapshot.user === undefined) {
+        // No user layer in the document yet: this session's localStorage
+        // choice is newer than the shipped defaults the document resolves
+        // to, so push it into the document (the upgrade path for a
+        // localStorage-only session predating the settings migration).
+        if (!isDefaultState(local)) scheduleDurablePersist(persistLocal)
         return
       }
-      // Durable state is the source of truth: overlay it, mirror it into
-      // localStorage (fast restore + cross-tab for later starts) and re-assert.
-      writeFlavor(result.state.flavor)
-      glass.applyRemote(result.state.glass)
+      // A document the user wrote wins over the local cache, but echoes of
+      // our own committed writes are skipped (they equal the local state).
+      if (settingsSectionsEqual(
+        settingsSectionFromState(local),
+        settingsSectionFromState(state),
+      )) return // our own echo — nothing to adopt
+      writeFlavor(state.flavor)
+      glass.applyRemote(state.glass)
       applyDesired()
-    })
+    }
+    applyScopeSnapshot()
+    const offScope = scope.subscribe(applyScopeSnapshot)
 
     return () => {
-      cancelled = true
+      offScope()
       offGlass()
       disposer()
       window.removeEventListener('storage', onStorage)
@@ -347,7 +392,7 @@ export function apply(ctx: ClientContext): void {
         // previous flavour.
         writeFlavor('off')
         theme.setTheme(readRestoredPreference())
-        scheduleDurablePersist(buildLocalState)
+        scheduleDurablePersist(persistLocal)
         return
       }
       const flavor = flavorInfo(choice)
@@ -356,7 +401,7 @@ export function apply(ctx: ClientContext): void {
       // new flavour when setTheme below emits synchronously.
       writeFlavor(flavor.themeId)
       theme.setTheme(flavor.themeId)
-      scheduleDurablePersist(buildLocalState)
+      scheduleDurablePersist(persistLocal)
     },
   })
 

@@ -5,21 +5,24 @@
  * (a fresh random loopback port every launch), and localStorage is scoped per
  * origin including the port. So a flavour/glass choice persisted only in
  * localStorage is silently lost on every Desktop restart — the GUI boots on a
- * brand-new origin where the storage is empty. The other Desktop surfaces that
- * DO persist (the skin centre's active choice) are written by the host to a
- * file under the DSH home (`cordis.patch.yml`), which is port-independent.
+ * brand-new origin where the storage is empty.
  *
- * The fix mirrors that proven pattern: the Host keeps a tiny JSON file at
- * `$DSH_HOME/catppuccin-state.json`, and the Client reads/updates it through
- * two same-origin webServer routes (exactly the update-check pattern). The
- * file is the source of truth; browser localStorage stays as the instant
- * in-browser cache and cross-tab sync. This module is dependency-free so both
+ * Since 0.5.0 the DURABLE copy lives in the official settings seam
+ * (`ctx.settings` Host-side / `ctx.settingsScope` Client-side), which
+ * persists under the DSH home exactly like the legacy
+ * `$DSH_HOME/catppuccin-state.json` did — port-independent, so it survives
+ * the Desktop's per-launch port churn. The legacy file is kept as a
+ * read-only migration source (`src/legacy-state.ts`) and rolled into the
+ * settings document once (`src/index.ts`). Browser localStorage remains the
+ * in-browser cache and cross-tab sync bus, and the Client's fallback when the
+ * settings transport is unavailable. This module is dependency-free so both
  * bundles inline it (like `update-check.ts`).
  */
 export const STATE_VERSION = 1
 
-/** Host route answering the durable state (GET reads, PUT writes). */
-export const STATE_ROUTE_PATH = '/catppuccin/state'
+/** Settings namespace both halves address: Host registers it, Client binds
+ *  it through `ctx.settingsScope` (see `src/settings-catppuccin.ts`). */
+export const CATPPUCCIN_SETTINGS_NS = 'catppuccin'
 
 /** State file name under the DSH home (kept next to the Desktop-managed
  *  `cordis.patch.yml` so it survives the Desktop's per-launch port churn). */
@@ -58,6 +61,16 @@ export interface GlassState {
 export interface CatppuccinState {
   /** Schema version; anything else is treated as unknown and defaulted. */
   version: typeof STATE_VERSION
+  /** Selected flavour (theme id or `off`). */
+  flavor: FlavorValue
+  /** Glass-layer settings (enable flag + knobs). */
+  glass: GlassState
+}
+
+/** The settings-document section: `CatppuccinState` minus the synthetic
+ *  `version` field — the official seam resolves defaults, composition and the
+ *  user layer itself, so no plugin-side version is stored. */
+export interface CatppuccinSettingsSection {
   /** Selected flavour (theme id or `off`). */
   flavor: FlavorValue
   /** Glass-layer settings (enable flag + knobs). */
@@ -132,4 +145,38 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.blur === expected.glass.blur
     && state.glass.frost === expected.glass.frost
     && state.glass.brightness === expected.glass.brightness
+}
+
+/** Default settings-document section: no flavour and no glass (mirrors
+ *  `defaultState()` minus the synthetic `version`). */
+export function defaultSettingsSection(): CatppuccinSettingsSection {
+  return {
+    flavor: 'off',
+    glass: { ...DEFAULT_GLASS },
+  }
+}
+
+/** Drop the synthetic `version` field: full state → settings-document section. */
+export function settingsSectionFromState(state: CatppuccinState): CatppuccinSettingsSection {
+  return {
+    flavor: state.flavor,
+    glass: { ...state.glass },
+  }
+}
+
+/** Lift a settings-document section back into the full state-shaped contract
+ *  (re-sanitized so a hand-edited document can never poison the plugin). */
+export function stateFromSettingsSection(section: CatppuccinSettingsSection): CatppuccinState {
+  return sanitizeState(section)
+}
+
+/** Whether two settings sections are field-for-field equal (used to skip
+ *  redundant mirror writes and to recognize the Host echoing our own write). */
+export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: CatppuccinSettingsSection): boolean {
+  return a.flavor === b.flavor
+    && a.glass.enabled === b.glass.enabled
+    && a.glass.mode === b.glass.mode
+    && a.glass.blur === b.glass.blur
+    && a.glass.frost === b.glass.frost
+    && a.glass.brightness === b.glass.brightness
 }

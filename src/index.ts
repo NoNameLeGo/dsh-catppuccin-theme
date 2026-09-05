@@ -3,25 +3,32 @@
  *
  * Pure UI plugin: the four flavour themes and the glass skin ship in the
  * browser half (exports["./client"], discovered through the package.json
- * dsh.client declaration). The flavour/glass preferences persist durably in a
- * small JSON file under the DSH home (`catppuccin-state.json`) served to the
- * Client through the `/catppuccin/state` route — necessary because DSH
- * Desktop restarts on a fresh random loopback port every launch, and
- * localStorage (scoped per origin including the port) cannot survive that
- * (browser localStorage stays only as the in-browser cache / cross-tab sync).
- * The Host settings wire is NOT used for either: it only serves an explicit
- * allowlist of namespaces (see dsh-host-apiproxy's WEB_SETTINGS_NAMESPACES),
- * so a plugin-owned settings namespace would answer `settings-not-exposed`
- * even when registered.
+ * dsh.client declaration). Since 0.5.0 the flavour/glass preferences persist
+ * durably through the OFFICIAL settings seam: this half registers the
+ * `catppuccin` settings namespace (`ctx.settings.installSection`, optional
+ * wiring — see below), and the Client binds it through `ctx.settingsScope`.
+ * That was not possible before DSH 0.1.1-rc.2, which is why 0.4.x shipped a
+ * hand-rolled `$DSH_HOME/catppuccin-state.json` + `/catppuccin/state` route
+ * instead: the Host settings wire then only served an explicit allowlist of
+ * namespaces (see dsh-host-apiproxy's WEB_SETTINGS_NAMESPACES), so a
+ * plugin-owned settings namespace answered `settings-not-exposed` even when
+ * registered. 0.1.1-rc.2 dropped the allowlist ("注册即暴露"), and the
+ * legacy file is now only a one-shot migration source (`src/legacy-state.ts`,
+ * read into the document on first registration; the file stays as rollback).
+ *
+ * Settings wiring is OPTIONAL on purpose: `installSection` registers the
+ * namespace on the calling context while a settings service is live and falls
+ * back to its `base` (the shipped defaults) when it is not, so a deployment
+ * without a settings provider keeps the plugin working from browser
+ * localStorage alone (losing only cross-restart durability). No profile is
+ * ever blocked on the settings service.
  *
  * The two host-side behaviors are exact webServer routes (the same pattern
  * every working host plugin uses: dsh-ssh, client-hmr, client-connection):
  *   - `/catppuccin/check-update`: queries the npm registry for the latest
  *     published version, compares it against this package's own manifest
  *     version with a dependency-free semver comparator, and answers the JSON
- *     contract in `src/update-check.ts`;
- *   - `/catppuccin/state` (GET / PUT): the durable flavour + glass settings,
- *     read/written with `src/host-state.ts` (atomic JSON under `$DSH_HOME`).
+ *     contract in `src/update-check.ts`.
  * `webServer` is a hard inject dependency, so Cordis starts this plugin only
  * after the service is live — mounting can never race ahead of it and
  * silently skip the routes. (An earlier version read `ctx.get('webServer')`
@@ -32,8 +39,10 @@
  * settings and public package metadata, so no workspace gate is needed.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+// Type-only: pulls the settings service's Context merge (ctx.settings).
+import type {} from '@deepseek-ai/dsh-settings'
 import pkg from '../package.json'
-import { readDurableState, writeDurableState } from './host-state.ts'
 import {
   REGISTRY_PACKUMENT_URL,
   UPDATE_FETCH_TIMEOUT_MS,
@@ -45,7 +54,13 @@ import {
 } from './update-check.ts'
 import { isUpdateAvailable } from './versions.ts'
 import { detectProfile } from './profile-detect.ts'
-import { STATE_ROUTE_PATH } from './state.ts'
+import { readLegacyState } from './legacy-state.ts'
+import {
+  CATPPUCCIN_SETTINGS_BASE,
+  CATPPUCCIN_SETTINGS_NS,
+  CatppuccinSettingsSchema,
+} from './settings-catppuccin.ts'
+import { isDefaultState, settingsSectionFromState } from './state.ts'
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'dsh-catppuccin'
@@ -188,91 +203,34 @@ async function handleUpdateCheck(ctx: Context, _req: HttpRequestLike, res: HttpR
   sendJson(res, payload.ok ? 200 : 502, payload)
 }
 
-/** Soft cap on the durable-state write payload (a preference blob is tiny;
- *  anything larger is a malformed request). */
-const STATE_BODY_LIMIT = 32 * 1024
-
-/** Drain a request body as UTF-8 text, rejecting bodies over the cap.
- *  Once settled (over-cap or errored) further chunks are ignored — the
- *  promise is already answered and the buffers must not keep growing. */
-function readRequestBody(req: HttpRequestLike): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = []
-    let total = 0
-    let settled = false
-    req.on('data', (chunk: Uint8Array) => {
-      if (settled) return
-      total += chunk.byteLength
-      if (total > STATE_BODY_LIMIT) {
-        settled = true
-        reject(new Error('state write body too large'))
-        return
-      }
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      if (settled) return
-      settled = true
-      // Decode manually (no Buffer type in the structural contract):
-      // node:http yields Uint8Array chunks, TextDecoder is a Node global.
-      const decoder = new TextDecoder('utf-8')
-      let text = ''
-      for (const chunk of chunks) text += decoder.decode(chunk, { stream: true })
-      text += decoder.decode()
-      resolve(text)
-    })
-    req.on('error', (error) => {
-      if (settled) return
-      settled = true
-      reject(error)
-    })
-  })
-}
-
 function sendJson(res: HttpResponseLike, status: number, payload: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(payload))
 }
 
-/** GET /catppuccin/state — answer the durable state (null when never stored).
- *  Same origin as the GUI regardless of the (Desktop's random) loopback port,
- *  so the Client can read back the choice after every restart. */
-function handleStateGet(_req: HttpRequestLike, res: HttpResponseLike): void {
-  try {
-    sendJson(res, 200, { ok: true, state: readDurableState() })
-  } catch (error) {
-    sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
-  }
+/**
+ * One-shot migration of the pre-0.5.0 durable file into the settings
+ * document. Runs inside the settings wiring (see `apply`), right after the
+ * namespace registration, and only writes when the document holds NO user
+ * layer yet — a user who already configured through the official settings
+ * surface (or a previous migration) is never overwritten. The legacy file is
+ * left on disk untouched as a rollback copy; a corrupt or absent file means
+ * nothing to migrate. Failure is non-fatal and logged through the rejection
+ * (the document simply starts from the shipped defaults).
+ */
+function migrateLegacyStateOnce(settings: SettingsProvider): void {
+  const legacy = readLegacyState()
+  if (legacy === null || isDefaultState(legacy)) return
+  const descriptor = settings.describe({ redactSecrets: true })
+    .find((candidate) => candidate.ns === CATPPUCCIN_SETTINGS_NS)
+  if (descriptor === undefined || descriptor.user !== undefined) return
+  void settings.update(CATPPUCCIN_SETTINGS_NS, settingsSectionFromState(legacy)).catch((error: unknown) => {
+    console.warn(`[dsh-catppuccin] legacy state migration failed: ${String(error)}`)
+  })
 }
 
-/** PUT /catppuccin/state — validate and durably write the state. */
-async function handleStatePut(req: HttpRequestLike, res: HttpResponseLike): Promise<void> {
-  let raw: string
-  try {
-    raw = await readRequestBody(req)
-  } catch (error) {
-    sendJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) })
-    return
-  }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    sendJson(res, 400, { ok: false, error: 'invalid-json' })
-    return
-  }
-  try {
-    // sanitizeState (inside writeDurableState) clamps and defaults every field,
-    // so a hand-crafted payload can only ever write a valid state.
-    writeDurableState(parsed as Parameters<typeof writeDurableState>[0])
-    sendJson(res, 200, { ok: true })
-  } catch (error) {
-    sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
-  }
-}
-
-/** Host plugin body: register the update-check and durable-state routes
- *  (webServer is inject). */
+/** Host plugin body: register the update-check route and the settings
+ *  namespace (webServer is inject; settings is optional wiring). */
 export function apply(ctx: Context): void {
   // inject above guarantees the service is live when apply runs, so a plain
   // get can never come back undefined (the silent-skip failure mode this
@@ -284,12 +242,26 @@ export function apply(ctx: Context): void {
     path: UPDATE_ROUTE_PATH,
     handler: (req, res) => void handleUpdateCheck(ctx, req, res),
   }), 'dsh-catppuccin: update-check route')
-  ctx.effect(() => webServer.register({
-    kind: 'exact',
-    path: STATE_ROUTE_PATH,
-    handler: async (req, res) => {
-      if (req.method === 'PUT') await handleStatePut(req, res)
-      else handleStateGet(req, res)
-    },
-  }), 'dsh-catppuccin: durable-state route')
+
+  // Official-settings persistence (0.5.0+). Optional on purpose: installSection
+  // keeps the plugin running off the shipped defaults (and the Client's
+  // localStorage) on deployments without a settings service, exactly the
+  // "wait without crashing" contract of the old route-based storage.
+  ctx.inject(['settings'], (sctx) => {
+    sctx.settings.installSection(
+      sctx,
+      CATPPUCCIN_SETTINGS_NS,
+      CatppuccinSettingsSchema,
+      CATPPUCCIN_SETTINGS_BASE,
+      {
+        // Host half never consumes the resolved value itself — the Client
+        // renders and edits it through its own bound scope — so the source
+        // sink and change hook are intentionally empty (the wiring still
+        // needs them to keep the registration fiber-scoped).
+        setSource() {},
+        onChange() {},
+      },
+    )
+    migrateLegacyStateOnce(sctx.settings)
+  })
 }

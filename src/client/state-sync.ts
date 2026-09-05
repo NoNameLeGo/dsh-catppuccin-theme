@@ -1,67 +1,106 @@
 /**
- * Browser half of the durable Catppuccin state — a thin wrapper over the
- * Host's `/catppuccin/state` route (same-origin relative fetch, so it works on
- * DSH Desktop's per-launch random loopback port). The Host file is the source
- * of truth; this module adds the fetch wrapper plus a debounced trailing
- * writer so rapid knob drags coalesce into a single PUT. Every failure is
- * non-fatal: the plugin keeps working from browser localStorage alone.
+ * Browser half of the durable Catppuccin state — an adapter over the
+ * OFFICIAL settings scope (`ctx.settingsScope`), replacing the pre-0.5.0
+ * `/catppuccin/state` route wrapper. The Host settings document is the source
+ * of truth; this module binds the `catppuccin` namespace, reads its resolved
+ * section into the local state contract, and persists changes as one atomic
+ * revision-fenced mutation. Every failure is non-fatal: the plugin keeps
+ * working from browser localStorage alone (the in-browser cache), losing
+ * only cross-restart durability on profiles where the settings transport is
+ * absent or process-local.
  */
-import { STATE_ROUTE_PATH, sanitizeState, type CatppuccinState } from '../state.ts'
+import type { Context } from '@deepseek-ai/cordis'
+import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls the settingsScope Context merge and the scope contract
+// types (SettingsScope / SettingsScopeSnapshot).
+import type {
+  SettingsScope,
+  SettingsScopeSnapshot,
+} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import {
+  CATPPUCCIN_SETTINGS_NS,
+  settingsSectionFromState,
+  stateFromSettingsSection,
+  type CatppuccinSettingsSection,
+  type CatppuccinState,
+} from '../state.ts'
 
-/** Outcome of reading the durable state from the Host. */
-export interface DurableReadResult {
-  /** Whether the route answered at all (false = fall back to localStorage-only). */
-  available: boolean
-  /** The stored state, or null when nothing durable has been written yet. */
-  state: CatppuccinState | null
+export type { SettingsScope, SettingsScopeSnapshot }
+
+/**
+ * Bind the Catppuccin namespace on this context. The scope derives from the
+ * shared document mirror (no wire read of its own) and its life is bound to
+ * the calling fiber, so binding never blocks on the settings transport.
+ */
+export function bindCatppuccinScope(ctx: Context): SettingsScope<CatppuccinSettingsSection> {
+  return ctx.settingsScope.bind<CatppuccinSettingsSection>({ namespace: CATPPUCCIN_SETTINGS_NS })
 }
 
-/** Read the durable state from the Host file (same-origin GET). */
-export async function readDurableStateRemote(): Promise<DurableReadResult> {
-  try {
-    const response = await fetch(STATE_ROUTE_PATH, { headers: { accept: 'application/json' } })
-    if (!response.ok) return { available: false, state: null }
-    const payload = await response.json() as { ok?: boolean; state?: unknown }
-    if (payload.ok !== true) return { available: false, state: null }
-    return { available: true, state: payload.state === null || payload.state === undefined
-      ? null
-      : sanitizeState(payload.state) }
-  } catch {
-    return { available: false, state: null }
-  }
+/** Whether the scope is usable for durable persistence: the document is
+ *  resolved (`ready`) and the Host persistence is active (`host`). A `memory`
+ *  scope (non-loopback pages / absent transport) or a not-yet-ready one is
+ *  NOT usable — the caller keeps localStorage as the only store. */
+export function isScopeUsable(snapshot: SettingsScopeSnapshot<CatppuccinSettingsSection>): boolean {
+  return snapshot.status === 'ready' && snapshot.mode === 'host'
 }
 
-/** Write the durable state to the Host file (same-origin PUT). */
-export async function persistDurableState(state: CatppuccinState): Promise<boolean> {
+/** The local state contract (with the synthetic `version`) for a usable
+ *  scope snapshot; `null` while the section is not resolved. */
+export function durableStateFromSnapshot(
+  snapshot: SettingsScopeSnapshot<CatppuccinSettingsSection>,
+): CatppuccinState | null {
+  if (!isScopeUsable(snapshot) || snapshot.value === undefined) return null
+  return stateFromSettingsSection(snapshot.value)
+}
+
+/** One atomic mutation covering the whole local state (revision-fenced).
+ *  Writing every field keeps the section self-contained — a partial write
+ *  could otherwise leave a knob stuck on a stale override after a document
+ *  edit elsewhere. */
+function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
+  const section = settingsSectionFromState(state)
+  return [
+    { op: 'set', path: ['flavor'], value: section.flavor },
+    { op: 'set', path: ['glass', 'enabled'], value: section.glass.enabled },
+    { op: 'set', path: ['glass', 'mode'], value: section.glass.mode },
+    { op: 'set', path: ['glass', 'blur'], value: section.glass.blur },
+    { op: 'set', path: ['glass', 'frost'], value: section.glass.frost },
+    { op: 'set', path: ['glass', 'brightness'], value: section.glass.brightness },
+  ]
+}
+
+/** Persist the local state through the scope as one atomic mutation.
+ *  Resolves `true` when the write was issued. */
+export async function persistStateToScope(
+  scope: SettingsScope<CatppuccinSettingsSection>,
+  state: CatppuccinState,
+): Promise<boolean> {
   try {
-    const response = await fetch(STATE_ROUTE_PATH, {
-      method: 'PUT',
-      headers: { accept: 'application/json', 'content-type': 'application/json' },
-      body: JSON.stringify(sanitizeState(state)),
-    })
-    return response.ok
+    await scope.mutate(stateToMutateOps(state))
+    return true
   } catch {
     return false
   }
 }
 
 let pendingTimer: number | undefined
-let pendingGetState: (() => CatppuccinState) | undefined
+let pendingWrite: (() => void) | undefined
 
 /**
  * Debounced trailing persist: after a burst of changes (a slider drag emits a
- * stream of snapshot updates) the latest state is written to the Host once,
- * a short beat after the last change. Pass an accessor so the snapshot is
- * taken at flush time, never stale.
+ * stream of snapshot updates) the write happens once, a short beat after the
+ * last change. Pass an accessor so the state snapshot is taken at flush time,
+ * never stale.
  */
-export function scheduleDurablePersist(getState: () => CatppuccinState, delayMs = 300): void {
+export function scheduleDurablePersist(write: () => void, delayMs = 300): void {
   if (pendingTimer !== undefined) window.clearTimeout(pendingTimer)
-  pendingGetState = getState
+  pendingWrite = write
   pendingTimer = window.setTimeout(() => {
     pendingTimer = undefined
-    const state = pendingGetState
-    pendingGetState = undefined
-    if (state !== undefined) void persistDurableState(state()).catch(() => { /* best-effort */ })
+    const run = pendingWrite
+    pendingWrite = undefined
+    if (run !== undefined) void Promise.resolve().then(run).catch(() => { /* best-effort */ })
   }, delayMs)
 }
 
@@ -69,5 +108,5 @@ export function scheduleDurablePersist(getState: () => CatppuccinState, delayMs 
 export function cancelDurablePersist(): void {
   if (pendingTimer !== undefined) window.clearTimeout(pendingTimer)
   pendingTimer = undefined
-  pendingGetState = undefined
+  pendingWrite = undefined
 }

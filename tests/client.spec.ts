@@ -2,7 +2,7 @@
 /**
  * Client-side pure logic: flavour choice read/write fallbacks, the
  * built-in-preference restore pair (the "off restores what you had" fix),
- * and the durable state-sync wrappers (fetch contract + debounced writer).
+ * and the settings-scope adapter (bind/read/persist + debounced writer).
  * The host-side mirror of the contract lives in the other specs; this file
  * only covers what the browser half owns.
  */
@@ -20,11 +20,15 @@ import {
 } from '../src/client/index.ts'
 import {
   cancelDurablePersist,
-  persistDurableState,
-  readDurableStateRemote,
+  durableStateFromSnapshot,
+  isScopeUsable,
+  persistStateToScope,
   scheduleDurablePersist,
+  type SettingsScope,
+  type SettingsScopeSnapshot,
 } from '../src/client/state-sync.ts'
-import { STATE_ROUTE_PATH, defaultState } from '../src/state.ts'
+import { STATE_VERSION, defaultSettingsSection, defaultState, settingsSectionFromState } from '../src/state.ts'
+import type { CatppuccinSettingsSection } from '../src/state.ts'
 
 beforeEach(() => {
   localStorage.clear()
@@ -101,71 +105,101 @@ describe('builtinPickWins (issue #6 restore guard)', () => {
   })
 })
 
-/** Minimal fetch stub shape used by state-sync. */
-function stubFetch(impl: (url: string, init?: RequestInit) => Promise<unknown>): void {
-  vi.stubGlobal('fetch', vi.fn(impl) as unknown as typeof fetch)
+/** Build a settings-scope snapshot fixture (host-mode, resolved). */
+function hostSnapshot(value: CatppuccinSettingsSection, user?: unknown): SettingsScopeSnapshot<CatppuccinSettingsSection> {
+  return {
+    status: 'ready',
+    value,
+    base: defaultSettingsSection(),
+    user,
+    revision: 1,
+    writable: true,
+    mode: 'host',
+  }
 }
 
-describe('readDurableStateRemote', () => {
-  it('answers unavailable on any fetch failure or non-ok response', async () => {
-    stubFetch(async () => { throw new Error('no route') })
-    expect(await readDurableStateRemote()).toEqual({ available: false, state: null })
-    stubFetch(async () => ({ ok: false, status: 404, json: async () => ({}) }))
-    expect(await readDurableStateRemote()).toEqual({ available: false, state: null })
-  })
+/** Minimal scope double recording mutations. */
+function scopeDouble(): { scope: SettingsScope<CatppuccinSettingsSection>; mutations: unknown[][] } {
+  const mutations: unknown[][] = []
+  return {
+    mutations,
+    scope: {
+      getSnapshot() { throw new Error('not used') },
+      subscribe() { return () => {} },
+      set() { return Promise.resolve() },
+      unset() { return Promise.resolve() },
+      mutate(ops) { mutations.push(ops as never); return Promise.resolve() },
+    } as unknown as SettingsScope<CatppuccinSettingsSection>,
+  }
+}
 
-  it('sanitizes the payload and maps null state through', async () => {
-    stubFetch(async () => ({ ok: true, json: async () => ({ ok: true, state: null }) }))
-    expect(await readDurableStateRemote()).toEqual({ available: true, state: null })
-    stubFetch(async () => ({
-      ok: true,
-      json: async () => ({ ok: true, state: { flavor: 'catppuccin-mocha', glass: { enabled: true, blur: 999 } } }),
-    }))
-    const result = await readDurableStateRemote()
-    expect(result.available).toBe(true)
-    expect(result.state?.flavor).toBe('catppuccin-mocha')
-    expect(result.state?.glass.blur).toBe(40) // clamped by sanitizeState
-    expect(result.state?.glass.frost).toBe(defaultState().glass.frost) // defaulted
+describe('isScopeUsable', () => {
+  it('accepts only a resolved host-mode snapshot', () => {
+    expect(isScopeUsable(hostSnapshot(defaultSettingsSection()))).toBe(true)
+    expect(isScopeUsable({ ...hostSnapshot(defaultSettingsSection()), mode: 'memory' })).toBe(false)
+    expect(isScopeUsable({ ...hostSnapshot(defaultSettingsSection()), status: 'loading' })).toBe(false)
+    expect(isScopeUsable({ ...hostSnapshot(defaultSettingsSection()), status: 'unavailable' })).toBe(false)
   })
 })
 
-describe('persistDurableState', () => {
-  it('PUTs the sanitized state and reports the response verdict', async () => {
-    const seen: { url: string; init?: RequestInit }[] = []
-    stubFetch(async (url, init) => { seen.push({ url, init }); return { ok: true } })
-    expect(await persistDurableState({ ...defaultState(), flavor: 'catppuccin-latte', glass: { ...defaultState().glass, blur: 77 } } as never)).toBe(true)
-    expect(seen).toHaveLength(1)
-    expect(seen[0].url).toBe(STATE_ROUTE_PATH)
-    expect(seen[0].init?.method).toBe('PUT')
-    expect(JSON.parse(String(seen[0].init?.body)).glass.blur).toBe(40) // sanitized before the wire
-    stubFetch(async () => { throw new Error('gone') })
-    expect(await persistDurableState(defaultState())).toBe(false)
+describe('durableStateFromSnapshot', () => {
+  it('returns null unless the scope is usable and resolved', () => {
+    expect(durableStateFromSnapshot({ ...hostSnapshot(defaultSettingsSection()), status: 'loading' })).toBeNull()
+    expect(durableStateFromSnapshot({ ...hostSnapshot(undefined as never), status: 'unavailable' })).toBeNull()
+    expect(durableStateFromSnapshot({ ...hostSnapshot(defaultSettingsSection()), mode: 'memory' })).toBeNull()
+  })
+
+  it('lifts a resolved section into the full state contract (re-sanitized)', () => {
+    const snapshot = hostSnapshot(settingsSectionFromState(
+      defaultState(),
+    ), undefined)
+    const state = durableStateFromSnapshot(snapshot)
+    expect(state?.version).toBe(STATE_VERSION)
+    expect(state?.flavor).toBe('off')
+  })
+})
+
+describe('persistStateToScope', () => {
+  it('writes one atomic mutation covering the whole section', async () => {
+    const { scope, mutations } = scopeDouble()
+    const state = { ...defaultState(), flavor: 'catppuccin-latte' as never, glass: { ...defaultState().glass, blur: 77 } }
+    expect(await persistStateToScope(scope, state)).toBe(true)
+    expect(mutations).toHaveLength(1)
+    const ops = mutations[0] as { op: string; path: string[]; value: unknown }[]
+    const byPath = Object.fromEntries(ops.map((op) => [op.path.join('.'), op.value]))
+    expect(byPath['flavor']).toBe('catppuccin-latte')
+    expect(byPath['glass.blur']).toBe(77)
+    expect(byPath['glass.enabled']).toBe(false)
+  })
+
+  it('reports false when the write rejects', async () => {
+    const flaky = {
+      mutate() { return Promise.reject(new Error('conflict')) },
+    } as unknown as SettingsScope<CatppuccinSettingsSection>
+    expect(await persistStateToScope(flaky, defaultState())).toBe(false)
   })
 })
 
 describe('scheduleDurablePersist debounce', () => {
-  it('coalesces a burst into one PUT of the freshest state', async () => {
-    const put = vi.fn(async () => ({ ok: true }))
-    stubFetch(put as unknown as typeof fetch)
+  it('coalesces a burst into one flush of the freshest write', async () => {
     vi.useFakeTimers()
+    const writes: string[] = []
     let value = 'catppuccin-latte'
-    scheduleDurablePersist(() => ({ ...defaultState(), flavor: value as never }), 300)
+    scheduleDurablePersist(() => { writes.push(value) }, 300)
     value = 'catppuccin-mocha'
-    scheduleDurablePersist(() => ({ ...defaultState(), flavor: value as never }), 300)
+    scheduleDurablePersist(() => { writes.push(value) }, 300)
     await vi.advanceTimersByTimeAsync(299)
-    expect(put).not.toHaveBeenCalled()
+    expect(writes).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(1)
-    expect(put).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(String(put.mock.calls[0][1]?.body)).flavor).toBe('catppuccin-mocha')
+    expect(writes).toEqual(['catppuccin-mocha'])
   })
 
   it('cancelDurablePersist drops the queued write', async () => {
-    const put = vi.fn(async () => ({ ok: true }))
-    stubFetch(put as unknown as typeof fetch)
     vi.useFakeTimers()
-    scheduleDurablePersist(() => defaultState(), 300)
+    const writes: string[] = []
+    scheduleDurablePersist(() => { writes.push('x') }, 300)
     cancelDurablePersist()
     await vi.advanceTimersByTimeAsync(1000)
-    expect(put).not.toHaveBeenCalled()
+    expect(writes).toHaveLength(0)
   })
 })

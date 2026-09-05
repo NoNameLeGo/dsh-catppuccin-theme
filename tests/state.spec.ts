@@ -1,22 +1,27 @@
 // @vitest-environment jsdom
 /**
  * Durable state contract — the shared shape, the sanitization/clamping rules,
- * and the sync guard that keeps `src/state.ts` aligned with the client's
- * registered flavour ids (the glass knob defaults are derived from
- * `DEFAULT_GLASS` directly, so no guard is needed). A drift here would
- * resurface the Desktop "theme does not stick across restart" bug as restored
- * but wrong values (the durable file is the source of truth on every boot).
+ * the settings-document section helpers (0.5.0), and the sync guard that keeps
+ * `src/state.ts` aligned with the client's registered flavour ids (the glass
+ * knob defaults are derived from `DEFAULT_GLASS` directly, so no guard is
+ * needed). A drift here would resurface the Desktop "theme does not stick
+ * across restart" bug as restored but wrong values (the durable document is
+ * the source of truth on every boot).
  */
 import { describe, expect, it } from 'vitest'
 import {
   CATPPUCCIN_THEME_IDS,
+  CATPPUCCIN_SETTINGS_NS,
   DEFAULT_GLASS,
   STATE_FILENAME,
-  STATE_ROUTE_PATH,
   STATE_VERSION,
+  defaultSettingsSection,
   defaultState,
   isDefaultState,
   sanitizeState,
+  settingsSectionFromState,
+  settingsSectionsEqual,
+  stateFromSettingsSection,
 } from '../src/state.ts'
 import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
 import { CATPPUCCIN_FLAVOR_VALUES } from '../src/client/index.ts'
@@ -43,8 +48,8 @@ describe('durable state defaults', () => {
     expect(isDefaultState(sanitizeState({ glass: { blur: 10 } }))).toBe(false)
   })
 
-  it('routes to the Host and a stable file name under the DSH home', () => {
-    expect(STATE_ROUTE_PATH).toBe('/catppuccin/state')
+  it('uses the settled namespace and the legacy file name for migration', () => {
+    expect(CATPPUCCIN_SETTINGS_NS).toBe('catppuccin')
     expect(STATE_FILENAME).toBe('catppuccin-state.json')
   })
 })
@@ -92,4 +97,43 @@ describe('durable vs client sync guards', () => {
     expect(CATPPUCCIN_THEME_IDS).toEqual(CATPPUCCIN_FLAVOR_VALUES.filter((v) => v !== 'off'))
   })
 
+})
+
+describe('settings-document section helpers (0.5.0)', () => {
+  it('defaultSettingsSection mirrors defaultState minus the synthetic version', () => {
+    const { version, ...withoutVersion } = { ...defaultState(), version: undefined as never }
+    expect(defaultSettingsSection()).toEqual({
+      flavor: 'off',
+      glass: { ...DEFAULT_GLASS },
+    })
+    expect(withoutVersion).not.toHaveProperty('version')
+  })
+
+  it('settingsSectionFromState drops the version and copies the glass knobs', () => {
+    const state = sanitizeState({ flavor: 'catppuccin-frappe', glass: { enabled: true, blur: 9 } })
+    const section = settingsSectionFromState(state)
+    expect(section).toEqual({ flavor: 'catppuccin-frappe', glass: state.glass })
+    expect(section).not.toHaveProperty('version')
+    // The returned glass is a detached copy — mutating it cannot move state.
+    section.glass.blur = 77
+    expect(state.glass.blur).toBe(9)
+  })
+
+  it('stateFromSettingsSection re-sanitizes a document section into full state', () => {
+    const section = settingsSectionFromState(sanitizeState({ flavor: 'catppuccin-macchiato', glass: { blur: 3 } }))
+    const state = stateFromSettingsSection(section)
+    expect(state.version).toBe(STATE_VERSION)
+    expect(state.flavor).toBe('catppuccin-macchiato')
+    expect(state.glass.blur).toBe(3)
+    // Hand-edited garbage is clamped back to sane values.
+    expect(stateFromSettingsSection({ flavor: 'garbage', glass: { blur: 9999 } } as never).flavor).toBe('off')
+    expect(stateFromSettingsSection({ flavor: 'garbage', glass: { blur: 9999 } } as never).glass.blur).toBe(40)
+  })
+
+  it('settingsSectionsEqual compares every field', () => {
+    const base = defaultSettingsSection()
+    expect(settingsSectionsEqual(base, defaultSettingsSection())).toBe(true)
+    expect(settingsSectionsEqual(base, { ...base, flavor: 'catppuccin-latte' })).toBe(false)
+    expect(settingsSectionsEqual(base, { ...base, glass: { ...base.glass, blur: 10 } })).toBe(false)
+  })
 })
