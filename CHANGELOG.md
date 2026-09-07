@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+### 修复（2026-09-07）
+
+- **修复刷新/重启后风味回退（issue #10）**：`theme/change` 监听器内的风味恢复改为微任务延迟执行——原实现同步调用 `theme.setTheme(flavor)` 会重入 `publish()`，导致展示层（ThemePresenter，注册晚于插件）最后应用外层分发携带的过期设置文档快照（dark/system），DOM 回退为官方深色而运行时 preference 仍是风味。延迟后风味的 `setTheme` 成为分发结束后的最后一条事件，展示层最终应用风味；执行时重查 `preference` / `liveBuiltinPick`，用户本会话显式选择的 light/dark 仍优先。新增 `tests/reentrancy.spec.ts` 回归测试（旧代码失败、修复后通过）。（EN: defer flavour restore out of the theme/change dispatch; fixes the stale-snapshot re-apply on refresh/restart）
+
 ### 非视觉改进批次（2026-09-06，按 docs/plugin-improvements.md 实施）
 
 > 只实施无视觉判断的改进项；视觉项（预览图/skin 调优等）由视觉模型或人工复核收尾，见 `docs/plugin-improvements.md` 跟踪表。

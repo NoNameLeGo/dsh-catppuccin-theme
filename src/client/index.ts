@@ -464,6 +464,35 @@ export function apply(ctx: ClientContext): void {
       originalSetTheme.call(theme, id)
     }
 
+    // Issue #10: a synchronous setTheme inside a theme/change dispatch
+    // re-enters publish() — the ThemePresenter (registered after us) then
+    // applies the STALE snapshot carried by the OUTER dispatch last, so the
+    // DOM ends up dark/system while the runtime preference is the flavour.
+    // Defer the restore out of the current dispatch (microtask) and re-check
+    // at run time, so the flavour's setTheme is always the LAST event the
+    // presenter sees. A single in-flight restore coalesces repeated
+    // observations (boot, adopt() reloads, storage echoes).
+    let restorePending = false
+    const scheduleRestore = (desired: FlavorChoice): void => {
+      if (restorePending) return
+      restorePending = true
+      queueMicrotask(() => {
+        restorePending = false
+        const preference = theme.getTheme().preference
+        if (preference === desired) return
+        // Re-check the guard at run time: a newer explicit built-in pick
+        // (or a newer event) still wins over the persisted flavour.
+        if (builtinPickWins(preference, liveBuiltinPick)) return
+        // Lazy registration (item JJ): the theme must exist before setTheme.
+        ensureThemeRegistered(desired)
+        try {
+          theme.setTheme(desired)
+        } catch {
+          // Theme not registered yet — a later theme/change re-runs applyDesired.
+        }
+      })
+    }
+
     const applyDesired = (): void => {
       // Record the built-in preference on every non-flavour observation (boot,
       // adopt() reloads, explicit Appearance changes) BEFORE any re-assert, so
@@ -479,13 +508,7 @@ export function apply(ctx: ClientContext): void {
       // stale for the plugin — the Catppuccin row choice is newer than the
       // document's light/dark, so restore the flavour then.
       if (builtinPickWins(preference, liveBuiltinPick)) return
-      // Lazy registration (item JJ): the theme must exist before setTheme.
-      ensureThemeRegistered(desired)
-      try {
-        theme.setTheme(desired)
-      } catch {
-        // Theme not registered yet — a later theme/change re-runs applyDesired.
-      }
+      scheduleRestore(desired)
     }
     applyDesired()
     const disposer = ctx.on('theme/change', applyDesired)
