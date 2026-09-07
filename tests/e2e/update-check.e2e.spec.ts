@@ -18,6 +18,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net'
 import { apply } from '../../src/index.ts'
 import { UPDATE_ROUTE_PATH } from '../../src/update-check.ts'
+import pkg from '../../package.json'
 
 /** The real fetch, captured before the registry stub replaces the global. */
 const realFetch = globalThis.fetch
@@ -128,7 +129,7 @@ describe('e2e: host plugin on a real cordis app', () => {
     expect(status).toBe(200)
     expect(body.ok).toBe(true)
     expect(body.code).toBe('ok')
-    expect(body.current).toBe('0.5.0-beta.0')
+    expect(body.current).toBe(pkg.version)
     // This install is a prerelease, so the default check also chases beta
     // (selectNewest) and reports the newest of the two tags.
     expect(body.latest).toBe('0.10.0-beta.1')
