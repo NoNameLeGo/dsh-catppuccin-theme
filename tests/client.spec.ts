@@ -13,10 +13,12 @@ import {
   builtinPickWins,
   flavorFromThemeId,
   flavorInfo,
+  overridesSnapshot,
   readFlavor,
   readRestoredPreference,
   rememberBuiltinPreference,
   writeFlavor,
+  writeOverrides,
 } from '../src/client/index.ts'
 import {
   cancelDurablePersist,
@@ -102,6 +104,26 @@ describe('builtinPickWins (issue #6 restore guard)', () => {
   it('non built-in preferences (flavour ids) never win', () => {
     expect(builtinPickWins('catppuccin-latte', 'catppuccin-latte')).toBe(false)
     expect(builtinPickWins('catppuccin-mocha', null)).toBe(false)
+  })
+})
+
+describe('overridesSnapshot stability', () => {
+  it('keeps the same reference while unchanged and swaps only on content change', () => {
+    writeOverrides({ a: '1' })
+    const first = overridesSnapshot()
+    expect(overridesSnapshot()).toBe(first) // stable reference (React store)
+    writeOverrides({ a: '1' }) // same content — reference stays
+    expect(overridesSnapshot()).toBe(first)
+    writeOverrides({ a: '2' }) // content changed — new reference
+    const second = overridesSnapshot()
+    expect(second).not.toBe(first)
+    expect(second).toEqual({ a: '2' })
+  })
+
+  it('falls back to the same empty-map reference when absent', () => {
+    const first = overridesSnapshot()
+    expect(first).toEqual({})
+    expect(overridesSnapshot()).toBe(first)
   })
 })
 

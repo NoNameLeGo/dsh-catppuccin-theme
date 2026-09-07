@@ -232,6 +232,22 @@ export function writeOverrides(value: Record<string, string>): void {
   }
 }
 
+let overridesSnapshotCache: Record<string, string> | null = null
+
+/** Stable-reference snapshot of the token overrides for `useSyncExternalStore`.
+ * `readOverrides()` parses localStorage and returns a NEW object per call —
+ * a React store whose getSnapshot returns a fresh reference every time loops
+ * forever ("Maximum update depth exceeded") and the settings row crashes.
+ * This accessor returns the SAME object while the persisted map is unchanged
+ * and swaps only when the content actually differs. */
+export function overridesSnapshot(): Record<string, string> {
+  const next = readOverrides()
+  const cached = overridesSnapshotCache
+  if (cached !== null && JSON.stringify(cached) === JSON.stringify(next)) return cached
+  overridesSnapshotCache = next
+  return next
+}
+
 /** Read the persisted shiki style (absent means the shipped default). */
 export function readShikiStyle(): ShikiStyle {
   try {
@@ -651,7 +667,7 @@ export function apply(ctx: ClientContext): void {
       theme.setTheme(flavor.themeId)
       scheduleDurablePersist(persistLocal)
     },
-    overrides: () => readOverrides(),
+    overrides: overridesSnapshot,
     setOverrides: (overrides: Record<string, string>) => {
       writeOverrides(overrides)
       emitPrefs()
