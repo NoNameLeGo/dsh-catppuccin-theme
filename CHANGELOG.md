@@ -6,7 +6,7 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.0] - 2026-09-07
 
 ### 修复（2026-09-07）
 
@@ -30,7 +30,7 @@
 - **国际化与可访问性（CC/DD/J/AA）**：新增 ja/ko/es/fr/de 字典（key 集合同步由 `tests/locales.spec.ts` 锁定）；风味副标题；row 帮助徽标（上游无 tooltip API，原生 title 落地）；glass segmented roving tabindex + 方向键。（EN: 5 new locales, flavour subtitles, help affordance, segmented keyboard nav）
 - **DX（GG/HH/KK）**：`CONTRIBUTING.md` 贡献指南；typedoc 生成 `docs/api/`（`pnpm docs:api`）；host 侧构建开 sourcemap 并发布 `*.map`。（EN: contributing guide, typedoc, sourcemaps）
 
-### 0.5.0：持久化重构到官方 settings 机制（已实施，待发版）
+### 持久化重构到官方 settings 机制
 
 > **决策（2026-08-29）**：先发 0.4.3（兼容修复）。0.5.0 重构**非必需**——0.4.3 后插件在 0.1.1-rc.2 与 0.1.2-alpha.1 均正常，自建持久化稳定运行。重构是工程质量优化（少维护一套自建持久化），等 DSH 0.1.2 正式发布、官方 settings 机制稳定后再实施，届时 devDeps 同步对齐并移除 runtime 类型 bridge。
 > **进展（2026-09-05）**：调研确认 DSH 0.1.2 尚在 rc 阶段（最新 `0.1.2-rc.1`，2026-09-03 发布，API 已冻结）；rc.1 实际 API 与下列计划有两处出入，已按实际 API 实施：① host 侧 0.1.2 系列**已无独立函数 `installSettingsSection`**（0.1.1-rc.2 还有），改为 provider 方法 `ctx.settings.installSection(owner, ns, schema, entry, hooks)`（optional wiring：settings 服务存在时注册、消失时回退 entry config）；② **`settings.plugin.item` 槽位不存在**——实测 0.1.1-rc.2 与 0.1.2-rc.1 的 slots 表完全一致（`settings.trigger/header/action/close/section/plugins.tab/onboarding/general.item`），原"迁到 plugin.item 卡片槽"可选项作废，设置行继续用 `settings.general.item`。另实测 `dsh-host-apiproxy` 0.1.1-rc.2（最新）的 `settings.describe` 已无 allowlist 过滤，"注册即暴露"成立；0.1.2-rc.1 的 `dsh-client-ui-settings` 不再从 `dsh-client-runtime` 导入类型（自含 `settings-contract.ts`），renderer 自带 `ctx.slots` merge，故 runtime 类型 bridge 已随 devDeps 对齐一并移除。
