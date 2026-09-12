@@ -8,19 +8,15 @@
 
 ## [Unreleased]
 
-### 改进（设置 UI 外观统一）
-
-- **插件设置 UI 收敛为单一控件来源**：新增 `src/client/controls.tsx`，统一放置 `Segmented`（带 WAI-ARIA roving tabindex、方向键/Home/End 移焦不选中）、`Switch`，以及行/标题/说明/输入框/卡片/条目的样式配方。此前三个设置行各自复制了分段控件（3 份）、开关（2 份）与 "?" 帮助徽标（3 份），几何与开态写法已经开始漂移，现全部改为组合同一实现：`CatppuccinRow` 377→297 行、`UpdateRow` 406→327 行、`glass-row` 271→178 行，`GlassRow.module.css` 删除整套重复的 `.segmented/.seg/.segActive`。（EN: one shared controls module — segmented pick, switch and style recipes — replaces the per-row copies）
-- **两种选中语义写死为约定**：枚举类（Shiki 风格 / 更新渠道 / 玻璃模式 / 预设）= `state-business-tertiary` 底 + `state-business-primary` 字；对象类（风味色卡）= `state-business-primary` 描边 + `interactive-bg-active` 底 + `label-primary` 字。原来色卡用 `border-l3` 是第三种写法，已统一。
-- **卡片几何对齐宿主**：插件内的覆盖编辑器等面板改用宿主的卡片 idiom（`bg-module-platform` + 12px 圆角 + 14/16 内距），条目改用 `0.5px border-l4` + 10px 圆角；输入框与玻璃行的数字框统一为 `bg-layer-2` + `0.5px border-l4` + 8px 圆角。
-- **去掉硬编码风味色**：覆盖编辑器值输入框的 placeholder 原为写死的 Mocha 蓝 `#89b4fa`（在 Latte/Frappé/Macchiato 下也是 Mocha 蓝），改为跟随当前风味的 accent。
-- **玻璃行只保留材质**：开关的形状/状态语义与共享实现一致，`GlassRow.module.css` 仅保留模糊、外发光、毛玻璃旋钮等玻璃材质；`resetButton` 几何与共享次要按钮对齐。（EN: glass keeps only the material; shape/state come from the shared switch）
-
 ### 修复
 
 - **修复深色模式下分段选择器选中项不可读（issue #11）**：设置页三处选中态药丸（代码高亮风格 / 更新渠道 / 玻璃质感模式）标签实测对比度仅 **1.26:1**（Macchiato `#7181b1` on `#63719a`）——暗色蓝梯把该对两端都混在中灰蓝：`state-business-tertiary`(=deepseek-800) 混 base 52%、`state-business-primary`(=deepseek-400) 混 66%，官方暗色的 `#34415b`/`#679efe`(4.6:1) 动态范围被压扁。修复：`blueDarkPlan` 深端（800/900/950）改为朝最深表层 `crust` 混且压到 18%/14%/10%（`generate-palettes.mjs` 新增每步可选混色目标，未指定仍为 base），并按 issue #7 的既有机制把 `state-business-primary` 钉到纯 accent（`deepseek-500`）。改后标签对 tint 为 Frappé 4.60:1 / Macchiato 5.49:1 / Mocha 6.40:1（AA 通过），同 token 兼作填充的开关轨道、焦点环、活动页签也从 3.7:1 提到 6.5~8.9:1；宿主轨迹视图的 `user` 徽标用的是同一对，一并修复。新增 `tests/palettes.spec.ts` 的 `dark blue tint readability (issue #11)` 断言（旧表失败、新表通过）。（EN: repaint the dark blue tint at the deepest surface and pin the business label to the accent — fixes the ~1.26:1 selected-segment text in all three settings rows and the host trajectory badge）
 
 > 待办（同批测量，未纳入本次修复）：`state-success-tertiary` / `state-warn-tertiary` 有同型配对（官方 `contextGreen` / `warn-label` 芯片），当前 3.5~3.8:1，同样可用 crust 目标收尾；Latte 的 business 对为 3.23:1（官方 3.74:1，属上游设计特性）。
+
+### 回退
+
+- **撤销 0.5.1-beta.1 的设置 UI 外观统一，恢复旧设计**：该版把三个设置行的分段控件、开关与 "?" 帮助徽标收敛到新的 `src/client/controls.tsx`，并调整了选中态写法、卡片刻度与 placeholder 取值。观感未通过，按要求整体回退——`src/client/controls.tsx` 与 `tests/controls.spec.ts` 删除，`CatppuccinRow` / `UpdateRow` / `glass-row` / `GlassRow.module.css` 恢复原实现（本版这些文件与 `0.5.1-beta.0` 逐字节一致）。issue #11 的深色可读性修复属调色板层，不受影响，仍然生效。（EN: revert the 0.5.1-beta.1 settings-UI unification back to the previous design — the shared controls module is gone and the rows are identical to beta.0; the issue #11 palette fix stays）
 
 ## [0.5.0] - 2026-09-07
 
