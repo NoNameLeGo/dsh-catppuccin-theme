@@ -130,11 +130,13 @@ describe('e2e: host plugin on a real cordis app', () => {
     expect(body.ok).toBe(true)
     expect(body.code).toBe('ok')
     expect(body.current).toBe(pkg.version)
-    // A stable install checks the latest channel by default (selectNewest)
-    // and reports the newest stable tag.
-    expect(body.latest).toBe('0.9.0')
+    // The implicit channel follows the installed version: a stable install
+    // checks `latest`, a prerelease install (package.json carries `-`) follows
+    // `beta`. selectNewest then reports the newest tag of that channel.
+    const preRelease = pkg.version.includes('-')
+    expect(body.latest).toBe(preRelease ? '0.10.0-beta.1' : '0.9.0')
     expect(body.outdated).toBe(true)
-    expect(body.channel).toBe('latest')
+    expect(body.channel).toBe(preRelease ? 'beta' : 'latest')
     expect(typeof body.updateCommand).toBe('string')
     expect(typeof body.profile).toBe('string')
     expect(typeof body.checkedAt).toBe('string')

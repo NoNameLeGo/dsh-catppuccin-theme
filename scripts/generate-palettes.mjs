@@ -92,7 +92,8 @@ const bluishDarkPlan = {
 
 /** Brand blue ladder (--dsw-static-deepseek-* / --dsw-static-blue-*).
  *  500 = the brand blue itself; lighter steps are mixed toward the scheme's
- *  base surface, darker steps toward the deepest surface. */
+ *  base surface, darker steps toward the deepest surface (`crust`, named per
+ *  step in the dark plan — see issue #11). */
 const blueLightPlan = {
   '50': ['blue', 8], '50p': ['blue', 12], '75': ['blue', 16], '100': ['blue', 22],
   '200': ['blue', 34], '300': ['blue', 48], '400': ['blue', 65],
@@ -104,8 +105,18 @@ const blueDarkPlan = {
   '50': ['blue', 10], '50p': ['blue', 14], '75': ['blue', 18], '100': ['blue', 24],
   '200': ['blue', 36], '300': ['blue', 50], '400': ['blue', 66],
   '450': ['blue', 84], '500': ['blue', 100], '600': ['blue', 84],
-  '700-delete': ['blue', 68], '800': ['blue', 52], '900': ['blue', 40],
-  '950': ['blue', 28],
+  '700-delete': ['blue', 68],
+  // The dark end is a *surface* tint, not a dim accent: alias tokens such as
+  // state-business-tertiary paint it under a blue label (issue #11), so it has
+  // to stay near the deepest surface instead of drifting into mid-tone.
+  '800': ['blue', 18, 'crust'], '900': ['blue', 14, 'crust'],
+  '950': ['blue', 10, 'crust'],
+}
+
+/** One blue-ladder step (`[colour, pct, surface?]`, 100% = the accent itself). */
+function blueStep(flavor, plan, step) {
+  const [col, pct, surface] = plan[step] ?? ['blue', 100]
+  return pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, surface ?? 'base')
 }
 
 /** Semantic status families. */
@@ -132,13 +143,9 @@ function staticTokens(flavor) {
       const step = base.slice('neutral-'.length)
       hex = ctp(flavor, bluishPlan[step] ?? 'text')
     } else if (base.startsWith('deepseek-')) {
-      const step = base.slice('deepseek-'.length)
-      const [col, pct] = bluePlan[step] ?? ['blue', 100]
-      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, dark ? 'base' : 'base')
+      hex = blueStep(flavor, bluePlan, base.slice('deepseek-'.length))
     } else if (base.startsWith('blue-')) {
-      const step = base.slice('blue-'.length)
-      const [col, pct] = bluePlan[step] ?? ['blue', 100]
-      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, dark ? 'base' : 'base')
+      hex = blueStep(flavor, bluePlan, base.slice('blue-'.length))
     } else if (base.startsWith('green-')) {
       const step = base.slice('green-'.length)
       const [col, pct] = greenPlan[step] ?? ['green', 100]
@@ -192,6 +199,13 @@ function staticTokens(flavor) {
  * PR #8 review.
  */
 const darkLabelReadabilityOverrides = {
+  // issue #11: the selected segment of a segmented pick (and the host's
+  // trajectory "user" badge) paints a blue label on the blue-800 tint:
+  // state-business-primary on state-business-tertiary. Official dark pairs
+  // #34415b with #679efe (4.6:1); our dark ladder put 52% blue and 66% blue
+  // next to each other, collapsing the pair to ~1.25:1 — invisible. With the
+  // 800 step back at the deepest surface, the accent itself reads on it.
+  'dsw-alias-state-business-primary': 'var(--dsw-static-deepseek-500)',
   'dsw-alias-label-primary-dimmed': 'var(--dsw-static-neutral-bluish-75)',
   'dsw-alias-label-secondary': 'var(--dsw-static-neutral-bluish-150)',
   'dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-200)',

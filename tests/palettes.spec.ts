@@ -18,6 +18,50 @@ import {
 } from '../src/client/index.ts'
 import { SHIKI_TOKENS } from '../src/client/shiki-tokens.ts'
 
+/** Relative-luminance channel (WCAG 2.x). */
+function channel(c: number): number {
+  const s = c / 255
+  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+}
+
+function luminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+/** WCAG contrast ratio between two hex colours. */
+function contrast(a: string, b: string): number {
+  const la = luminance(a)
+  const lb = luminance(b)
+  return la >= lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05)
+}
+
+/** One flat `color-mix(in srgb, #hex p%, #hex)` — the shape the generator emits. */
+const MIX = /^color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, (#[0-9a-f]{6})\)$/
+
+function mixHex(a: string, pct: number, b: string): string {
+  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const [ca, cb] = [channels(a), channels(b)]
+  return `#${ca.map((c, i) => Math.round(c * pct + cb[i] * (1 - pct)).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** Resolve a token through var() chains and flat color-mix steps to a hex colour. */
+function resolveColor(tokens: Record<string, string>, name: string, depth = 0): string {
+  const value = tokens[name]
+  if (value === undefined) throw new Error(`missing token ${name}`)
+  if (depth > 4) throw new Error(`circular or too deep alias chain for ${name}`)
+  const ref = value.match(/^var\((--[a-z0-9-]+)\)$/)
+  if (ref) return resolveColor(tokens, ref[1], depth + 1)
+  const mixed = value.match(MIX)
+  if (mixed) return mixHex(mixed[1], Number(mixed[2]) / 100, mixed[3])
+  if (/^#[0-9a-f]{6}$/.test(value)) return value
+  throw new Error(`cannot resolve ${name} = ${value}`)
+}
+
+const DARK_FLAVORS = CATPPUCCIN_FLAVORS.filter((f) => f.colorScheme === 'dark')
+
 describe('Catppuccin palettes', () => {
   it('covers all four flavours', () => {
     expect(CATPPUCCIN_FLAVORS.map((f) => f.themeId)).toEqual([
@@ -112,28 +156,8 @@ describe('weak label readability on dark flavours (issue #7)', () => {
     return resolveAlias(tokens, name)
   }
 
-  function channel(c: number): number {
-    const s = c / 255
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
-  }
-
-  function luminance(hex: string): number {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-  }
-
-  function contrast(a: string, b: string): number {
-    const la = luminance(a)
-    const lb = luminance(b)
-    return la >= lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05)
-  }
-
-  const darkFlavors = CATPPUCCIN_FLAVORS.filter((f) => f.colorScheme === 'dark')
-
   it('label aliases resolve to bluish statics (not literal colours or other families)', () => {
-    for (const f of darkFlavors) {
+    for (const f of DARK_FLAVORS) {
       for (const token of [
         '--dsw-alias-label-primary-dimmed',
         '--dsw-alias-label-secondary',
@@ -150,7 +174,7 @@ describe('weak label readability on dark flavours (issue #7)', () => {
   })
 
   it('dark label hierarchy stays monotonic on the menu surface (issue #7)', () => {
-    for (const f of darkFlavors) {
+    for (const f of DARK_FLAVORS) {
       const menu = resolveAliasHex(f.tokens, MENU)
       const levels = [
         resolveAliasHex(f.tokens, '--dsw-alias-label-primary'),
@@ -181,7 +205,7 @@ describe('weak label readability on dark flavours (issue #7)', () => {
       '--dsw-alias-label-caption': { menu: 2.5, page: 4.0 },
       '--dsw-alias-label-dimmed': { menu: 2.0, page: 3.0 },
     }
-    for (const f of darkFlavors) {
+    for (const f of DARK_FLAVORS) {
       const menu = resolveAliasHex(f.tokens, MENU)
       const page = resolveAliasHex(f.tokens, PAGE)
       for (const [token, { menu: menuFloor, page: pageFloor }] of Object.entries(floors)) {
@@ -195,6 +219,43 @@ describe('weak label readability on dark flavours (issue #7)', () => {
           `${f.themeId} ${token} on page base`,
         ).toBeGreaterThanOrEqual(pageFloor)
       }
+    }
+  })
+})
+
+describe('dark blue tint readability (issue #11)', () => {
+  // The dark flavour blue ladder feeds two very different consumers: solid
+  // fills at the bright end (button-info-fill, the switch track) and *tinted
+  // surfaces* at the dark end. state-business-tertiary paints the dark end
+  // under a blue label — the selected segment of a segmented pick
+  // (CatppuccinRow / GlassRow / UpdateRow) and the host's trajectory "user"
+  // badge — so the pair has to clear AA on its own.
+  const TINT = '--dsw-alias-state-business-tertiary'
+  const LABEL = '--dsw-alias-state-business-primary'
+  const PAGE = '--dsw-alias-bg-base'
+
+  it('paints the tint near the deepest surface, not mid-tone', () => {
+    for (const f of DARK_FLAVORS) {
+      expect(f.tokens[TINT], `${f.themeId} ${TINT}`).toBe('var(--dsw-static-deepseek-800)')
+      expect(f.tokens['--dsw-static-deepseek-800'], `${f.themeId} deepseek-800`).toMatch(
+        /^color-mix\(in srgb, #\w{6} (1[0-9]|[1-9])%, #\w{6}\)$/,
+      )
+    }
+  })
+
+  it('keeps the blue label on the blue tint at AA and the track above 3:1', () => {
+    for (const f of DARK_FLAVORS) {
+      const label = resolveColor(f.tokens, LABEL)
+      expect(
+        contrast(label, resolveColor(f.tokens, TINT)),
+        `${f.themeId} ${LABEL} on ${TINT}`,
+      ).toBeGreaterThanOrEqual(4.5)
+      // The same token doubles as a fill (switch track, focus ring, active tab),
+      // where 3:1 is the non-text UI floor.
+      expect(
+        contrast(label, resolveColor(f.tokens, PAGE)),
+        `${f.themeId} ${LABEL} vs page base`,
+      ).toBeGreaterThanOrEqual(3)
     }
   })
 })
