@@ -5,7 +5,7 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 16px 0;
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
@@ -151,7 +151,7 @@
   width: 56px;
   height: 26px;
   padding: 0 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-2);
   font-size: 12px;
@@ -174,47 +174,17 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Segmented picker: two cells in a hairline frame. */
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.seg,
-.segActive {
-  height: 26px;
-  padding: 0 12px;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-}
-
-.seg + .seg,
-.segActive + .seg,
-.seg + .segActive {
-  border-left: 1px solid var(--dsw-alias-border-l2);
-}
-
-.segActive {
-  background: var(--dsw-alias-state-business-tertiary);
-  color: var(--dsw-alias-state-business-primary);
-}
-
-/* Reset-to-defaults ghost button at the end of the knob stack. */
+/* Reset-to-defaults ghost button at the end of the knob stack. Geometry and
+ * colours mirror the shared action button; only the hover tint is local. */
 .resetButton {
   height: 26px;
   padding: 0 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 8px;
   background: transparent;
   font-size: 12px;
   line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
   cursor: pointer;
 }
 

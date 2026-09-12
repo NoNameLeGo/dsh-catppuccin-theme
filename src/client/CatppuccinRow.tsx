@@ -12,12 +12,29 @@
  *  - a "?" help affordance (item J) — no framework tooltip API exists in
  *    dsh-client-ui-slots yet, so the help text rides the native `title`
  *    attribute plus an accessible name.
+ *
+ * Recipes, the segmented pick and the switch come from ./controls.tsx, so
+ * every row in this plugin shares one geometry and one selection language.
  */
 import { useState, useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FlavorChoice } from './index.ts'
 import type { ShikiStyle } from '../state.ts'
 import type { CatppuccinKey } from './locales.ts'
+import {
+  CARD,
+  DESCRIPTION,
+  ENTRY,
+  HelpBadge,
+  INPUT,
+  ROW,
+  ROW_LABEL,
+  SWATCH_ACTIVE,
+  SWATCH_BASE,
+  TITLE,
+  actionButton,
+  Segmented,
+} from './controls.tsx'
 
 /** One flavour button shown by the row. */
 export interface CatppuccinFlavorButton {
@@ -54,70 +71,6 @@ export interface CatppuccinRowInjected {
 /** Full component props: runtime share + locale seat + injected face. */
 export type CatppuccinRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'catppuccin'> & CatppuccinRowInjected
 
-/** 普通按钮行内样式。 */
-const buttonBase: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 12px',
-  borderRadius: 8,
-  border: '1px solid var(--dsw-alias-border-l1)',
-  background: 'transparent',
-  color: 'var(--dsw-alias-label-primary)',
-  cursor: 'pointer',
-  font: 'inherit',
-}
-
-/** 选中态按钮行内样式。 */
-const buttonActive: React.CSSProperties = {
-  ...buttonBase,
-  border: '1px solid var(--dsw-alias-border-l3)',
-  background: 'var(--dsw-alias-interactive-bg-active)',
-}
-
-const inputBase: React.CSSProperties = {
-  background: 'var(--dsw-alias-bg-layer-2)',
-  border: '1px solid var(--dsw-alias-border-l1)',
-  borderRadius: 6,
-  padding: '4px 8px',
-  color: 'var(--dsw-alias-label-primary)',
-  fontSize: 12,
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-}
-
-/**
- * A "?" help affordance: an accessible button that carries the full help
- * text in the native `title` tooltip. No visual styling beyond the token
- * palette — the affordance follows the row's label colour.
- */
-function HelpIcon({ label, help }: { label: string; help: string }): React.JSX.Element {
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={help}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 16,
-        height: 16,
-        borderRadius: '50%',
-        border: '1px solid var(--dsw-alias-border-l2)',
-        color: 'var(--dsw-alias-label-tertiary)',
-        fontSize: 11,
-        lineHeight: 1,
-        cursor: 'help',
-        userSelect: 'none',
-        marginLeft: 6,
-        flex: 'none',
-      }}
-    >
-      ?
-    </span>
-  )
-}
-
 /** The localised subtitle of one flavour button (`flavor.<id>.subtitle`);
  *  null when the active locale carries no such key. */
 function subtitleText(buttonId: string, t: (key: CatppuccinKey) => string): string | null {
@@ -126,41 +79,6 @@ function subtitleText(buttonId: string, t: (key: CatppuccinKey) => string): stri
   const key = `flavor.${flavorId}.subtitle` as CatppuccinKey
   const text = t(key)
   return text === key ? null : text
-}
-
-/** One two-sided segmented pick using the row's token colours. */
-function Segmented<T extends string>(props: {
-  label: string
-  value: T
-  options: readonly { id: T; label: string }[]
-  onSelect: (value: T) => void
-}): React.JSX.Element {
-  const { label, value, options, onSelect } = props
-  return (
-    <div style={{ display: 'inline-flex', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden' }} role="group" aria-label={label}>
-      {options.map((option, index) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={option.id === value}
-          onClick={() => { onSelect(option.id) }}
-          style={{
-            height: 26,
-            padding: '0 12px',
-            border: 'none',
-            borderLeft: index > 0 ? '1px solid var(--dsw-alias-border-l2)' : undefined,
-            background: option.id === value ? 'var(--dsw-alias-state-business-tertiary)' : 'transparent',
-            color: option.id === value ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-label-secondary)',
-            fontSize: 12,
-            lineHeight: '18px',
-            cursor: 'pointer',
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 /**
@@ -185,6 +103,9 @@ export function CatppuccinRow({
   const choice = useSyncExternalStore(subscribe, current)
   const overrideMap = useSyncExternalStore(subscribePrefs, overrides)
   const style = useSyncExternalStore(subscribePrefs, shikiStyle)
+  // Override editor example value: the live flavour's accent instead of a
+  // hardcoded Mocha blue (the placeholder used to lie on the other flavours).
+  const accentHint = themes.find((flavor) => flavor.id === choice)?.accent ?? 'var(--dsw-static-blue-500)'
   const [overridesOpen, setOverridesOpen] = useState(false)
   // Unsaved editor rows: key+value inputs that only enter the override map
   // once both fields hold a value (power users type tokens, so the commit is
@@ -222,12 +143,12 @@ export function CatppuccinRow({
   }
 
   return (
-    <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
-      <div style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 14, lineHeight: '22px', display: 'flex', alignItems: 'center' }}>
+    <div style={ROW}>
+      <div style={TITLE}>
         {t('row.title')}
-        <HelpIcon label={t('row.helpLabel')} help={t('row.help')} />
+        <HelpBadge label={t('row.helpLabel')} help={t('row.help')} />
       </div>
-      <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
+      <div style={DESCRIPTION}>
         {t('row.description')}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -241,7 +162,7 @@ export function CatppuccinRow({
               aria-pressed={selected}
               onClick={() => void select(flavor.id)}
               style={{
-                ...(selected ? buttonActive : buttonBase),
+                ...(selected ? SWATCH_ACTIVE : SWATCH_BASE),
                 flexDirection: subtitle !== null ? 'column' : 'row',
                 alignItems: subtitle !== null ? 'flex-start' : 'center',
                 gap: subtitle !== null ? 2 : 6,
@@ -265,7 +186,7 @@ export function CatppuccinRow({
           type="button"
           aria-pressed={choice === 'off'}
           onClick={() => void select('off')}
-          style={choice === 'off' ? buttonActive : buttonBase}
+          style={choice === 'off' ? SWATCH_ACTIVE : SWATCH_BASE}
         >
           {t('row.off')}
         </button>
@@ -273,7 +194,7 @@ export function CatppuccinRow({
 
       {/* Shiki style pick (item M). */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-        <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' }}>
+        <span style={ROW_LABEL}>
           {t('row.shikiStyle')}
         </span>
         <Segmented
@@ -293,12 +214,12 @@ export function CatppuccinRow({
           type="button"
           aria-expanded={overridesOpen}
           onClick={() => { setOverridesOpen(!overridesOpen) }}
-          style={{ ...buttonBase, alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
+          style={{ ...actionButton(), alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
         >
           {overridesOpen ? `▾` : `▸`} {t('row.overrides')} ({Object.keys(overrideMap).length})
         </button>
         {overridesOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ ...CARD, gap: 8 }}>
             <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
               {t('row.overridesHint')}
             </div>
@@ -308,56 +229,56 @@ export function CatppuccinRow({
               </div>
             )}
             {Object.entries(overrideMap).map(([key, value]) => (
-              <div key={key} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <div key={key} style={{ ...ENTRY, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
                   value={key}
                   onChange={(e) => { commitPersistedKey(key, e.target.value) }}
                   placeholder="--dsw-static-blue-500"
-                  style={{ flex: '1 1 220px', ...inputBase }}
+                  style={{ flex: '1 1 220px', ...INPUT }}
                 />
                 <input
                   type="text"
                   aria-label={t('row.overridesValue')}
                   value={value}
                   onChange={(e) => { commitPersistedValue(key, e.target.value) }}
-                  placeholder="#89b4fa"
-                  style={{ flex: '1 1 140px', ...inputBase }}
+                  placeholder={accentHint}
+                  style={{ flex: '1 1 140px', ...INPUT }}
                 />
                 <button
                   type="button"
                   aria-label={t('row.overridesRemove')}
                   onClick={() => { removePersisted(key) }}
-                  style={{ ...buttonBase, padding: '4px 8px', fontSize: 12 }}
+                  style={{ ...actionButton(), padding: '4px 8px', fontSize: 12 }}
                 >
                   ✕
                 </button>
               </div>
             ))}
             {draftRows.map((row, index) => (
-              <div key={`draft-${index}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <div key={`draft-${index}`} style={{ ...ENTRY, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
                   value={row.key}
                   onChange={(e) => { commitDraft(index, e.target.value, row.value) }}
                   placeholder="--dsw-static-blue-500"
-                  style={{ flex: '1 1 220px', ...inputBase }}
+                  style={{ flex: '1 1 220px', ...INPUT }}
                 />
                 <input
                   type="text"
                   aria-label={t('row.overridesValue')}
                   value={row.value}
                   onChange={(e) => { commitDraft(index, row.key, e.target.value) }}
-                  placeholder="#89b4fa"
-                  style={{ flex: '1 1 140px', ...inputBase }}
+                  placeholder={accentHint}
+                  style={{ flex: '1 1 140px', ...INPUT }}
                 />
                 <button
                   type="button"
                   aria-label={t('row.overridesRemove')}
                   onClick={() => { setDraftRows(draftRows.filter((_, i) => i !== index)) }}
-                  style={{ ...buttonBase, padding: '4px 8px', fontSize: 12 }}
+                  style={{ ...actionButton(), padding: '4px 8px', fontSize: 12 }}
                 >
                   ✕
                 </button>
@@ -366,7 +287,7 @@ export function CatppuccinRow({
             <button
               type="button"
               onClick={() => { setDraftRows([...draftRows, { key: '', value: '' }]) }}
-              style={{ ...buttonBase, alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
+              style={{ ...actionButton(), alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
             >
               + {t('row.overridesAdd')}
             </button>

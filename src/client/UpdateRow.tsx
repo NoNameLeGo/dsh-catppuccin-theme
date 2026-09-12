@@ -16,11 +16,24 @@
  *    superseded a local change ("另一窗口已更新，本地改动未保存");
  *  - the latest auto-check verdict (item H) surfaced on mount;
  *  - a "?" help affordance (item J, native `title` tooltip).
+ *
+ * Recipes, the switch and the segmented pick come from ./controls.tsx.
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { UpdateCheckPayload, UpdateErrorCode, UpdateChannel } from '../update-check.ts'
 import type { CatppuccinKey } from './locales.ts'
+import {
+  CARD,
+  DESCRIPTION,
+  HelpBadge,
+  ROW,
+  ROW_LABEL,
+  TITLE,
+  actionButton,
+  Segmented,
+  Switch,
+} from './controls.tsx'
 
 /** Auto-retry scheduled after a failed check (item V): one retry after 30s,
  *  then it stops — the discipline lives here in the row, never in a hanging
@@ -77,49 +90,6 @@ function errorKey(code: UpdateErrorCode | undefined): CatppuccinKey {
     case 'network.upstream': return 'update.err.networkUpstream'
     default: return 'update.failed'
   }
-}
-
-const switchBase: React.CSSProperties = {
-  position: 'relative',
-  display: 'inline-flex',
-  flex: 'none',
-  width: 44,
-  height: 24,
-  padding: 0,
-  border: '1px solid var(--dsw-alias-border-l2)',
-  borderRadius: 12,
-  background: 'var(--dsw-alias-bg-layer-2)',
-  cursor: 'pointer',
-}
-
-const knobStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 3,
-  left: 3,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 16,
-  height: 16,
-  borderRadius: '50%',
-  background: 'var(--dsw-alias-label-tertiary)',
-  color: 'var(--dsw-alias-label-tertiary)',
-  fontSize: 10,
-  lineHeight: 1,
-  transition: 'transform 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-}
-
-const buttonStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 12px',
-  borderRadius: 8,
-  border: '1px solid var(--dsw-alias-border-l1)',
-  background: 'transparent',
-  color: 'var(--dsw-alias-label-primary)',
-  cursor: 'pointer',
-  font: 'inherit',
 }
 
 /**
@@ -205,40 +175,18 @@ export function UpdateRow({
   const showConflict = conflicts > dismissedConflicts
 
   return (
-    <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
-      <div style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 14, lineHeight: '22px', display: 'flex', alignItems: 'center' }}>
+    <div style={ROW}>
+      <div style={TITLE}>
         {t('update.title')}
-        <span
-          role="img"
-          aria-label={t('update.helpLabel')}
-          title={t('update.help')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 16,
-            height: 16,
-            borderRadius: '50%',
-            border: '1px solid var(--dsw-alias-border-l2)',
-            color: 'var(--dsw-alias-label-tertiary)',
-            fontSize: 11,
-            lineHeight: 1,
-            cursor: 'help',
-            userSelect: 'none',
-            marginLeft: 6,
-            flex: 'none',
-          }}
-        >
-          ?
-        </span>
+        <HelpBadge label={t('update.helpLabel')} help={t('update.help')} />
       </div>
-      <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
+      <div style={DESCRIPTION}>
         {t('update.description')}
       </div>
 
       {/* Conflict banner (item C/X): another window's durable write won. */}
       {showConflict && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-state-business-tertiary)' }}>
+        <div style={{ ...CARD, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--dsw-alias-state-business-tertiary)' }}>
           <span style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 12, lineHeight: '18px' }}>
             {t('update.conflict')}
           </span>
@@ -246,7 +194,7 @@ export function UpdateRow({
             type="button"
             aria-label={t('update.conflictDismiss')}
             onClick={() => { setDismissedConflicts(conflicts) }}
-            style={{ ...buttonStyle, padding: '2px 8px', fontSize: 12 }}
+            style={{ ...actionButton(), padding: '2px 8px', fontSize: 12 }}
           >
             ✕
           </button>
@@ -256,49 +204,24 @@ export function UpdateRow({
       {/* Auto-check + channel preferences (items H/I). */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' }}>
+          <span style={ROW_LABEL}>
             {t('update.autoCheck')}
           </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoCheckOn}
-            aria-label={t('update.autoCheck')}
-            onClick={() => { setAutoCheck(!autoCheckOn) }}
-            style={{ ...switchBase, background: autoCheckOn ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-bg-layer-2)' }}
-          >
-            <span aria-hidden="true" style={{ ...knobStyle, transform: autoCheckOn ? 'translateX(22px)' : undefined, background: autoCheckOn ? 'var(--dsw-alias-bg-layer-1)' : 'var(--dsw-alias-label-tertiary)' }}>
-              {autoCheckOn ? '✓' : ''}
-            </span>
-          </button>
+          <Switch label={t('update.autoCheck')} checked={autoCheckOn} onChange={setAutoCheck} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' }}>
+          <span style={ROW_LABEL}>
             {t('update.channel')}
           </span>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden' }} role="group" aria-label={t('update.channel')}>
-            {(['latest', 'beta'] as const).map((option, index) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={channelValue === option}
-                onClick={() => { setChannel(option) }}
-                style={{
-                  height: 26,
-                  padding: '0 12px',
-                  border: 'none',
-                  borderLeft: index > 0 ? '1px solid var(--dsw-alias-border-l2)' : undefined,
-                  background: channelValue === option ? 'var(--dsw-alias-state-business-tertiary)' : 'transparent',
-                  color: channelValue === option ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-label-secondary)',
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  cursor: 'pointer',
-                }}
-              >
-                {t(option === 'latest' ? 'update.channelLatest' : 'update.channelBeta')}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label={t('update.channel')}
+            value={channelValue}
+            options={[
+              { id: 'latest' as const, label: t('update.channelLatest') },
+              { id: 'beta' as const, label: t('update.channelBeta') },
+            ]}
+            onSelect={setChannel}
+          />
         </div>
       </div>
 
@@ -311,7 +234,7 @@ export function UpdateRow({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-          <button type="button" disabled={phase === 'checking'} onClick={() => void runCheck()} style={{ ...buttonStyle, cursor: phase === 'checking' ? 'default' : 'pointer', opacity: phase === 'checking' ? 0.6 : 1 }}>
+          <button type="button" disabled={phase === 'checking'} onClick={() => void runCheck()} style={actionButton(phase === 'checking')}>
             {phase === 'checking' ? t('update.checking') : t('update.check')}
           </button>
           {payload?.ok === true && payload.current !== undefined && (
@@ -348,7 +271,7 @@ export function UpdateRow({
                           flex: '1 1 260px',
                           padding: '6px 10px',
                           borderRadius: 8,
-                          border: '1px solid var(--dsw-alias-border-l1)',
+                          border: '0.5px solid var(--dsw-alias-border-l4)',
                           background: 'var(--dsw-alias-bg-layer-1)',
                           color: 'var(--dsw-alias-label-primary)',
                           fontSize: 12,
@@ -363,7 +286,7 @@ export function UpdateRow({
                         <button
                           type="button"
                           onClick={() => { void copyCommand(payload.updateCommand ?? '').then(setCopied) }}
-                          style={{ ...buttonStyle, cursor: 'pointer' }}
+                          style={actionButton()}
                         >
                           {copied ? t('update.copied') : t('update.copy')}
                         </button>
@@ -394,7 +317,7 @@ export function UpdateRow({
                     {t('update.retryHint').replace('{s}', String(retryRemaining))}
                   </span>
                 )}
-                <button type="button" onClick={() => void runCheck()} style={{ ...buttonStyle, cursor: 'pointer' }}>
+                <button type="button" onClick={() => void runCheck()} style={actionButton()}>
                   {t('update.retry')}
                 </button>
               </div>

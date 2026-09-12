@@ -4,12 +4,16 @@
  * Holds the master on/off switch plus every glass knob: mode (mica /
  * compatibility), blur, frost and backdrop brightness. Every write goes
  * straight through to the glass layer, so the skin moves live.
+ *
+ * Shape, state semantics and the segmented pick come from ../controls.tsx;
+ * this module only adds the glass material via GlassRow.module.css.
  */
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
 import type { CatppuccinKey } from '../locales.ts'
 import css from './GlassRow.module.css'
+import { HelpBadge, Segmented } from '../controls.tsx'
 
 /** Injected business face: the layer state seat plus every knob write. */
 export interface GlassRowInjected {
@@ -74,81 +78,6 @@ function Knob(props: {
   )
 }
 
-/** A two-option segmented picker with roving tabindex (item AA): only the
- *  selected cell is tabbable, Arrow/Home/End move focus WITHOUT selecting,
- *  and Enter/Space (or click) commits — the WAI-ARIA roving-tabindex
- *  pattern for segmented controls. */
-function Segmented<T extends string>(props: {
-  label: string
-  value: T
-  options: readonly { id: T; label: string }[]
-  onSelect: (value: T) => void
-}): React.JSX.Element {
-  const { label, value, options, onSelect } = props
-  const [focused, setFocused] = useState<T | null>(null)
-  const refs = useRef(new Map<T, HTMLButtonElement>())
-
-  const moveFocus = (direction: 1 | -1 | 'home' | 'end'): void => {
-    const current = focused ?? value
-    const index = options.findIndex((option) => option.id === current)
-    let next: number
-    if (direction === 'home') next = 0
-    else if (direction === 'end') next = options.length - 1
-    else next = Math.min(options.length - 1, Math.max(0, index + direction))
-    const target = options[next]
-    if (target === undefined) return
-    setFocused(target.id)
-    refs.current.get(target.id)?.focus()
-  }
-
-  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
-    switch (event.key) {
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        event.preventDefault()
-        moveFocus(-1)
-        break
-      case 'ArrowRight':
-      case 'ArrowDown':
-        event.preventDefault()
-        moveFocus(1)
-        break
-      case 'Home':
-        event.preventDefault()
-        moveFocus('home')
-        break
-      case 'End':
-        event.preventDefault()
-        moveFocus('end')
-        break
-    }
-  }
-
-  return (
-    <div className={css.segmented} role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.id}
-          ref={(node) => {
-            if (node === null) refs.current.delete(option.id)
-            else refs.current.set(option.id, node)
-          }}
-          type="button"
-          className={option.id === value ? css.segActive : css.seg}
-          aria-pressed={option.id === value}
-          tabIndex={option.id === (focused ?? value) ? 0 : -1}
-          onFocus={() => { setFocused(option.id) }}
-          onBlur={() => { setFocused((now) => (now === option.id ? null : now)) }}
-          onKeyDown={onKeyDown}
-          onClick={() => { onSelect(option.id) }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /** One-click material presets — blur/frost/brightness triples the row applies
  *  through the existing setters (the debounced persist coalesces the burst
  *  into one Host write). Brightness stays neutral (50) so every preset works
@@ -184,33 +113,14 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
     <div className={css.group}>
       <div className={css.title}>
         {t('glass.title')}
-        <span
-          role="img"
-          aria-label={t('glass.helpLabel')}
-          title={t('glass.help')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 16,
-            height: 16,
-            borderRadius: '50%',
-            border: '1px solid var(--dsw-alias-border-l2)',
-            color: 'var(--dsw-alias-label-tertiary)',
-            fontSize: 11,
-            lineHeight: 1,
-            cursor: 'help',
-            userSelect: 'none',
-            marginLeft: 6,
-          }}
-        >
-          ?
-        </span>
+        <HelpBadge label={t('glass.helpLabel')} help={t('glass.help')} />
       </div>
       <div className={css.description}>{t('glass.description')}</div>
       <div className={css.controls}>
         <div className={css.row}>
           <span className={css.rowLabel}>{t('glass.enable')}</span>
+          {/* Same shape and state semantics as the shared switch; the CSS
+              module adds the glass material (blur, glow, frosted knob). */}
           <button
             type="button"
             role="switch"
