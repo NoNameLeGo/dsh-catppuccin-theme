@@ -14,6 +14,10 @@
 
 > 待办（同批测量，未纳入本次修复）：`state-success-tertiary` / `state-warn-tertiary` 有同型配对（官方 `contextGreen` / `warn-label` 芯片），当前 3.5~3.8:1，同样可用 crust 目标收尾；Latte 的 business 对为 3.23:1（官方 3.74:1，属上游设计特性）。
 
+### 改进（设置弹窗玻璃化）
+
+- **设置弹窗内的卡片/选择器统一为玻璃质感**：设置对话框的面板本身早已是玻璃（`--dsh-glass-card-raised` + blur），但面板**内部**的一切都用不透明的抬升表层 token 上色（`bg-module-platform` 用于选择器/步进器/卡片、`bg-layer-3` 用于插件卡片、`bg-layer-2` 用于展开的卡片、侧栏的 nav token 用于弹窗自己的导航），于是四五个设置页里的行读起来像贴在玻璃上的纯色 `#313244` 板子。现在在弹窗作用域内把这几个 token 重新指向「同一阶梯 + 半透明」：卡片保住自己的层级身份（仍比面板高一档），而遮罩的模糊从底下透上来——玻璃叠玻璃，且不需要任何按宿主类名的选择器，插件自带的设置卡片（终端 / Agent 循环 / Subagent / 网页搜索）自动继承。alpha 跟随磨砂旋钮（`--dsh-glass-frost`），深色读阶梯上端（bluish-800/850/750），Latte 读下端（bluish-60/00/100/75），两套实测均正确。新增 `data-dsh-glass-settings` seam（`glass-seams.ts`）与 `tests/glass-seams.spec.ts` 断言。实测（Mocha，frost 20）：面板 `#0c0c13`、卡片 `#20212d`（升一档可见）；Latte：面板 `#c5c6ca`、卡片 `#b6b7ba`。（EN: settings-dialog rows become glass on glass — the raised-surface tokens are re-pointed to translucent mixes of the same ladder step inside the dialog seam, dark and light ladders both）
+
 ### 回退
 
 - **撤销 0.5.1-beta.1 的设置 UI 外观统一，恢复旧设计**：该版把三个设置行的分段控件、开关与 "?" 帮助徽标收敛到新的 `src/client/controls.tsx`，并调整了选中态写法、卡片刻度与 placeholder 取值。观感未通过，按要求整体回退——`src/client/controls.tsx` 与 `tests/controls.spec.ts` 删除，`CatppuccinRow` / `UpdateRow` / `glass-row` / `GlassRow.module.css` 恢复原实现（本版这些文件与 `0.5.1-beta.0` 逐字节一致）。issue #11 的深色可读性修复属调色板层，不受影响，仍然生效。（EN: revert the 0.5.1-beta.1 settings-UI unification back to the previous design — the shared controls module is gone and the rows are identical to beta.0; the issue #11 palette fix stays）

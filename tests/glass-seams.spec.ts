@@ -28,6 +28,18 @@ describe('startGlassSeamStamper (item N)', () => {
     dispose()
   })
 
+  it('stamps the settings dialog overlay (issue #11 follow-up: settings glass)', () => {
+    // The dialog is the only hook the stylesheet has to re-point the opaque
+    // raised-surface tokens inside it; host class names are hash-prefixed, so
+    // this test pins the selector dependency.
+    const overlay = document.createElement('div')
+    overlay.className = 'VOzbGW_overlay'
+    document.body.append(overlay)
+    const dispose = startGlassSeamStamper()
+    expect(overlay.hasAttribute('data-dsh-glass-settings')).toBe(true)
+    dispose()
+  })
+
   it('batches a same-frame mutation burst into one stamp pass', async () => {
     vi.useFakeTimers()
     startGlassSeamStamper()

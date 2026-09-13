@@ -240,6 +240,60 @@
   border-radius: 14px;
 }
 
+/* ---------- Settings dialog (设置 → 通用设置 / 插件 / Agent 预设) ----------
+   The dialog is a fixed overlay portalled inside the sidebar column; our
+   panel already renders as a raised glass card, but everything INSIDE it is
+   painted with the opaque raised-surface tokens
+   (--dsw-alias-bg-module-platform for pickers/steppers/cards,
+   bg-layer-3 for the plugin cards, bg-layer-2 for an opened card, the
+   sidebar's nav tokens for the dialog's own nav), so the rows read as flat
+   #313244 plates glued onto the glass. Re-point those tokens inside the
+   dialog only: a translucent mix of the SAME ladder step the alias names, so
+   a card keeps its identity (still one step up from the panel) while the
+   mask's blur shows through underneath — glass on glass, and no per-host-class
+   selectors, so plugins that ship their own settings cards (终端 / Agent 循环
+   / Subagent / 网页搜索) inherit the treatment for free.
+
+   Alpha rides the frost knob (--dsh-glass-frost), so the slider keeps doing
+   something inside the dialog; no backdrop-filter here — the dialog already
+   sits on the blurred mask and its rows have nothing moving behind them, so a
+   second blur would cost paint time for no visible pixel.
+
+   Two ladders, because "raised" flips with the scheme: dark flavours step UP
+   (surface0 above the panel's layer-1 fill), Latte steps DOWN (bluish-60 is
+   darker than the page). The steps below are exactly the ones each alias
+   already names — keep them in sync if the alias layer ever moves. */
+[data-dsh-glass] [data-dsh-glass-settings] {
+  --dsh-glass-settings-raised: calc(38% + 38% * var(--dsh-glass-frost, 1));
+  --dsh-glass-settings-soft: calc(30% + 30% * var(--dsh-glass-frost, 1));
+  --dsw-alias-bg-module-platform: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-800) var(--dsh-glass-settings-raised), transparent);
+  --dsw-alias-bg-layer-3: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-800) var(--dsh-glass-settings-soft), transparent);
+  --dsw-alias-bg-layer-2: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-850) var(--dsh-glass-settings-raised), transparent);
+  --dsw-specific-sidebar-nav-item-active: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-750) var(--dsh-glass-settings-raised), transparent);
+  --dsw-specific-sidebar-nav-item-hover: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-850) var(--dsh-glass-settings-soft), transparent);
+}
+
+/* Latte: same five roles, read from the light end of the ladder (bluish-60 is
+   what the alias names there, and "raised" means one step darker than the
+   panel the light glass fills with). */
+[data-dsh-glass] body:not([data-ds-dark-theme]) [data-dsh-glass-settings] {
+  --dsw-alias-bg-module-platform: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-60) var(--dsh-glass-settings-raised), transparent);
+  --dsw-alias-bg-layer-3: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-00) var(--dsh-glass-settings-soft), transparent);
+  --dsw-alias-bg-layer-2: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-00) var(--dsh-glass-settings-raised), transparent);
+  --dsw-specific-sidebar-nav-item-active: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-100) var(--dsh-glass-settings-raised), transparent);
+  --dsw-specific-sidebar-nav-item-hover: color-mix(in srgb,
+    var(--dsw-static-neutral-bluish-75) var(--dsh-glass-settings-soft), transparent);
+}
+
 /* ---------- Session header (顶栏): a detached glass card, shared recipe.
    A uniform rim on all four sides: a transparent bottom edge used to cut
    the border-line at the rounded corners (the visible side borders stop at
