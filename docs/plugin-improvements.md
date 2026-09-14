@@ -2,6 +2,7 @@
 
 > 记录日期：2026-09-05（2026-09-06 修正：按仓库当前实现复核，下文「现状修正」为与实际代码的差异）
 > 2026-09-06 第二批：非视觉改进项已按 `docs/non-vision-start-prompt.md` 实施（C/X/N/A/K/R/S/T/Y/EE/L/II/KK/H/I/J/E/DD/M/U/V/W/CC/GG/HH/JJ），跟踪表见文末。
+> 2026-09-13 复核（0.5.1 之后，配合 `fix(client)` 提交 cdccb09）：新增 **TT**（覆盖编辑器值输入逐键提交）、**UU**（测试类型检查链路断链）两条**待评估**项，分析见 3.2 / 3.9 —— 当时决定不随该修复批次实施，留待下次评估。
 > 评估范围：`@nonamelego/dsh-catppuccin` 插件本身（host half + client half + tui-themes half）
 > 版本基线：`0.5.0-beta.0`（0.5.0 重构已实施并存在于树中、尚未发版；本档按仓库**当前实现**评估，而非已发版的 0.4.3）
 > 评估依据：`src/index.ts`、`src/client/index.ts`、`src/client/CatppuccinRow.tsx`、`src/client/UpdateRow.tsx`、`src/client/glass/`、`src/client/palettes.ts`、`src/tui-themes.ts`、`src/update-check.ts`、`src/state.ts`、`src/client/state-sync.ts`、`src/legacy-state.ts`、`src/settings-catppuccin.ts`、`src/client/locales.ts`、`cordis.patch.yml`、`package.json` 等的当前实现
@@ -120,6 +121,21 @@
   字典（7 语言）；上游提供正式 tooltip API 后替换。
 - 实施方法：用 dsh-client-ui-slots 已有 tooltip API；locale 增加 `*.help` 字典。
 - 预期效果：发现性增强，新用户上手更快。
+
+**TT. 覆盖编辑器的值输入逐键提交：清空值即删行（打字中途整行消失）** — 优先级 **P2**（2026-09-13 复核新增，**待评估**）
+- 现象：`CatppuccinRow` 里**已保存**条目的值输入框是受控 + 逐键提交（`value={value}` + `onChange → commitPersistedValue`），而 `commitPersistedValue` 把空串当删除（`if (value.trim() === '') delete next[key]`）。渲染源是 `Object.entries(overrideMap).map(...)`，所以光标还在框里、整行（含输入框）就被卸载：想重打一个新值只能「全选覆盖」（一次 onChange 即完整串，正常）或先按 ✕ 再新增；逐字符清空会中途丢行。每次按键还会连带 `reapplyThemePrefs()`（重新注册主题）+ `scheduleDurablePersist`。
+- **这是文档化的设计，不是缺陷**：7 种语言的 `row.overridesHint` 都写着「输入即生效，清空值即删除」/ "Applies as you type; an empty value deletes the entry"。改行为等于同时改 7 条 i18n 文案 + 一条交互承诺，属产品决定。
+- 为什么暂缓（2026-09-13）：三条路线行为互斥，需 maintainer / 视觉复核拍板，且不阻塞发版（✕ 按钮一直在，现状是「粗糙」不是「坏掉」）：
+
+  | 方案 | 行为 | 代价 |
+  |---|---|---|
+  | (a) 非受控 + `onBlur` 提交（与键名输入对称） | 变成「失焦生效，清空值即删除」；逐字符清空不再丢行 | 7 条文案改「失焦生效」 |
+  | (b) 保留即时生效，清空不删行而留草稿行 | 打字全程稳定 | 需加「空值不注册」分支，否则会写出 `--x: ''`，让该 token 变成无效 CSS 值 |
+  | (c) 只留显式 ✕ 删除 | 最接近常见 KV 编辑器 | 推翻的现有承诺最多 |
+
+- 建议（若采纳）：走 (a)，与 2026-09-13 已改的键名输入（非受控 + 失焦提交）对称，两个输入框语义一致——`<input defaultValue={value} onBlur={(e) => { commitPersistedValue(key, e.target.value) }} />`，`commitPersistedValue` 的「空串=删除」保持不变，只改 7 处文案为「失焦生效，清空值即删除」。
+- 关联文件：`src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`）。
+- 附注：**键名**输入已在 cdccb09 改为非受控 + 失焦提交，原因是 `readOverrides()` 改为 read 侧 sanitize 后，逐键重写的中间态（`-`、`--`）会被丢弃并让整行消失；值路径对任意字符串都合法，没有同类新风险，故当时维持原设计。
 
 ---
 
@@ -336,6 +352,26 @@
 - 实施方法：`typedoc` package + GitHub Pages。
 - 预期效果：插件生态可组合性。
 
+**UU. 测试类型检查链路断链：`tsconfig.vitest.json` 有 4 处既有类型错误** — 优先级 **P3**（2026-09-13 复核新增，**待评估**）
+- 现象：`npx tsc --noEmit -p tsconfig.vitest.json` 报 4 处错误，全部在**测试文件**里；而该配置头部注释写着「Vitest program: type-checks src + tests together without emitting」。
+- 为什么一直没暴露（三条链路都不跑它）：
+  - `pnpm typecheck` = `tsc --noEmit -p tsconfig.json`，其 `include` 只有 `["src"]` → 测试文件从不参与类型检查；
+  - `pnpm test` = vitest（esbuild 转译，**不做类型检查**）→ 测试里的类型错误是隐形的；
+  - CI（`.github/workflows/publish.yml`）只有 install / build / test + changelog 门禁 + publish，**没有 typecheck 步骤**；
+  - `tsconfig.vitest.json` 只被 `vitest.config.ts` 喂给 `vite-tsconfig-paths` 做**路径解析**，不承担类型检查。即「配置写了、注释承诺了、没人跑」。
+- 四处报错（均在 2026-09-13 未改动的测试文件里，非该修复引入）：
+
+  | 位置 | 报错 | 根因 | 建议修法 |
+  |---|---|---|---|
+  | `tests/client.spec.ts:106` | 风味 id 不能赋给 `'light'`/`'dark'`/`'system'`/`null` | 测试故意传风味 id 证明「非内置值永不胜出」，但 `builtinPickWins` 第 2 形参被收窄成 `BuiltinPreference \| null` | 放宽签名为 `string \| null`（该参数只参与 `preference === livePick` 比较，语义等价），或测试内断言 |
+  | `tests/client.spec.ts:166` | `ops` 隐式 any（strict） | 对象字面量整体 `as unknown as SettingsScope<...>`，没有上下文类型 | `mutate(ops: readonly SettingsPathOpView[])` |
+  | `tests/reentrancy.spec.ts:78` | `Snapshot` 不能赋给 `ThemeSnapshot` | 本地 `Snapshot = {preference, revision}` 是刻意裁剪的，真实事件载荷是 `ThemeSnapshot`（含 `fontSize`/`active`/`themes`） | 监听器参数标为真实类型；或把 `getTheme()` 补到真实形状（契约判断，需 maintainer 定） |
+  | `tests/versions.spec.ts:22` | 对象可能为 null | `parseVersion()` 返回 `ParsedVersion \| null`，直接取 `.prerelease` | 加 `!` 或先断言非空 |
+
+- 为什么暂缓（2026-09-13）：全部落在未改动的测试文件里、不影响发版门禁与用户；其中两条触及契约边界（`builtinPickWins` 是 issue #6 的回归守卫；reentrancy 的 double 自称 "Faithful ThemeRuntime double"），需要在「放宽生产签名」与「测试内断言」之间取舍；在 bug-fix 提交里顺手改无关测试的类型会让 diff 语义变浑。
+- 建议（若采纳）：单独一个 `test(types):` 提交，包含 ① `package.json` 加 `"typecheck:tests": "tsc --noEmit -p tsconfig.vitest.json"`；② 修上述四处；③ CI 增加 `pnpm typecheck:tests` 一步 —— **不接 CI 就必然再次腐烂**（它烂到今天的原因正是配置写了没人跑）；④ 若决定不接 CI，则把 `tsconfig.vitest.json` 的注释改为「仅用于 vitest 路径解析」，别让下一个人以为有人在跑。
+- 关联文件：`tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml` 及上述四个测试文件。
+
 ---
 
 ### 3.10 性能与体积
@@ -435,3 +471,5 @@
 | BB | 对比度警告 | P1 | 待启动 | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | 待启动 | `scripts/generate-palettes.mjs` | — |
 | FF | 视觉回归 | P3 | 待启动（CI） | CI | — |
+| TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | 待评估（2026-09-13 复核） | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
+| UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | 待评估（2026-09-13 复核） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
