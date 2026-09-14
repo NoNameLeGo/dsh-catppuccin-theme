@@ -26,3 +26,8 @@ awesome-dsh-plugin/
 debug-*.cjs
 debug-*.png
 quicksort.py
+
+# Scratch dirs/files from local debugging sessions (CDP dumps, pasted bundles)
+.debug/
+.pideck-paste/
+.client-*.tmp.ts

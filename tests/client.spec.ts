@@ -15,6 +15,7 @@ import {
   flavorInfo,
   overridesSnapshot,
   readFlavor,
+  readOverrides,
   readRestoredPreference,
   rememberBuiltinPreference,
   writeFlavor,
@@ -109,15 +110,24 @@ describe('builtinPickWins (issue #6 restore guard)', () => {
 
 describe('overridesSnapshot stability', () => {
   it('keeps the same reference while unchanged and swaps only on content change', () => {
-    writeOverrides({ a: '1' })
+    writeOverrides({ '--a': '1' })
     const first = overridesSnapshot()
     expect(overridesSnapshot()).toBe(first) // stable reference (React store)
-    writeOverrides({ a: '1' }) // same content — reference stays
+    writeOverrides({ '--a': '1' }) // same content — reference stays
     expect(overridesSnapshot()).toBe(first)
-    writeOverrides({ a: '2' }) // content changed — new reference
+    writeOverrides({ '--a': '2' }) // content changed — new reference
     const second = overridesSnapshot()
     expect(second).not.toBe(first)
-    expect(second).toEqual({ a: '2' })
+    expect(second).toEqual({ '--a': '2' })
+  })
+
+  it('drops keys that are not `--` tokens — one shape with the settings document', () => {
+    // Regression: an unsanitized read left the non-token key in localStorage
+    // only, so the hydration compared two different shapes, "the document wins"
+    // overwrote the entry, and the user's row vanished one debounce-beat later.
+    writeOverrides({ 'dsw-static-blue-500': 'red', '--dsw-static-blue-500': 'blue' })
+    expect(readOverrides()).toEqual({ '--dsw-static-blue-500': 'blue' })
+    expect(overridesSnapshot()).toEqual({ '--dsw-static-blue-500': 'blue' })
   })
 
   it('falls back to the same empty-map reference when absent', () => {

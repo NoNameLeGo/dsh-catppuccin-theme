@@ -42,10 +42,14 @@ const SEAMS: readonly Seam[] = [
   // Session stats line under the composer (composer.dock slot).
   { attribute: 'data-dsh-glass-stats', selector: '[data-slot="conversation.composer.dock"] [class*="root"]' },
   // Settings dialog: a fixed overlay portalled inside the sidebar column
-  // (`.VOzbGW_overlay` in dsh-client-ui-settings-general). Its rows/pickers
-  // paint themselves with the opaque raised-surface tokens, so the stylesheet
-  // needs one hook on the dialog to re-point them at glass mixes.
-  { attribute: 'data-dsh-glass-settings', selector: '[class*="VOzbGW_overlay"]' },
+  // (the wrapper around the dialog panel in dsh-client-ui-settings-general).
+  // Its rows/pickers paint themselves with the opaque raised-surface tokens,
+  // so the stylesheet needs one hook on the dialog to re-point them at glass
+  // mixes. Matched by the panel's accessible attributes, not its CSS-module
+  // class: the host class name is a build hash (`VOzbGW_overlay`) that changes
+  // whenever the host stylesheet does, and a stale selector would silently
+  // drop the settings dialog back to opaque cards.
+  { attribute: 'data-dsh-glass-settings', selector: ':has(> [role="dialog"][aria-modal="true"])' },
 ]
 
 function stamp(seam: Seam): void {

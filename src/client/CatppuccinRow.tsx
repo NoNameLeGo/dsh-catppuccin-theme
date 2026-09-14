@@ -191,8 +191,14 @@ export function CatppuccinRow({
   // live — nothing to "save").
   const [draftRows, setDraftRows] = useState<Array<{ key: string; value: string }>>([])
 
+  // Only `--`-prefixed keys are persistable (`sanitizeOverrides` drops the
+  // rest on every read — localStorage and the settings document share one
+  // shape), so an incomplete key stays a draft row instead of being committed
+  // and silently dropped one read later.
+  const isTokenKey = (key: string): boolean => key.trim().startsWith('--')
+
   const commitDraft = (index: number, key: string, value: string): void => {
-    if (key.trim() !== '' && value.trim() !== '') {
+    if (isTokenKey(key) && value.trim() !== '') {
       setOverrides({ ...overrideMap, [key.trim()]: value })
       setDraftRows(draftRows.filter((_, i) => i !== index))
     } else {
@@ -200,11 +206,15 @@ export function CatppuccinRow({
     }
   }
 
+  /** Rename (or, with an empty/invalid key, delete) a persisted override. The
+   *  key input is uncontrolled and commits on blur: writing on every keystroke
+   *  repersisted the entry under each intermediate key, and an intermediate
+   *  key that is not a `--` token made the row delete itself mid-typing. */
   const commitPersistedKey = (oldKey: string, newKey: string): void => {
     if (newKey === oldKey) return
     const next = { ...overrideMap }
     delete next[oldKey]
-    if (newKey.trim() !== '') next[newKey.trim()] = overrideMap[oldKey]
+    if (isTokenKey(newKey)) next[newKey.trim()] = overrideMap[oldKey]
     setOverrides(next)
   }
 
@@ -312,8 +322,8 @@ export function CatppuccinRow({
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
-                  value={key}
-                  onChange={(e) => { commitPersistedKey(key, e.target.value) }}
+                  defaultValue={key}
+                  onBlur={(e) => { commitPersistedKey(key, e.target.value) }}
                   placeholder="--dsw-static-blue-500"
                   style={{ flex: '1 1 220px', ...inputBase }}
                 />

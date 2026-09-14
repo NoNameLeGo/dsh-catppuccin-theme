@@ -116,16 +116,23 @@ function render(commits, rangeLabel) {
   return lines.join('\n').trim() + '\n'
 }
 
-/** 把草稿写入 CHANGELOG.md 的 [Unreleased] 节（替换其现有内容）。 */
+/** 把草稿写入 CHANGELOG.md 的 [Unreleased] 节（替换其现有内容）。
+ *  发版时该节点被落成 `## [<version>]`，所以正常仓态下不再有 [Unreleased]
+ *  标题——缺失时补建在最新版本节之上，避免 SOP 里的这条命令直接中止。 */
 function writeUnreleased(draft) {
   const file = path.resolve(process.cwd(), 'CHANGELOG.md')
   let content = fs.readFileSync(file, 'utf8')
   const re = /(## \[Unreleased\]\n\n)[\s\S]*?(?=\n## \[)/m
-  if (!re.test(content)) {
-    console.error('CHANGELOG.md 中找不到 [Unreleased] 节，中止')
-    process.exit(1)
+  if (re.test(content)) {
+    content = content.replace(re, `$1${draft}\n`)
+  } else {
+    const block = `## [Unreleased]\n\n${draft}\n`
+    const firstSection = content.search(/^## /m)
+    content = firstSection === -1
+      ? `${content.trimEnd()}\n\n${block}`
+      : `${content.slice(0, firstSection)}${block}${content.slice(firstSection)}`
+    console.error('[gen-changelog] CHANGELOG.md 无 [Unreleased] 节，已在最新版本节之上补建')
   }
-  content = content.replace(re, `$1${draft}\n`)
   fs.writeFileSync(file, content)
   console.log(`已写入 CHANGELOG.md 的 [Unreleased] 节：`)
   console.log(draft)

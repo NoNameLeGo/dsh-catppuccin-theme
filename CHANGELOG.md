@@ -6,6 +6,19 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 修复
+
+- **自定义 token 覆盖的非法键名不再被静默清除**：`readOverrides()` 现在与 settings 文档走同一个 `sanitizeOverrides`，localStorage 与持久化文档永远同形状——此前键名不以 `--` 开头（例如漏了短横线的 `dsw-static-blue-500`）只存在于 localStorage，hydration 比对时两边不等，走「文档胜出」分支把整份覆盖回写为空，用户刚输入的那行约 300ms 后自行消失。设置行的键名输入改为失焦提交并要求 `--` 前缀（中间态不再被逐键重写成非法键）。（EN: sanitize token overrides on read too — localStorage and the settings document share one shape, so a key typed without the `--` prefix is no longer wiped by the hydration's "document wins" branch）
+
+- **更新检查失败的自动重试真的只重试一次**：此前只要检查失败就排 30s 定时器，重试再失败又排一次——断网时设置行每 30s 打一次宿主路由（宿主失败不缓存，等于每 30s 真打一次 npm），倒计时永不消失。现在每次用户发起的检查只带一次自动重试预算（手动点击复位），并补上倒计时 ticker 在卸载时的 `clearInterval`。（EN: the failure auto-retry now stops after one retry as documented, and the countdown ticker is cleared on unmount）
+
+### 改进
+
+- **设置弹窗玻璃化的 seam 不再依赖宿主构建哈希**：`[class*="VOzbGW_overlay"]`（dsh-client-ui-settings-general 的 CSS Module 哈希，宿主改样式即失效且无声）换成 `:has(> [role="dialog"][aria-modal="true"])`——命中同一个覆盖层元素，键的是稳定的无障碍属性。测试同步改为断言真实属性组合，并断言无 `aria-modal` 的普通 dialog 不被命中。（EN: the settings-dialog glass seam keys off role/aria-modal instead of the host's CSS-module hash）
+- **`pnpm changelog:gen -- --write` 不再因缺少 `[Unreleased]` 节中止**：发版会把该节落成版本节，脚本现在在缺失时自动补建在最新版本节之上（此前直接 `exit 1`，而 AGENTS.md 的 SOP 正是让 Agent 跑这条命令）。（EN: the changelog writer recreates the [Unreleased] section instead of aborting after a release consumed it）
+
 ## [0.5.1] - 2026-09-13
 
 ### 修复
@@ -213,7 +226,9 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.4.3...v0.5.0
 [0.4.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.3.1...v0.4.0

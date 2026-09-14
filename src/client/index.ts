@@ -58,6 +58,7 @@ import {
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
   isDefaultState,
+  sanitizeOverrides,
   settingsSectionFromState,
   settingsSectionsEqual,
   STATE_VERSION,
@@ -211,13 +212,19 @@ export function writeUpdateChannel(value: UpdateChannel): void {
   }
 }
 
-/** Read the persisted token overrides (unparseable/absent → empty map). */
+/** Read the persisted token overrides (unparseable/absent → empty map).
+ *
+ * Sanitized on read (`sanitizeOverrides`, the same guard the settings document
+ * goes through) so localStorage and the durable section always have the SAME
+ * shape. Without it a key that is not a `--` token (e.g. `dsw-static-blue-500`
+ * typed without the dashes) lives in localStorage only: the hydration compares
+ * the two shapes, sees a difference, and "the document wins" overwrites the
+ * entry — the user's row vanished a debounce-beat after it was typed. */
 export function readOverrides(): Record<string, string> {
   try {
     const raw = localStorage.getItem(OVERRIDES_KEY)
     if (raw === null) return {}
-    const parsed: unknown = JSON.parse(raw)
-    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, string> : {}
+    return sanitizeOverrides(JSON.parse(raw))
   } catch {
     return {}
   }

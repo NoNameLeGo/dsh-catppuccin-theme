@@ -147,17 +147,31 @@ export function UpdateRow({
   const channelValue = useSyncExternalStore(subscribePrefs, channel)
   const conflicts = useSyncExternalStore(subscribeConflict, conflictCount)
   const [dismissedConflicts, setDismissedConflicts] = useState(0)
-  // Item V: one automatic retry after a failure, 30s later ("仍失败则停").
+  // Item V: ONE automatic retry after a failure, 30s later ("仍失败则停").
   const [retryRemaining, setRetryRemaining] = useState<number | null>(null)
   const retryTimer = useRef<number | undefined>(undefined)
+  const tickerTimer = useRef<number | undefined>(undefined)
+  // Auto-retries already spent since the last user-initiated check. The retry
+  // itself calls `runCheck` (not `runManualCheck`), so a retry that fails
+  // again hits this guard and stops instead of re-scheduling forever.
+  const retriesUsed = useRef(0)
   const mounted = useRef(true)
 
-  const runCheck = async (withChannel: UpdateChannel = channelValue): Promise<void> => {
+  /** Drop a pending auto-retry (its timeout and its countdown ticker). */
+  const cancelRetry = (): void => {
     if (retryTimer.current !== undefined) {
       window.clearTimeout(retryTimer.current)
       retryTimer.current = undefined
-      setRetryRemaining(null)
     }
+    if (tickerTimer.current !== undefined) {
+      window.clearInterval(tickerTimer.current)
+      tickerTimer.current = undefined
+    }
+    setRetryRemaining(null)
+  }
+
+  const runCheck = async (withChannel: UpdateChannel = channelValue): Promise<void> => {
+    cancelRetry()
     setPhase('checking')
     setCopied(false)
     let next: UpdateCheckPayload
@@ -168,23 +182,30 @@ export function UpdateRow({
     }
     setPayload(next)
     setPhase('done')
-    if (!next.ok) {
-      // Schedule exactly one auto-retry (item V); a later manual check
-      // cancels it via the timer cleanup above.
+    if (!next.ok && retriesUsed.current === 0) {
+      retriesUsed.current = 1
       const target = Date.now() + UPDATE_RETRY_AFTER_MS
       setRetryRemaining(UPDATE_RETRY_AFTER_MS / 1000)
       const ticker = window.setInterval(() => {
         const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000))
         setRetryRemaining(remaining)
-        if (remaining <= 0) window.clearInterval(ticker)
+        if (remaining <= 0) {
+          window.clearInterval(ticker)
+          tickerTimer.current = undefined
+        }
       }, 1000)
+      tickerTimer.current = ticker
       retryTimer.current = window.setTimeout(() => {
-        window.clearInterval(ticker)
-        retryTimer.current = undefined
-        setRetryRemaining(null)
         if (mounted.current) void runCheck()
+        else cancelRetry()
       }, UPDATE_RETRY_AFTER_MS)
     }
+  }
+
+  /** A user-initiated check: re-arms the one auto-retry budget (item V). */
+  const runManualCheck = (): void => {
+    retriesUsed.current = 0
+    void runCheck()
   }
 
   useEffect(() => {
@@ -192,6 +213,7 @@ export function UpdateRow({
     return () => {
       mounted.current = false
       if (retryTimer.current !== undefined) window.clearTimeout(retryTimer.current)
+      if (tickerTimer.current !== undefined) window.clearInterval(tickerTimer.current)
     }
   }, [])
 
@@ -311,7 +333,7 @@ export function UpdateRow({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-          <button type="button" disabled={phase === 'checking'} onClick={() => void runCheck()} style={{ ...buttonStyle, cursor: phase === 'checking' ? 'default' : 'pointer', opacity: phase === 'checking' ? 0.6 : 1 }}>
+          <button type="button" disabled={phase === 'checking'} onClick={runManualCheck} style={{ ...buttonStyle, cursor: phase === 'checking' ? 'default' : 'pointer', opacity: phase === 'checking' ? 0.6 : 1 }}>
             {phase === 'checking' ? t('update.checking') : t('update.check')}
           </button>
           {payload?.ok === true && payload.current !== undefined && (
@@ -394,7 +416,7 @@ export function UpdateRow({
                     {t('update.retryHint').replace('{s}', String(retryRemaining))}
                   </span>
                 )}
-                <button type="button" onClick={() => void runCheck()} style={{ ...buttonStyle, cursor: 'pointer' }}>
+                <button type="button" onClick={runManualCheck} style={{ ...buttonStyle, cursor: 'pointer' }}>
                   {t('update.retry')}
                 </button>
               </div>

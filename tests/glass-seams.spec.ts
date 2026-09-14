@@ -28,15 +28,25 @@ describe('startGlassSeamStamper (item N)', () => {
     dispose()
   })
 
-  it('stamps the settings dialog overlay (issue #11 follow-up: settings glass)', () => {
+  it('stamps the settings dialog overlay by its accessible attributes (issue #11 follow-up)', () => {
     // The dialog is the only hook the stylesheet has to re-point the opaque
-    // raised-surface tokens inside it; host class names are hash-prefixed, so
-    // this test pins the selector dependency.
+    // raised-surface tokens inside it. The selector keys off the panel's
+    // role/aria-modal instead of the host's CSS-module build hash, which
+    // changes whenever the host stylesheet does.
     const overlay = document.createElement('div')
-    overlay.className = 'VOzbGW_overlay'
-    document.body.append(overlay)
+    overlay.setAttribute('role', 'presentation')
+    const panel = document.createElement('div')
+    panel.setAttribute('role', 'dialog')
+    panel.setAttribute('aria-modal', 'true')
+    overlay.append(panel)
+    // A plain dialog (no aria-modal) must NOT be stamped — the seam is the
+    // settings dialog, not every dialog in the app.
+    const other = document.createElement('div')
+    other.setAttribute('role', 'dialog')
+    document.body.append(overlay, other)
     const dispose = startGlassSeamStamper()
     expect(overlay.hasAttribute('data-dsh-glass-settings')).toBe(true)
+    expect(other.hasAttribute('data-dsh-glass-settings')).toBe(false)
     dispose()
   })
 
