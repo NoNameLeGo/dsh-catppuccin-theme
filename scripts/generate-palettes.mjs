@@ -124,6 +124,23 @@ const greenPlan = { '100': ['green', 18], '400': ['green', 80], '500': ['green',
 const redPlan = { '50': ['red', 10], '100': ['red', 20], '400': ['red', 70], '500': ['red', 100], '600': ['red', 100], '900': ['red', 34] }
 const amberPlan = { '100': ['peach', 20], '400': ['peach', 70], '500': ['peach', 100], '600': ['peach', 100], '900': ['peach', 32] }
 
+/**
+ * Dark-only override for the status families' 900 step. `state-success-tertiary`
+ * and `state-warn-tertiary` are *tinted surfaces* that a bright label sits on
+ * (the official `contextGreen` / `warn-label` chips), so in dark flavours the
+ * 900 step has to hug the deepest surface instead of drifting into mid-tone —
+ * the same failure the blue ladder had before issue #11 (measured 3.18–4.37:1
+ * against the label with the generic `base` mix). Light flavours keep the
+ * generic mix: there the 900 step is a pale chip under a dark label instead.
+ * `red-900` has no alias consumer, so it is deliberately left alone.
+ *
+ * Sweep (label-on-tint contrast, 10→30% toward crust): 14% overshoots upstream
+ * (6.3–9.3 vs the official 5.25/5.53) and washes the hue out; 22% drops Frappé
+ * amber to 4.54 — too thin a floor. 18% lands 4.96–8.30, i.e. upstream's ratio
+ * band with visible chroma, and matches the blue ladder's own 800 step.
+ */
+const darkStatusTint = { 'green-900': ['green', 18, 'crust'], 'amber-900': ['peach', 18, 'crust'] }
+
 /* ------------------------------------------------------------------ *
  * static layer                                                        *
  * ------------------------------------------------------------------ */
@@ -148,16 +165,16 @@ function staticTokens(flavor) {
       hex = blueStep(flavor, bluePlan, base.slice('blue-'.length))
     } else if (base.startsWith('green-')) {
       const step = base.slice('green-'.length)
-      const [col, pct] = greenPlan[step] ?? ['green', 100]
-      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, dark ? 'base' : 'base')
+      const [col, pct, surface] = (dark ? darkStatusTint[base] : undefined) ?? greenPlan[step] ?? ['green', 100]
+      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, surface ?? 'base')
     } else if (base.startsWith('red-')) {
       const step = base.slice('red-'.length)
-      const [col, pct] = redPlan[step] ?? ['red', 100]
-      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, dark ? 'base' : 'base')
+      const [col, pct, surface] = redPlan[step] ?? ['red', 100]
+      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, surface ?? 'base')
     } else if (base.startsWith('amber-')) {
       const step = base.slice('amber-'.length)
-      const [col, pct] = amberPlan[step] ?? ['peach', 100]
-      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, dark ? 'base' : 'base')
+      const [col, pct, surface] = (dark ? darkStatusTint[base] : undefined) ?? amberPlan[step] ?? ['peach', 100]
+      hex = pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, surface ?? 'base')
     } else {
       hex = ctp(flavor, 'text')
     }

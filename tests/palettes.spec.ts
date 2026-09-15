@@ -260,6 +260,51 @@ describe('dark blue tint readability (issue #11)', () => {
   })
 })
 
+describe('dark status tint readability (VV)', () => {
+  // state-success-tertiary / state-warn-tertiary paint a *tinted surface* that a
+  // bright label sits on — the official contextGreen / warn-label chips. The
+  // generic `base` mix left the dark flavours at 3.18–4.37:1 (the same failure
+  // the blue tint had in issue #11, differing only in colour family), so the
+  // 900 step now mixes 14% toward `crust` instead.
+  const PAIRS = [
+    ['--dsw-alias-state-success-primary', '--dsw-alias-state-success-tertiary'],
+    ['--dsw-alias-state-warn-label', '--dsw-alias-state-warn-tertiary'],
+  ]
+
+  it('paints both status tints near the deepest surface in dark flavours', () => {
+    for (const f of DARK_FLAVORS) {
+      expect(f.tokens['--dsw-alias-state-success-tertiary'], `${f.themeId} success tint`).toBe(
+        'var(--dsw-static-green-900)',
+      )
+      expect(f.tokens['--dsw-alias-state-warn-tertiary'], `${f.themeId} warn tint`).toBe(
+        'var(--dsw-static-amber-900)',
+      )
+      const crust = f.tokens['--dsw-static-neutral-bluish-950']
+      for (const key of ['--dsw-static-green-900', '--dsw-static-amber-900']) {
+        // Low percentage + the deepest surface — mid-tone is what broke AA.
+        expect(f.tokens[key], `${f.themeId} ${key}`).toMatch(
+          /^color-mix\(in srgb, #[0-9a-f]{6} (1[0-9]|[1-9])%, #[0-9a-f]{6}\)$/,
+        )
+        expect(
+          f.tokens[key].endsWith(`, ${crust})`),
+          `${f.themeId} ${key} must mix toward crust (${crust})`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('keeps each status label on its own tint at AA', () => {
+    for (const f of DARK_FLAVORS) {
+      for (const [label, tint] of PAIRS) {
+        expect(
+          contrast(resolveColor(f.tokens, label), resolveColor(f.tokens, tint)),
+          `${f.themeId} ${label} on ${tint}`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+})
+
 describe('flavour helpers', () => {
   it('maps theme ids and off', () => {
     expect(flavorFromThemeId('catppuccin-mocha')).toBe('catppuccin-mocha')
