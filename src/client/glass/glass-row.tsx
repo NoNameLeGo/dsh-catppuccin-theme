@@ -56,6 +56,10 @@ function Knob(props: {
         max={max}
         step={step}
         value={value}
+        // Item Z: the raw number is announced without its unit otherwise. The
+        // qualitative tier names stay out of the locale dictionaries on purpose
+        // (7 languages × 3 knobs of invented copy buys little over parity).
+        aria-valuetext={`${value}${unit}`}
         onChange={(e) => { onChange(clamp(Number(e.target.value))) }}
       />
       <span className={css.numberWrap}>

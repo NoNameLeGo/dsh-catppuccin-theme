@@ -85,6 +85,7 @@ export function startGlassSeamStamper(): () => void {
   stampAll()
   let frame: number | undefined
   let dirty = false
+  let disposed = false
   const stampFrame = (): void => {
     frame = undefined
     if (!dirty) return
@@ -92,6 +93,11 @@ export function startGlassSeamStamper(): () => void {
     stampAll()
   }
   const schedule = (): void => {
+    // A MutationObserver callback can already be queued as a microtask when the
+    // disposer runs — disconnect() does not recall it. Without this guard that
+    // callback re-arms a frame and stamps *after* dispose (full-suite timing
+    // exposes it; single-file runs usually win the race).
+    if (disposed) return
     dirty = true
     if (frame !== undefined) return
     frame = requestAnimationFrame(stampFrame)
@@ -99,6 +105,7 @@ export function startGlassSeamStamper(): () => void {
   const observer = new MutationObserver(schedule)
   observer.observe(document.documentElement, { childList: true, subtree: true })
   return () => {
+    disposed = true
     observer.disconnect()
     if (frame !== undefined) cancelAnimationFrame(frame)
     frame = undefined
