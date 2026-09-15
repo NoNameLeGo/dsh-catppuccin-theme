@@ -1,5 +1,7 @@
 # 非视觉模型工作提示词（dsh-catppuccin 改进项实施）
 
+> ⚠️ **已实施完毕，留档（2026-09-15 复核）**：本提示词对应的非视觉批次已在 `bfa2f91` 完成（跟踪表见 `docs/plugin-improvements.md` 六）。下文「当前版本」等状态是**当时的快照**（0.5.0-beta.0），现已发到 `0.5.1`；需要新批次时以跟踪表的 2026-09-15 复原为准，**不要照本文的版本快照施工**。
+>
 > 用途：把这段提示词整体粘贴给一个**无视觉能力**的模型（如 DeepSeek-v4-flash），它可据此独立开始改代码。
 > 适用范围：只做**非视觉 / 纯逻辑**项。视觉项由带视觉的模型或人工复核收尾。
 
@@ -16,7 +18,7 @@
 | GitHub 仓库 | `NoNameLeGo/dsh-catppuccin-theme` |
 | npm 包名 | `@nonamelego/dsh-catppuccin`（**不可改**） |
 | 插件 ID / 运行时名 | `dsh-catppuccin`（`src/index.ts` 的 `export const name`，**不可改**） |
-| 当前版本 | `0.5.0-beta.0`（0.5.0 重构已在树中，**未发版**） |
+| 当前版本 | `0.5.0-beta.0`（**写本文时的快照**；2026-09-15 已发到 0.5.1） |
 | 包管理 | `pnpm`；构建 `pnpm build`（tsdown）；测试 `pnpm test`（vitest） |
 | 提交规范 | 中文 conventional：`feat(...)` / `fix(...)` / `chore(...)` |
 

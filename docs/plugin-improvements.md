@@ -1,6 +1,7 @@
 # dsh-catppuccin 插件改进建议
 
 > 记录日期：2026-09-05（2026-09-06 修正：按仓库当前实现复核，下文「现状修正」为与实际代码的差异）
+> **核心目标（本档各条取舍的准绳）**：按 Catppuccin 官方源配色（`catppuccin-palette.json` v1.8.0）把 DSH 的 `--dsw-*` token 体系完整适配成四个风味；**玻璃质感是附带目标**（只改材质，不改配色）。准绳**不是教条**：官方取值在 DSH 的实际用法下确实不成立时（有证据、已穷尽不换色相手段）允许有据偏离。完整规则（四条硬规则）与判定先例见 `AGENTS.md`「项目定位与核心目标」。
 > 2026-09-06 第二批：非视觉改进项已按 `docs/non-vision-start-prompt.md` 实施（C/X/N/A/K/R/S/T/Y/EE/L/II/KK/H/I/J/E/DD/M/U/V/W/CC/GG/HH/JJ），跟踪表见文末。
 > 2026-09-13 复核（0.5.1 之后，配合 `fix(client)` 提交 cdccb09）：新增 **TT**（覆盖编辑器值输入逐键提交）、**UU**（测试类型检查链路断链）两条**待评估**项，分析见 3.2 / 3.9 —— 当时决定不随该修复批次实施，留待下次评估。
 > 评估范围：`@nonamelego/dsh-catppuccin` 插件本身（host half + client half + tui-themes half）
@@ -53,7 +54,8 @@
 - 实施方法：cordis 允许多 entry；拆分后 `update-cache` 缓存状态随模块走。
 - 预期效果：`src/index.ts` ≤120 行；update-check 模块可独立测试；未来加 `/catppuccin/health` 等路由有家可归。
 
-**B. `palettes.ts` 单文件过大** — 优先级 **P2**
+**B. `palettes.ts` 单文件过大** — 优先级 **P2**（❌ **已驳回，2026-09-15 复核**）
+- **复核结论（2026-09-15）**：实测 714 行、纯生成物、单一入口消费。拆文件对 bundle 体积零影响（同一次构建出来的同一份数据），对可维护性没有实测痛点。判为 **YAGNI**——等出现「改一处得在 700 行里滚半天」的具体案例再拆。
 - 现象：自动生成的 `palettes.ts` 包含 4 个风味的完整 `--dsw-*` token 表，实际 **714 行**（非原估的 2000+ 行），仍是仓库里最大的单文件，但绝对体积可控。
 - 优化方向：按风味拆为 `palettes/latte.ts`、`palettes/frappe.ts` 等，`palettes/index.ts` 汇总 `CATPPUCCIN_FLAVORS`。
 - 实施方法：改 `scripts/generate-palettes.mjs` 输出目录结构；`tsdown` 自动 inline 多 entry。
@@ -70,7 +72,8 @@
 
 ### 3.2 插件 UX（用户实际看到的 settings row）
 
-**D. 三个 row 缺分组头部** — 优先级 **P1**（**上游不支持分组，发起上游**）
+**D. 三个 row 缺分组头部** — 优先级 **P1**（▲ **仅剩「向上游提 issue」一个动作**）
+- **复核结论（2026-09-15）**：本地无动作可做（按 2026-09-06 现状修正：slot 类型只有 `id` / `order`）。唯一可执行项 = 向 `@deepseek-ai/dsh-web-ui` 提 `settings.general.group` 或 row 级 `label` 请求，提出后把链接挂到跟踪表本行即可，不占实施排期。**在此之前不自己造分组。**
 - 现象：`CatppuccinRow` + `GlassRow` + `UpdateRow` 全部注册到 `settings.general.item`，平铺在 General 段，没有"主题与外观"的二级标题。
 - **现状修正（2026-09-06）**：核查 `dsh-client-ui-settings`（0.1.2-rc.1）的 slot 类型（`client/contract/slots.d.ts`），`settings.general.item` 只有 `id` / `order`，**没有 group / label / section 支持**——"The section column only stacks rows, so a row draws its own internals"（row 完全自绘）。实施说明：**不自己造分组**，向 `@deepseek-ai/dsh-web-ui` 上游发起 `settings.general.group` 或 row 级 `label`/分组 prop 的请求；上游落地后再注册。
 - 预期效果：用户在 General 一长串偏好中一眼看到主题相关项。
@@ -94,7 +97,8 @@
 - 实施方法：抽 `<GlassSwatch>` 组件，复用 `glass.module.css`，挂同样的 `data-dsh-glass` 属性。
 - 预期效果：preset 选择无需"先看大效果再退回"。
 
-**SS. `GlassRow` 缺预设档位** — 优先级 **P1**
+**SS. `GlassRow` 缺预设档位** — 优先级 **P1**（✅ **已实施（ca979ba），本条可关闭**）
+- **现状修正（2026-09-15）**：`src/client/glass/glass-row.tsx:152-159` 的 `GLASS_PRESETS` 已提供**清透 / 标准 / 磨砂**三档（id `clear` / `standard` / `frosted`），:241-247 渲染为单选，且「当前旋钮值恰好等于某档时该档高亮」（:178-179）；README「使用」已记载。**重做即白干。**（注：同日的审计块曾误把它列进视觉批次，已更正——见六、复核节。）
 - 现象：blur / frost / brightness 三个滑杆全手动，新用户没有"什么叫好看"的参照，只能盲目试。
 - 优化方向：row 内加三个预设按钮（清透 / 标准 / 浓雾），一键写入调校好的数值组合；滑杆仍可在此基础上微调。
 - 实施方法：在 `glass-row.tsx` 定义 `GLASS_PRESETS: Record<string, GlassSettings>`；点击即走现有 setter + durable persist 链路。
@@ -153,13 +157,19 @@
 - 实施方法：拉 palette.json 时记录 etag/commit；生成时把 SHA 嵌入 `palettes.ts`。
 - 预期效果：上游改色不会被"悄悄同步"；升级可审计。
 
-**LL. 次级文字 token 映射过暗** — 优先级 **P1**
+**LL. 次级文字 token 映射过暗** — 优先级 **P1**（✅ **已实施（issue #7 批次），本条可关闭**）
+- **复核结论（2026-09-15）**：本文「优化方向」所要求的映射**已经在树里**——`src/client/palettes.ts:326` 暗色 `--dsw-alias-label-secondary` = `bluish-150`（= `subtext0`）、`:327` `label-tertiary` = `bluish-200`（= `overlay2`），逐字符合提案；`tests/palettes.spec.ts:197` 已用 WCAG floors 锁死（菜单 secondary 4.0 / tertiary 3.0，页面 6.0 / 5.0）。**重做即白干，勿再排期。**
 - 现象：暗色风味下侧边栏分组标签、会话时间戳、底部入口等次级文字对比度目测 < 3:1（实测截图可见）。根因是 `generate-palettes.mjs` 把 `--dsw-alias-label-secondary/tertiary` 映到了 Catppuccin 较暗的 overlay 层级。
 - 优化方向：暗色三风味 secondary 提一档到 `subtext0`、tertiary 到 `overlay2`；Latte 同步核对。
 - 实施方法：改 `scripts/generate-palettes.mjs` 的映射表后 `pnpm gen:palettes` 重生成，勿手改 `palettes.ts`。
 - 预期效果：弱光环境可扫读，WCAG AA 达标；与 BB（运行时对比度警告）互补——本条从源头修，BB 做兜底。
 
-**MM. 暗色下主 accent 可读性不足** — 优先级 **P1**
+**MM. 暗色下主 accent 可读性不足** — 优先级 **P1**（❌ **已驳回，2026-09-15 复核**）
+- **复核结论（2026-09-15）**：三条理由，任一成立即不该做。
+  1. **前提是审美而非可读性**：本文自己写的是「发闷」，而 `#8caaee`(Frappé) / `#89b4fa`(Mocha) 落在 `crust` 上远高于 AA——不存在对比度缺陷，不存在可判定的验收标准。
+  2. **过不了「偏离官方取值」的门槛**（规则 1：官方取值在 DSH 下确实不成立才可改，需证据 + 已穷尽不换色相手段）：`#8caaee` / `#89b4fa` 在 `crust` 上远高于 AA，拿不出「不成立」的证据；且 `--dsw-alias-brand-primary-new-colorprimary-new-color` 已被 `tests/palettes.spec.ts:105` 锁成 brand pin 契约，换 sapphire/sky 或统一提亮还会让三风味的蓝趋同、丢掉风味差异。（**注意**：驳回理由不是「官方色不许动」——允许有据偏离，见同一份 AGENTS.md 规则 1。）
+  3. **已有用户侧出口**：想更亮的主操作色，用 **K（token 覆盖，已实施）**直接覆写对应 token；RR（accent 自定义 UI）只是 K 的可视化外壳，不是新能力。
+- 结论：**驳回**，不再作为 palette 层改动；不写进任何发版批次。
 - 现象：Mocha 的 blue `#89b4fa` 族在深底上发闷，发送按钮等唯一主操作点不够"跳"。
 - 优化方向：暗色风味的 `--dsw-alias-brand-primary-*` 一族换更亮的 sapphire/sky，或 color-mix 提亮 ~10%。
 - 实施方法：同 LL，改 `generate-palettes.mjs` 映射后重生成。
@@ -182,7 +192,8 @@
 - 残留（可选）：当前只关 `animation`，未显式关 `transition`；如需彻底，可把 `transition: none` 一并纳入该媒体查询。
 - 预期效果：已符合 WCAG 2.3.3。
 
-**P. Glass 缺高对比度模式** — 优先级 **P1**
+**P. Glass 缺高对比度模式** — 优先级 **P1**（▲ **视觉批次，前置：截图流水线**）
+- **复核结论（2026-09-15）**：方案本身（强制 surface 不透明 + 文字加深）是**观感决策**，效果必须看，只有「顺眼 / 不顺眼」没有 fail / pass；且 `prefers-contrast` 在仓库确认为 0 处（只有 `prefers-reduced-motion`，见 O 条）。归入视觉批次，**前置 = 截图流水线能出 4 风味图**（见 FF 条）——没有 baseline 的观感改动无法回归。
 - 现象：磨砂 + 低饱和底色下，正文对比度可能掉到 4:1 以下，未达 WCAG AA。
 - 优化方向：GlassRow 增加"高对比度"开关，启用时强制 surface 不透明 + text 颜色加深。
 - 实施方法：扩 `GlassSettings` 增加 `highContrast: boolean`；CSS 加 `.high-contrast { backdrop-filter: none; --text-contrast-boost: 1 }`。
@@ -290,7 +301,10 @@
 
 ### 3.7 可访问性
 
-**Z. slider 缺 aria-valuetext** — 优先级 **P1**
+**Z. slider 缺 aria-valuetext** — 优先级 **P1 → P3**（▲ **降配为「零文案版」，2026-09-15 定案**）
+- **复核结论（2026-09-15）**：本文原方案要 locale 提供 `glass.frost.valueText(50)` → 「中等磨砂」，即 **3 个 knob（磨砂 / 模糊 / 亮度）× 7 语言 = 21 条新文案** + 一张档位阈值表（还要与 `tests/locales.spec.ts` 的 key 集合锁步）。它给的东西**超过**了无障碍要求：视力用户在这一行读到的也只是数字框里的 `20%`，原方案让屏幕阅读器用户听到的比视力用户更多（语义档位名），属于「更好」，不是「够用」。
+- **改为零文案版**：`aria-valuetext={`${value}${unit}`}` —— `unit`（`%` / `px`）已是现有渲染字段（`glass-row.tsx` 的 `.unit` span），屏幕阅读器从「20」变成「20%」/「14px」，与视力用户所见**完全一致（parity）**，7 语言零成本、无阈值表、无新 locale key。
+- 档位名版本保留为可选后续：**只在新版本真的收到屏幕阅读器用户反馈时再做**，不预先付成本。
 - 现象：GlassRow 的 Knob 用了 `<input type="range">`，但 `aria-valuenow` 是数字，对"50%"这种语义屏幕阅读器读不出"中等磨砂"。
 - 优化方向：locale 增加 `glass.frost.valueText(50)` 返回"中等磨砂"；`Knob` 组件绑 `aria-valuetext`。
 - 实施方法：纯属性扩展。
@@ -302,7 +316,9 @@
 - 实施方法：WAI-ARIA Authoring Practices 标准做法。
 - 预期效果：键盘可达性达到 AAA。
 
-**BB. GlassRow 颜色对比警告** — 优先级 **P1**
+**BB. GlassRow 颜色对比警告** — 优先级 **P1**（▲ **缓做，且只做静态阈值版**）
+- **复核结论（2026-09-15）**：实时算 fg/bg 在 glass 下**不可靠**——背景是半透明 surface 叠 `backdrop-filter`，同一 token 在页面 base / 卡片 / 弹窗上落地结果不同，`getComputedStyle` 读到的 token 值不代表实际观感，算出来的「< 4.5:1」很可能是误报。**误报比不报更伤信任**（用户会学会忽略这条警告）。
+- 若要做，只做**静态阈值版**：用户把 brightness 推到极值（|Δ| 超阈值）时给一句定性提示，不做实时计算、不下对比度结论。优先级保持 P1 但标记为**非必要**，排在视觉批次之后。
 - 现象：开启 glass + 高 brightness 在 light 主题下，文字可能糊掉。
 - 优化方向：开启 glass 时自动跑一遍 contrast check，< 4.5:1 则在 row 显示警告条"此设置降低对比度"。
 - 实施方法：抽 `getContrastRatio(fg, bg)`；在 row 内做轻量校验。
@@ -334,7 +350,9 @@
 - 实施方法：扩 `tests/e2e/` 用 supertest + 真 cordis 启动。
 - 预期效果：发布前回归保护。
 
-**FF. 缺视觉回归** — 优先级 **P3**
+**FF. 缺视觉回归** — 优先级 **P3**（▲ **前置：截图流水线必须先修**）
+- **复核结论（2026-09-15）**：`scripts/screenshot-previews.cjs` 有已知缺陷（脚本内 `ponytail:` 标记，:96）：风味切换断言只对 Latte / Mocha 成立，Frappé / Macchiato 点完后仍停在 latte 的 `#eff1f5`，`if (!applied) throw` 直接失败、**不保存截图**。baseline 建不起来，CI 接上去就是空跑。
+- **正确顺序**：修风味切换（或改断言目标）→ 4 风味 × 2 模式出 8 张 baseline → 再接 pixelmatch。**倒过来做必然白干**（先改视觉、后建 baseline，baseline 本身录的就是错的状态）。
 - 现象：`assets/previews/` 有手动截图，但没在 CI 里跑对比。
 - 优化方向：用 Playwright screenshot + pixelmatch，diff > 阈值即 fail。
 - 实施方法：`pnpm test:visual` 接 Playwright；baseline 存 git LFS。
@@ -398,6 +416,8 @@
 
 ## 四、优先级路线图
 
+> ⚠️ 本节的 Sprint 划分写于 2026-09-05，**执行前先读「六、2026-09-15 复核」**：Sprint 1 的六条里 O / LL 早已实施、MM 已驳回、Z 降配、BB 缓做、P 归视觉批次（实际只剩 Z 一条）；Sprint 3 的 D 只余「向上游提 issue」一个动作；Sprint 5 的 B 已驳回。
+
 | 阶段 | 项 | 工作量估算 | 价值 |
 |---|---|---|---|
 | **Sprint 1（A11y 合规，1 周）** | O（reduced-motion）、P（高对比度）、Z（aria-valuetext）、BB（contrast warning）、LL（次级文字 token 提档）、MM（暗色 accent 提亮） | 5 天 | 解锁无障碍 |
@@ -422,7 +442,30 @@
 
 ## 六、跟踪表（实施时填）
 
-> 状态图例：✅ 已实施（2026-09-06 第二批）｜▲ 上游阻塞 ｜ 待启动
+> 状态图例：✅ 已实施 ｜ ▲ 上游阻塞 / 降配缓做 ｜ ❌ 已驳回 ｜ 待启动
+
+### 2026-09-15 复核：逐条回代码验证后的执行判决
+
+> 复核方法：每一项都回到源码 / 测试实测，**不采信本表旧状态**。结论：20+ 行里真正值得做的只有 4 项——本表此前的问题是「已实施 / 待评估 / 待视觉 / 该驳回」全挤在同一个状态列里，于是看起来像一堆积压债务。各条的理由写在正文对应段落（前缀 **复核结论**）。
+
+**立即做：0.5.2 批次（全部非视觉，均有可判定的验收证据）**
+
+| 项 | 动作 | 验收证据 |
+|---|---|---|
+| **VV**（新，源自 CHANGELOG `[0.5.1]` 内联待办） | 暗色 `state-success-tertiary` / `state-warn-tertiary` 改走 `crust` 混色目标——`greenPlan` / `amberPlan` 的 900 步支持「混色目标」参数，与 `blueDarkPlan`（issue #11）同构 | 实测现状：green-500 on green-900 = **3.67 / 4.37 / 5.02**（Frappé、Macchiato ❌）；amber-600 on amber-900 = **3.18 / 3.79 / 4.34**（三风味全 ❌）。改 `crust@14%` 后预测 **5.40 ~ 9.34** ✅。新增 `tests/palettes.spec.ts` 断言（照 issue #11 用例的写法） |
+| **UU** | 修 4 处既有类型错误（**不动生产签名**：`builtinPickWins` 是 issue #6 的回归守卫，改为在测试内标真实类型）+ 加 `typecheck:tests` + CI 一步 | `npx tsc --noEmit -p tsconfig.vitest.json` 实测仍 **4 错**，与记录一致；修后应为 0 错 |
+| **TT**（需 maintainer 点头：会改 7 条 i18n 承诺文案） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交（`CatppuccinRow.tsx:333`），键名输入已是 `defaultValue` + `onBlur`（:325） |
+| **Z**（降配后） | `aria-valuetext={`${value}${unit}`}`，零新文案 | 见正文 Z 条复核结论 |
+
+**视觉批次（9 项：F / G / Q / NN / PP / QQ / RR / OO / P）** —— 统一前置 = **修好 `screenshot-previews.cjs` 的 4 风味出图**。没有 baseline 的观感改动无法回归，**不要由文本模型拍板观感**。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」，可无限期推后。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
+
+**驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、`BB` ▲ 仅保留静态版、`D` ▲ 只剩「向上游提 issue」一个动作。
+
+**四、优先级路线图需要按此修正**：Sprint 1 的六条（O / P / Z / BB / LL / MM）现状是 O ✅ 与 LL ✅ 早已实施、MM ❌ 驳回、Z 降配、BB 缓做、P 归视觉批次——**Sprint 1 实际只剩 Z 一条要做**。
+
+**本次审计暴露的机制问题（值得留在表里）**：`O`、`LL` 两条「表里有、代码里已了结」`MM`、`B` 两条伪需求，加上 2026-09-15 文件审计又发现 **`SS` 也是「已实施但表里写着待启动」**（`ca979ba`）——五条的审计成本全部来自状态列只写「待启动」、不写证据。**今后新行一律在状态列写可复核的证据（`文件:行` 或实测数字），不只写状态词。**
+
+**2026-09-15 文件审计另立一项**：**WW**（`docs/api/` typedoc 产物曾过期；同日复核已确认那条 `origin` remote 警告是**虚警**、链接本身正确）——已记入跟踪表末行并**定案选 C（移出版本库、本地按需生成）**；同日审计还修了 `AGENTS.md` 行号、`CONTRIBUTING.md` 路径与「不要打 tag」矛盾、`docs/non-vision-start-prompt.md` 的版本快照，以及仓库卫生项（`.pnpm-store/`、`screenshots.json`、`assets/previews/combine.py`、npm 包里的 `assets`）。
 
 | ID | 项 | 优先级 | 状态 | 关联文件 | 关联 PR |
 |---|---|---|---|---|---|
@@ -451,25 +494,27 @@
 | V | 重试退避 | P3 | ✅ | `src/client/UpdateRow.tsx`（失败 30s 后自动重试一次 + 倒计时） | — |
 | W | ETag 缓存 | P3 | ✅ | `src/update-check/host.ts`（If-None-Match / 304 复用缓存） | — |
 | GG | 贡献指南 | P3 | ✅ | `CONTRIBUTING.md` | — |
-| HH | typedoc | P3 | ✅ | `typedoc.json` + `pnpm docs:api` → `docs/api/`（GitHub Pages 发布留给 maintainer） | — |
+| HH | typedoc | P3 | ✅ | `typedoc.json` + `pnpm docs:api` → `docs/api/`（**2026-09-15 起不入库**：本地按需生成，见 WW；Pages 发布仍未做） | — |
 | JJ | 主题 lazy-register | P3 | ✅ | `src/client/index.ts`（只注册当前风味，选中时按需注册） | — |
 | AA | 键盘导航 | P2 | ✅ | `src/client/glass/glass-row.tsx`（segmented roving tabindex + 方向键/Home/End） | — |
-| F | 主题预览缩略图 | P2 | 待启动（视觉） | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
-| G | glass 预览 | P1 | 待启动（视觉） | `src/client/glass/glass-row.tsx` | — |
-| SS | glass 预设档位 | P1 | 待启动（视觉） | `src/client/glass/glass-row.tsx` | — |
-| Q | layout preview | P3 | 待启动（视觉） | `src/client/glass/glass-row.tsx` | — |
-| NN | hero 空状态品牌化 | P2 | 待启动（视觉） | `src/client/glass/glass.module.css` | — |
-| PP | 会话列表选中/hover | P2 | 待启动（视觉） | `src/client/glass/glass.module.css` | — |
-| QQ | 背景层（壁纸/渐变） | P2 | 待启动（视觉） | `src/state.ts`、`src/client/glass/` | — |
-| RR | accent 自定义 | P2 | 待启动（视觉） | `src/state.ts`、`src/client/CatppuccinRow.tsx` | — |
-| OO | compat 材质增强 | P1 | 待启动（视觉） | `src/client/glass/glass.module.css` | — |
-| LL | 次级文字 token 提档 | P1 | 待启动（视觉，需截图） | `scripts/generate-palettes.mjs` | — |
-| MM | 暗色 accent 提亮 | P1 | 待启动（视觉，需截图） | `scripts/generate-palettes.mjs` | — |
+| F | 主题预览缩略图 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
+| G | glass 预览 | P1 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass-row.tsx` | — |
+| SS | glass 预设档位 | P1 | ✅ 已实施（`ca979ba`：清透 / 标准 / 磨砂三档，`glass-row.tsx:152-159`）——勿重做 | `src/client/glass/glass-row.tsx` | — |
+| Q | layout preview | P3 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass-row.tsx` | — |
+| NN | hero 空状态品牌化 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass.module.css` | — |
+| PP | 会话列表选中/hover | P2 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass.module.css` | — |
+| QQ | 背景层（壁纸/渐变） | P2 | 待启动（视觉，前置：截图流水线） | `src/state.ts`、`src/client/glass/` | — |
+| RR | accent 自定义 | P2 | 待启动（视觉；K 已提供等价能力，可无限期推后） | `src/state.ts`、`src/client/CatppuccinRow.tsx` | — |
+| OO | compat 材质增强 | P1 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass.module.css` | — |
+| LL | 次级文字 token 提档 | P1 | ✅ 已实施（issue #7 批次：`palettes.ts:326-327` = subtext0 / overlay2，`palettes.spec.ts:197` 锁 floors）——勿重做 | `scripts/generate-palettes.mjs` | — |
+| MM | 暗色 accent 提亮 | P1 | ❌ 已驳回（拿不出「官方取值在 DSH 下不成立」的证据，属审美偏好；品牌蓝已被 `palettes.spec.ts:105` 锁成契约；要更亮的蓝走 K） | `scripts/generate-palettes.mjs` | — |
 | O | reduced-motion | P1 | ✅（既有 `@media (prefers-reduced-motion)`，0.5.0 前已实施） | `src/client/glass/glass.module.css` | — |
-| P | 高对比度模式 | P1 | 待启动（视觉） | `src/client/glass/glass-layer.ts` | — |
-| Z | aria-valuetext | P1 | 待启动 | `src/client/glass/glass-row.tsx` | — |
-| BB | 对比度警告 | P1 | 待启动 | `src/client/glass/glass-row.tsx` | — |
-| B | palettes 分文件 | P2 | 待启动 | `scripts/generate-palettes.mjs` | — |
-| FF | 视觉回归 | P3 | 待启动（CI） | CI | — |
-| TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | 待评估（2026-09-13 复核） | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
-| UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | 待评估（2026-09-13 复核） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
+| P | 高对比度模式 | P1 | 待启动（视觉，前置：截图流水线；`prefers-contrast` 实测 0 处） | `src/client/glass/glass-layer.ts` | — |
+| Z | aria-valuetext | P1 → P3 | ▲ 降配：零文案版 `${value}${unit}`（待实施）；档位名版仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
+| BB | 对比度警告 | P1 | ▲ 缓做：仅静态阈值版（glass 下半透明背景使实时对比度不可靠，误报风险 > 收益） | `src/client/glass/glass-row.tsx` | — |
+| B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
+| FF | 视觉回归 | P3 | ▲ 前置：截图流水线（`screenshot-previews.cjs:96` 风味切换对 Frappé/Macchiato 失败，baseline 建不起来） | CI | — |
+| VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | 待实施（0.5.2 批次；实测 3.18~4.37 ❌ → crust 目标后预测 ≥5.4 ✅） | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
+| TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | 建议方案 (a)（非受控 + 失焦提交，与键名输入对称），**待 maintainer 确认**——会改 7 条 i18n 承诺文案 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
+| UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | 已定案待实施（0.5.2 批次：4 处不改生产签名 + `typecheck:tests` + CI 一步） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
+| WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |

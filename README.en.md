@@ -30,9 +30,9 @@
 - [💝 Credits](#-credits)
 
 <p align="center">
-	<img src="assets/previews/combined.png" width="100%" alt="DeepSeek Harness under the four Catppuccin flavours"/>
+	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/combined.png" width="100%" alt="DeepSeek Harness under the four Catppuccin flavours"/>
 	<br/><br/>
-	<img src="assets/previews/glass-combined.png" width="100%" alt="Glass skin · Latte & Mocha"/>
+	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-combined.png" width="100%" alt="Glass skin · Latte & Mocha"/>
 </p>
 
 ## Introduction
@@ -58,7 +58,9 @@ Catppuccin theme automatically.
 - 🧩 Registered into the official theme system, on a par with the built-in light / dark / system themes
 - 🎯 Full-UI colour coverage — not just one or two accent colours
 - ⚙️ One-click switch in Settings, persisted and restored across restarts
-- 🌐 Bilingual UI (Chinese / English, follows the system language)
+- 🔧 **Custom token overrides**: override individual colour tokens with `--dsw-* var: value` pairs (e.g. turn comments blue); persisted alongside the selected flavour
+- 🖍️ **Code-block highlight style**: default / italic-comments shiki themes
+- 🌐 Seven UI languages (Chinese / English / Japanese / Korean / Spanish / French / German, follows the system language)
 - 🪟 **Glass skin**: frosted glass for the top bar / sidebar / composer / stats line /
   trajectory view / chat bubbles / new-session button, one-click toggle in Settings;
   mica & compatibility modes, adjustable blur, frost and backdrop brightness
@@ -68,7 +70,8 @@ Catppuccin theme automatically.
   content softens as it scrolls under the panes
 - 🎨 Glass colours follow the current Catppuccin theme
 - 🔄 **Update check**: one-click "Check for updates" in Settings compares the latest npm
-  version and gives you a copyable upgrade command
+  version and gives you a copyable upgrade command; **auto-check is on by default** (once at
+  startup, then every 6 hours) and the release channel switches between stable and beta
 - 💻 **dsh-TUI terminal themes**: one command installs into dsh-TUI; the four themes sync to
   `~/.dsh-tui/themes/` automatically (see [Installation · dsh-TUI](#dsh-tui-terminal-themes))
 
@@ -78,19 +81,19 @@ Actual screenshots from a local GUI (the header image is a diagonal blend of the
 
 <details>
 <summary>🌻 Latte (light)</summary>
-<img src="assets/previews/latte.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/latte.png"/>
 </details>
 <details>
 <summary>🪴 Frappé (dark)</summary>
-<img src="assets/previews/frappe.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/frappe.png"/>
 </details>
 <details>
 <summary>🌺 Macchiato (dark)</summary>
-<img src="assets/previews/macchiato.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/macchiato.png"/>
 </details>
 <details>
 <summary>🌿 Mocha (dark)</summary>
-<img src="assets/previews/mocha.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/mocha.png"/>
 </details>
 
 ### Glass skin (Mica mode)
@@ -101,11 +104,11 @@ past the page edges; the background is the theme's solid base colour:
 
 <details>
 <summary>🌻 Latte (light glass)</summary>
-<img src="assets/previews/glass-latte.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-latte.png"/>
 </details>
 <details>
 <summary>🌿 Mocha (dark glass)</summary>
-<img src="assets/previews/glass-mocha.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-mocha.png"/>
 </details>
 
 ## Installation
@@ -178,6 +181,15 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 4. Choosing **Follow system** reverts to the official theme — it restores the preference
    you had before enabling Catppuccin (light / dark / follow system) instead of forcing a reset.
 
+### Other options in the Catppuccin row
+
+- **Code highlight style**: default / **italic comments** — affects only the shiki colours used
+  in code blocks and diffs.
+- **Custom overrides** (collapsible; the button shows the entry count): override individual tokens
+  with `--dsw-* var: value` pairs, e.g. `--dsw-static-blue-500` → `#89b4fa`. The **key** commits on
+  blur and must start with `--` (otherwise the entry is dropped); the **value** applies as you type,
+  and an **empty value deletes the entry**; ✕ removes the row. Overrides persist with the flavour.
+
 ### Glass skin
 
 Right below the **Catppuccin theme** row in **Settings → General** you'll find the **Glass** row:
@@ -201,6 +213,8 @@ In **Settings → General**, right below the **Glass** row:
 - Clicking **Check for updates** compares the latest npm version with the installed one:
   up to date → shows the current version; newer → shows the new version plus a copyable
   upgrade command (the profile name is detected automatically, falling back to `web`).
+- **Auto-check**: on by default — once after startup, then every 6 hours (switch it off on this row);
+  the **Channel** picks **Stable** (follows `latest` only) or **Beta** (prereleases too).
 - Locally linked / source installs (`link:` / `file:` / git) don't show an npm upgrade
   command — you'll be told to `git pull` or rebuild instead.
 - Channel policy: stable builds follow the `latest` tag; prereleases follow both `latest`
@@ -252,6 +266,17 @@ in commit bodies):
 pnpm changelog:gen            # print the draft since the last tag
 pnpm changelog:gen -- --write # write it into the [Unreleased] section
 ```
+
+TypeDoc docs for the public API (`./client`, `./tui-themes` subpath exports) are generated
+locally on demand into `docs/api/` (that directory is **not** committed — it's in
+`.gitignore`; wire up CI Pages publishing later if an online copy is ever wanted):
+
+```sh
+pnpm docs:api
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guide and
+[docs/state-migrations.md](docs/state-migrations.md) for the state versioning contract.
 
 ### Local link debugging
 

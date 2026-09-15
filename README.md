@@ -28,9 +28,9 @@
 - [💝 致谢](#致谢)
 
 <p align="center">
-	<img src="assets/previews/combined.png" width="100%" alt="Catppuccin 四主题下的 DeepSeek Harness"/>
+	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/combined.png" width="100%" alt="Catppuccin 四主题下的 DeepSeek Harness"/>
 	<br/><br/>
-	<img src="assets/previews/glass-combined.png" width="100%" alt="玻璃质感 · Latte & Mocha"/>
+	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-combined.png" width="100%" alt="玻璃质感 · Latte & Mocha"/>
 </p>
 
 ## 简介
@@ -55,6 +55,8 @@ Catppuccin 主题。
 - 🧩 接入官方主题系统，与内置浅色 / 深色 / 跟随系统主题平级
 - 🎯 全界面配色覆盖，不只是一两个强调色
 - ⚙️ 设置页一行切换，选择自动保存、重启自动恢复
+- 🔧 **自定义 token 覆盖**：按「`--dsw-* 变量: 值`」逐条覆盖单个配色 token（例如把注释色换成蓝色），与所选风味一起持久保存
+- 🖍️ **代码块高亮风格**：默认 / 注释斜体（italic-comments）两套 shiki 风格可选
 - 🌐 中 / 英 / 日 / 韩 / 西 / 法 / 德七语文案（跟随系统语言）
 - 🪟 **玻璃质感**：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
   新会话按钮磨砂玻璃效果，设置里一键开关；云母 / 兼容双模式，模糊度、磨砂度、
@@ -62,7 +64,7 @@ Catppuccin 主题。
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色自动跟随当前 Catppuccin 主题
-- 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令
+- 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令；**默认开启自动检查**（启动后一次 + 每 6 小时），更新渠道可选稳定版 / Beta
 - 💻 **dsh-TUI 终端主题**：一条安装命令装进 dsh-TUI，四套主题自动同步到 `~/.dsh-tui/themes/`，见[安装 · dsh-TUI](#dsh-tui-终端版主题)
 
 ## 预览
@@ -71,19 +73,19 @@ Catppuccin 主题。
 
 <details>
 <summary>🌻 Latte（浅色）</summary>
-<img src="assets/previews/latte.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/latte.png"/>
 </details>
 <details>
 <summary>🪴 Frappé（深色）</summary>
-<img src="assets/previews/frappe.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/frappe.png"/>
 </details>
 <details>
 <summary>🌺 Macchiato（深色）</summary>
-<img src="assets/previews/macchiato.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/macchiato.png"/>
 </details>
 <details>
 <summary>🌿 Mocha（深色）</summary>
-<img src="assets/previews/mocha.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/mocha.png"/>
 </details>
 
 ### 玻璃质感（Mica 云母模式）
@@ -92,16 +94,13 @@ Catppuccin 主题。
 聊天气泡、输入框与统计行都是玻璃卡片，消息滚过页面边缘时被柔化，
 背景为主题底色的纯色（截图来自本地 GUI）：
 
-<p align="center">
-</p>
-
 <details>
 <summary>🌻 Latte（浅色玻璃）</summary>
-<img src="assets/previews/glass-latte.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-latte.png"/>
 </details>
 <details>
 <summary>🌿 Mocha（深色玻璃）</summary>
-<img src="assets/previews/glass-mocha.png"/>
+<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-mocha.png"/>
 </details>
 
 ## 安装
@@ -171,6 +170,13 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 4. 选择 **跟随系统** 则回退到官方主题——会还原你启用 Catppuccin 之前
    的官方偏好（浅色 / 深色 / 跟随系统），而不是强制重置。
 
+### Catppuccin 行里的其它选项
+
+- **代码高亮风格**：默认 / **注释斜体**（italic-comments）——只影响代码块与 diff 的 shiki 高亮配色。
+- **自定义覆盖**（折叠区，按钮上显示已有条数）：按「`--dsw-* 变量: 值`」逐条覆盖单个 token，
+  例如 `--dsw-static-blue-500` → `#89b4fa`。**键名**失焦生效（必须以 `--` 开头，否则该条会被丢弃）；
+  **值**输入即生效、**清空值即删除该条**；✕ 删除整行。覆盖持久保存，与所选风味一起生效。
+
 ### 玻璃质感
 
 在 **设置 → 常规** 的 **Catppuccin 主题** 正下方找到 **玻璃质感** 行：
@@ -196,6 +202,8 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - 点击 **检查更新** 即对比 npm 上的最新版与当前版本：已是最新 → 显示当前
   版本号；发现新版 → 显示新版本号并给出可复制的升级命令（命令中的 profile
   名自动探测，无需手动替换；探测失败才回退为 `web`）。
+- **自动检查**：默认开启——启动后检查一次、之后每 6 小时一次（该行可关闭）；
+  **渠道**可选 **稳定版**（只跟 `latest`）或 **Beta 版**（连预发布一起跟）。
 - 本插件为本地链接 / 源码安装（`link:` / `file:` / git）时不显示 npm 升级
   命令，会提示改用 `git pull` 或重新构建。
 - 通道策略：正式版只跟随 `latest` 标签；预发布版同时跟随 `beta`（升级命令
@@ -237,8 +245,8 @@ pnpm build       # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js�
 node scripts/generate-palettes.mjs [--pin <upstream-sha>]
 ```
 
-对外 API（`./client`、`./tui-themes` 子路径导出）的 typedoc 文档生成到
-`docs/api/`（GitHub Pages 发布交给 maintainer）：
+对外 API（`./client`、`./tui-themes` 子路径导出）的 typedoc 文档**按需本地生成**到
+`docs/api/`（该目录不入库、已进 `.gitignore`；哪天真需要在线版本再接 CI 发布）：
 
 ```sh
 pnpm docs:api

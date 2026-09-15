@@ -1,7 +1,10 @@
 # CONTRIBUTING.md — dsh-catppuccin 贡献指南
 
 感谢你愿意给这个插件添砖加瓦。开始之前请先读
-[AGENTS.md](AGENTS.md) 里的「项目身份速览」——仓库存在三套名字
+[AGENTS.md](AGENTS.md) 的两节：「项目定位与核心目标」（**核心目标是把官方
+Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取值在 DSH 下确实不成立时可有据偏离；
+玻璃质感是叠加的附带目标**）
+与「项目身份速览」——仓库存在三套名字
 （GitHub 仓库名 / npm 包名 / 插件 ID），**大多数 `dsh-catppuccin` 字样都不该改**。
 
 ## 技术栈速览
@@ -14,6 +17,7 @@
 | 调色板 | `scripts/generate-palettes.mjs` → `src/client/palettes.ts` | **AUTO-GENERATED，不要手改** |
 | 玻璃 CSS | `src/client/glass/glass.module.css` → 构建时生成 `glass-css.gen.ts` | 样式源文件；改完跑 `pnpm build` |
 | 契约 | `src/state.ts`、`src/update-check.ts` | 两个 half 共享、无运行时依赖 |
+| 持久化写侧 | `src/client/state-sync.ts` | settings 文档的 revision-fenced 原子写 + 多标签页读侧一致性 |
 
 开发命令：`pnpm install` → `pnpm typecheck` → `pnpm test` → `pnpm build`。
 
@@ -29,7 +33,7 @@
    - 重跑 `node scripts/generate-palettes.mjs --pin <upstream-sha>` 生成
      `src/client/palettes.ts`（pin 用于锁定上游版本，见改进项 L）。
 3. **接链条**：
-   - `src/shiki-tokens.ts`：补标「默认 + italic-comments」两套色板；
+   - `src/client/shiki-tokens.ts`：补标「默认 + italic-comments」两套色板；
    - `src/state.ts` 的 `CATPPUCCIN_THEME_IDS` 加 themeId
      （`catppuccin-<id>` 命名空间归本插件所有）；
    - `src/client/index.ts` 的 `CATPPUCCIN_FLAVOR_VALUES` 由 palettes 导出
@@ -45,9 +49,14 @@
 
 - 只改 `scripts/generate-palettes.mjs` 的映射表，**不要改**
   `src/client/palettes.ts`（顶部 `AUTO-GENERATED`）。
-- 改完 `pnpm gen:palettes` 重生成；涉及可视化效果的改动
-  （如 LL / MM 这类对比度调整）必须附截图给视觉模型或人工复核。
-- `tests/palettes.spec.ts` 有 WCAG 对比度和单调性地板断言，跑测试验证。
+- 改完 `pnpm gen:palettes` 重生成。**默认取官方色板**（见 AGENTS.md
+  「项目定位与核心目标」）：对比度问题先调混色目标（`base` / `crust`）与层级
+  档位，**先不要换色相**；穷尽后仍不达标（例如官方色在 DSH 的实际用法下达不到 AA）
+  才偏离官方取值，并必须在代码注释 + CHANGELOG 写明理由与对照值。
+- 验收分两条路：**纯数值可判定**的对比度改动（如 issue #11 的蓝梯、VV 的绿 /
+  琥珀 900 步）用 `tests/palettes.spec.ts` 的 WCAG 断言验收；涉及**观感**的改动
+  （材质、圆角、光晕、亮度观感）必须附截图给视觉模型或人工复核。
+- `tests/palettes.spec.ts` 的地板断言覆盖 WCAG 对比度与暗色层级单调性。
 
 ## 玻璃皮肤
 
@@ -83,4 +92,6 @@
 ## 发版
 
 发版由 maintainer 走 GitHub Actions（OIDC Trusted Publisher），
-**不要手动 `npm publish`、不要打 tag**。发版 SOP 见 AGENTS.md。
+**不要手动 `npm publish`**（CI 故障时的紧急回退见 AGENTS.md）。
+发布是**推 `v*` tag 触发的**（见 `.github/workflows/publish.yml`），所以 tag 由
+maintainer 按 AGENTS.md 的 SOP 打并推——普通 PR 不要打 tag。

@@ -25,7 +25,7 @@
 
 - **修复深色模式下分段选择器选中项不可读（issue #11）**：设置页三处选中态药丸（代码高亮风格 / 更新渠道 / 玻璃质感模式）标签实测对比度仅 **1.26:1**（Macchiato `#7181b1` on `#63719a`）——暗色蓝梯把该对两端都混在中灰蓝：`state-business-tertiary`(=deepseek-800) 混 base 52%、`state-business-primary`(=deepseek-400) 混 66%，官方暗色的 `#34415b`/`#679efe`(4.6:1) 动态范围被压扁。修复：`blueDarkPlan` 深端（800/900/950）改为朝最深表层 `crust` 混且压到 18%/14%/10%（`generate-palettes.mjs` 新增每步可选混色目标，未指定仍为 base），并按 issue #7 的既有机制把 `state-business-primary` 钉到纯 accent（`deepseek-500`）。改后标签对 tint 为 Frappé 4.60:1 / Macchiato 5.49:1 / Mocha 6.40:1（AA 通过），同 token 兼作填充的开关轨道、焦点环、活动页签也从 3.7:1 提到 6.5~8.9:1；宿主轨迹视图的 `user` 徽标用的是同一对，一并修复。新增 `tests/palettes.spec.ts` 的 `dark blue tint readability (issue #11)` 断言（旧表失败、新表通过）。（EN: repaint the dark blue tint at the deepest surface and pin the business label to the accent — fixes the ~1.26:1 selected-segment text in all three settings rows and the host trajectory badge）
 
-> 待办（同批测量，未纳入本次修复）：`state-success-tertiary` / `state-warn-tertiary` 有同型配对（官方 `contextGreen` / `warn-label` 芯片），当前 3.5~3.8:1，同样可用 crust 目标收尾；Latte 的 business 对为 3.23:1（官方 3.74:1，属上游设计特性）。
+> 待办（同批测量，未纳入本次修复）：`state-success-tertiary` / `state-warn-tertiary` 有同型配对（官方 `contextGreen` / `warn-label` 芯片），当前 3.5~3.8:1，同样可用 crust 目标收尾；Latte 的 business 对为 3.23:1（官方 3.74:1，属上游设计特性）。（2026-09-15 复核：已立为跟踪项 **VV** 并实测——green-500/green-900 = 3.67/4.37/5.02、amber-600/amber-900 = 3.18/3.79/4.34，改 `crust` 目标后预测 ≥5.4；见 `docs/plugin-improvements.md` 六、跟踪表。）
 
 ### 改进（设置弹窗玻璃化）
 
