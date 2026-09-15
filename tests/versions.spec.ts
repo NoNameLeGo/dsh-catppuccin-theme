@@ -19,7 +19,7 @@ describe('parseVersion', () => {
 
   it('parses prerelease and build metadata', () => {
     expect(parseVersion('0.2.5-beta.0')).toEqual({ major: 0, minor: 2, patch: 5, prerelease: ['beta', 0] })
-    expect(parseVersion('1.0.0-alpha.1+build.42').prerelease).toEqual(['alpha', 1])
+    expect(parseVersion('1.0.0-alpha.1+build.42')?.prerelease).toEqual(['alpha', 1])
   })
 
   it('rejects garbage', () => {

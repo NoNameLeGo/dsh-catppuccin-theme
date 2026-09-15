@@ -30,6 +30,7 @@ import {
   type SettingsScope,
   type SettingsScopeSnapshot,
 } from '../src/client/state-sync.ts'
+import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { STATE_VERSION, defaultSettingsSection, defaultState, settingsSectionFromState } from '../src/state.ts'
 import type { CatppuccinSettingsSection } from '../src/state.ts'
 
@@ -103,7 +104,11 @@ describe('builtinPickWins (issue #6 restore guard)', () => {
   })
 
   it('non built-in preferences (flavour ids) never win', () => {
-    expect(builtinPickWins('catppuccin-latte', 'catppuccin-latte')).toBe(false)
+    // The runtime can hand the guard a flavour id as the live pick. Its second
+    // parameter is typed narrowly (BuiltinPreference) on purpose — the test
+    // reaches for that parameter type instead of widening production.
+    type LivePick = Parameters<typeof builtinPickWins>[1]
+    expect(builtinPickWins('catppuccin-latte', 'catppuccin-latte' as LivePick)).toBe(false)
     expect(builtinPickWins('catppuccin-mocha', null)).toBe(false)
   })
 })
@@ -163,7 +168,7 @@ function scopeDouble(options: {
       subscribe() { return () => {} },
       set() { return Promise.resolve() },
       unset() { return Promise.resolve() },
-      mutate(ops) {
+      mutate(ops: readonly SettingsPathOpView[]) {
         mutations.push(ops as never)
         return options.mutate !== undefined ? options.mutate() : Promise.resolve()
       },

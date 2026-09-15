@@ -13,6 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FLAVOR_STORAGE_KEY, apply } from '../src/client/index.ts'
+import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 interface Snapshot { preference: string; revision: number }
 
@@ -75,7 +76,9 @@ function makeThemeRuntime(ctx: Context, host: ReturnType<typeof makeThemeHost>) 
     },
     publish() {
       rt.revision += 1
-      ctx.emit('theme/change', rt.getTheme() as Snapshot)
+      // The double models only the snapshot fields the plugin reads (preference /
+      // revision); the real event payload is wider (fontSize / active / themes).
+      ctx.emit('theme/change', rt.getTheme() as unknown as ThemeSnapshot)
     },
   }
   host.subscribe(() => rt.adopt())

@@ -49,6 +49,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 历史上 CI 只跑 install/build/test，测试文件从未参与类型检查
+      # （vitest 用 esbuild 转译，不做类型检查）——直到 4 处既有类型错误
+      # 在 tsconfig.vitest.json 里积累到 2026-09-15 才被发现（改进项 UU）。
+      # src 侧同样从没被检查过，所以两步一起跑。
+      - name: Typecheck
+        run: pnpm typecheck && pnpm typecheck:tests
+
       - name: Build
         run: pnpm build
 

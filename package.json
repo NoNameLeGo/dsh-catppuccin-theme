@@ -61,6 +61,7 @@
     "prepare": "node scripts/gen-glass-css.mjs && tsdown",
     "watch": "node scripts/gen-glass-css.mjs && tsdown --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.vitest.json",
     "test": "vitest run",
     "docs:api": "typedoc",
     "gen:palettes": "node scripts/generate-palettes.mjs",
