@@ -12,6 +12,10 @@
 
 - **覆盖编辑器的值输入改为失焦提交（TT）**：此前值输入受控 + 逐键提交，而「空值 = 删除」→ 想改颜色时逐字符清空会在中途把整行（含正在打字的输入框）卸载、光标丢失；同时**每个字符都会 dispose 并重新注册一次主题**（700 个 token 的表），中间态（如 `#89b4`）还是无效 CSS。现在键名与值都是非受控 + 失焦提交：清空后失焦才删除，打字期间行稳定、主题不再逐键重建；7 语言的 `row.overridesHint` 已同步为「失焦生效」。**有意接受的取舍**：不再「边打边变色」（粘贴完整色值不受影响）、焦点未离开就关弹窗时最后一笔不提交、其它标签页 / settings 文档写入的值需重开弹窗才刷新——三者与既有键名输入完全一致。（EN: the override editor's value field now commits on blur like the key field — clearing a value no longer unmounts the row mid-typing and typing no longer re-registers the theme per keystroke）
 
+- **普通提交现在也有 CI 了**：新增 `.github/workflows/ci.yml`（push main / PR → install + typecheck + build + test，只读权限）。此前只有 `publish.yml`、且只在 `v*` tag 上触发，所以 main 上的提交从来没人验证——`0.5.2` 当天两次发版失败（未声明的幽灵类型依赖、跨测试污染）都是本地恰好过、到 tag 才暴露。（EN: CI now runs on every push to main and on PRs, so regressions no longer wait for a release tag）
+
+- **补了行级组件测试骨架**：引入 `@testing-library/react`（配 `react-dom` 18，与 peer 范围一致），新增 `tests/rows.spec.tsx`：覆盖编辑器（TT 的失焦提交语义、清空后失焦才删、未改动不写入、键名重命名与非 token 键）与玻璃旋钮的 `aria-valuetext`（Z）。两个 row 的依赖都是 props，所以用注入面 fake 渲染，不需要模块全局。（EN: component-level test harness for the settings rows）
+
 ## [0.5.2] - 2026-09-15
 
 ### 修复

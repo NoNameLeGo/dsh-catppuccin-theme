@@ -467,7 +467,9 @@
 
 > **2026-09-15 实施完成**：`VV`（暗色 900 步混向 `crust` 18%，实测 4.96~8.30）、`UU`（4 处修复 + `typecheck:tests` + CI 两步）、`Z`（零文案版 `aria-valuetext`）、`TT`（值输入改失焦提交，7 语言 hint 同步）+ 期间发现并修掉的 `glass-seams` dispose 契约与跨测试污染、幽灵类型依赖、CI pnpm 版本冲突，均已落地（0.5.2 已发布）。
 >
-> **其余全部转为「待评估 / 待反馈」**（2026-09-15 决定：不占当前排期，等具体需求或用户反馈再启动）：`BB`（只保留静态阈值版）、视觉批次 9 项（`F/G/Q/NN/PP/QQ/RR/OO/P`，前置仍是修 `screenshot-previews.cjs` 的 4 风味出图）、`D`（只余向上游提 issue）、新增 `XX`（见下一条）。
+> **其余全部转为「待评估 / 待反馈」**（2026-09-15 决定：不占当前排期，等具体需求或用户反馈再启动）：`BB`（只保留静态阈值版）、视觉批次 9 项（`F/G/Q/NN/PP/QQ/RR/OO/P`，前置仍是修 `screenshot-previews.cjs` 的 4 风味出图）、`D`（只余向上游提 issue）、`XX`（草稿行转换时机）、`YY`（非中英语音待母语复核）。
+>
+> **同日另补两项基础设施（不在本表内）**：`.github/workflows/ci.yml`（push main / PR 跑 install+typecheck+build+test——此前普通提交毫无验证，两次发版失败都因此漏到 tag 才暴露）与**组件测试骨架** `tests/rows.spec.tsx`（RTL + 注入面 fake；补上行的交互断言：覆盖编辑器的提交语义、玻璃旋钮的 `aria-valuetext`）。
 
 **视觉批次（9 项：F / G / Q / NN / PP / QQ / RR / OO / P）** —— 统一前置 = **修好 `screenshot-previews.cjs` 的 4 风味出图**。没有 baseline 的观感改动无法回归，**不要由文本模型拍板观感**。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」，可无限期推后。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
@@ -531,3 +533,4 @@
 | UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |
+| YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题） | `src/client/locales.ts` | — |

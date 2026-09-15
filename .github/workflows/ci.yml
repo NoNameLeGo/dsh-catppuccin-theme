@@ -1,0 +1,44 @@
+# 持续集成：普通提交与 PR 上的验证。
+#
+# 与 publish.yml 的分工：这里只验证（install / typecheck / build / test），
+# 不带任何发布权限；发版仍由 publish.yml 在 `v*` tag 上做（OIDC 可信发布）。
+#
+# 为什么需要单独一个文件：publish.yml 只在 tag 推送或手动 dispatch 时触发，
+# 于是 main 上的普通提交从来没人验证——2026-09-15 两次发版失败都是这个空档造成
+# 的（一个未声明的幽灵类型依赖、一个跨测试污染，本地都恰好过）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本由 package.json 的 packageManager 单点决定：
+      # 这里刻意不传 `version:`（两者字符串不等时 action-setup 会直接抛错）。
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck && pnpm typecheck:tests
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test

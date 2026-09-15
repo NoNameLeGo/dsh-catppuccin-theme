@@ -113,4 +113,4 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - **`assets/` 不进 npm 包**（`package.json` 的 `files` 不含它，图片只在 README 用），所以 README 里的图片一律写**绝对** `raw.githubusercontent.com` URL——别改回相对路径，否则 npm 页面会失去图。
 - 对外 API 文档：`pnpm docs:api`（typedoc）→ `docs/api/`。**该目录不入库**（已 `git rm --cached` + 进 `.gitignore`，见 WW），本地按需生成即可；生成物当前是旧的（本次已重生成，但以后只在需要时重建）。重跑时 typedoc 会打一条 `origin` remote "not valid" 的警告——**实测是虚警**：链接照样生成，且指向当前 commit 的 permalink（`blob/<sha>/src/...`），无需改配置。真要自己写模板就用 `disableGit` + `sourceLinkTemplate`，注意 `{path}` **不含 `src/` 前缀**（否则生成 404 链接）。
 - `src/profile-detect.ts`：更新检查里「自动探测当前 profile 名」的实现（探测失败回退 `web`）。
-- CI 发布配置：`.github/workflows/publish.yml`（OIDC Trusted Publishing，无 token 入库）。
+- CI 配置：`.github/workflows/ci.yml`（push main / PR：install + typecheck + build + test，只读权限）与 `.github/workflows/publish.yml`（`v*` tag / 手动 dispatch 才跑，OIDC 可信发布，无 token 入库）。**普通提交只靠 ci.yml 把关**——发布链路里才跑检查的旧格局已经让两次发版失败（幽灵类型依赖、跨测试污染）。

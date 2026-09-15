@@ -80,6 +80,10 @@ Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取�
 
 - 每次改动跑 `pnpm typecheck && pnpm typecheck:tests && pnpm test`，保持绿
   （前两条分别是 src 与 tests 两个 tsconfig 的类型检查，CI 也跑它们）。
+- **行级组件测试**在 `tests/rows.spec.tsx`（RTL + jsdom）。约定：两个 row 的依赖
+  全部是 props，所以用**注入面 fake** 渲染，不碰模块全局；fake 的快照函数必须返回
+  **稳定引用**（`useSyncExternalStore` 按引用比较，每次新建对象会无限重渲染）。
+  新增交互时优先在这里补断言——纯逻辑测试盖不到“打字时那行会不会消失”这类缺陷。
 - 新增/修改 `src/state.ts` 契约字段时，同步更新 `tests/state.spec.ts`
   与 `tests/client.spec.ts` 的断言（字段有专门的镜像守卫测试）。
 - 涉及 settings 文档/持久化：看 `docs/state-migrations.md` 的约定。
