@@ -301,7 +301,7 @@
 
 ### 3.7 可访问性
 
-**Z. slider 缺 aria-valuetext** — 优先级 **P1 → P3**（▲ **降配为「零文案版」，2026-09-15 定案**）
+**Z. slider 缺 aria-valuetext** — 优先级 **P1 → P3**（✅ **已实施：零文案版，2026-09-15**）
 - **复核结论（2026-09-15）**：本文原方案要 locale 提供 `glass.frost.valueText(50)` → 「中等磨砂」，即 **3 个 knob（磨砂 / 模糊 / 亮度）× 7 语言 = 21 条新文案** + 一张档位阈值表（还要与 `tests/locales.spec.ts` 的 key 集合锁步）。它给的东西**超过**了无障碍要求：视力用户在这一行读到的也只是数字框里的 `20%`，原方案让屏幕阅读器用户听到的比视力用户更多（语义档位名），属于「更好」，不是「够用」。
 - **改为零文案版**：`aria-valuetext={`${value}${unit}`}` —— `unit`（`%` / `px`）已是现有渲染字段（`glass-row.tsx` 的 `.unit` span），屏幕阅读器从「20」变成「20%」/「14px」，与视力用户所见**完全一致（parity）**，7 语言零成本、无阈值表、无新 locale key。
 - 档位名版本保留为可选后续：**只在新版本真的收到屏幕阅读器用户反馈时再做**，不预先付成本。
@@ -457,6 +457,8 @@
 | **TT**（需 maintainer 点头：会改 7 条 i18n 承诺文案） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交（`CatppuccinRow.tsx:333`），键名输入已是 `defaultValue` + `onBlur`（:325） |
 | **Z**（降配后） | `aria-valuetext={`${value}${unit}`}`，零新文案 | 见正文 Z 条复核结论 |
 
+> **2026-09-15 实施完成**：`VV`（暗色 900 步混向 `crust` 18%，实测 4.96~8.30）、`UU`（4 处修复 + `typecheck:tests` + CI 两步）、`Z`（零文案版 `aria-valuetext`）已落地并进 `CHANGELOG [Unreleased]`；`TT` 仍等 maintainer 拍板（要改 7 条 i18n 承诺文案）。期间另发现并修掉一条**真实竞态**：`glass-seams` 的 dispose 挡不住已排队的 observer 回调（见 N 行与 CHANGELOG）。
+
 **视觉批次（9 项：F / G / Q / NN / PP / QQ / RR / OO / P）** —— 统一前置 = **修好 `screenshot-previews.cjs` 的 4 风味出图**。没有 baseline 的观感改动无法回归，**不要由文本模型拍板观感**。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」，可无限期推后。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
 **驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、`BB` ▲ 仅保留静态版、`D` ▲ 只剩「向上游提 issue」一个动作。
@@ -471,7 +473,7 @@
 |---|---|---|---|---|---|
 | C | 持久化读侧一致性（写侧已由 seam 覆盖） | P1 | ✅ | `src/client/state-sync.ts`、`src/client/index.ts` | — |
 | X | 多 tab 读写一致性（与 C 合并实施） | P2 | ✅ | `src/client/state-sync.ts`、`src/client/UpdateRow.tsx`（conflict 横幅） | — |
-| N | seam stamper 防抖 | P1 | ✅ | `src/client/glass/glass-seams.ts`（rAF 合批 + dirty 跳过） | — |
+| N | seam stamper 防抖 | P1 | ✅ | `src/client/glass/glass-seams.ts`（rAF 合批 + dirty 跳过；**2026-09-15 补 `disposed` 守卫**——dispose 后已排队的 observer 回调不再能重排帧） | — |
 | H | auto-check 开关 | P2 | ✅ | `src/state.ts`、`src/client/UpdateRow.tsx`（启动 + 每 6h） | — |
 | I | prerelease 选择 | P2 | ✅ | `src/state.ts`、`src/client/UpdateRow.tsx`、`src/update-check.ts`（selectNewest 三态）、`src/update-check/host.ts`（per-channel 缓存） | — |
 | J | tooltip/帮助图标 | P3 | ✅ | `src/client/{CatppuccinRow,UpdateRow}.tsx`、`glass/glass-row.tsx`、`src/client/locales.ts`（原生 title 落地，上游无 API） | — |
@@ -510,11 +512,11 @@
 | MM | 暗色 accent 提亮 | P1 | ❌ 已驳回（拿不出「官方取值在 DSH 下不成立」的证据，属审美偏好；品牌蓝已被 `palettes.spec.ts:105` 锁成契约；要更亮的蓝走 K） | `scripts/generate-palettes.mjs` | — |
 | O | reduced-motion | P1 | ✅（既有 `@media (prefers-reduced-motion)`，0.5.0 前已实施） | `src/client/glass/glass.module.css` | — |
 | P | 高对比度模式 | P1 | 待启动（视觉，前置：截图流水线；`prefers-contrast` 实测 0 处） | `src/client/glass/glass-layer.ts` | — |
-| Z | aria-valuetext | P1 → P3 | ▲ 降配：零文案版 `${value}${unit}`（待实施）；档位名版仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
+| Z | aria-valuetext | P1 → P3 | ✅ 已实施（零文案版 `aria-valuetext={`${value}${unit}`}`，`glass-row.tsx`）；定性档位名仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
 | BB | 对比度警告 | P1 | ▲ 缓做：仅静态阈值版（glass 下半透明背景使实时对比度不可靠，误报风险 > 收益） | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
 | FF | 视觉回归 | P3 | ▲ 前置：截图流水线（`screenshot-previews.cjs:96` 风味切换对 Frappé/Macchiato 失败，baseline 建不起来） | CI | — |
-| VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | 待实施（0.5.2 批次；实测 3.18~4.37 ❌ → crust 目标后预测 ≥5.4 ✅） | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
+| VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | ✅ 已实施（0.5.2）：900 步混向 `crust` 18%，实测 **4.96~8.30** ✅；`tests/palettes.spec.ts` 新增 `dark status tint readability (VV)` 两条断言 | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
 | TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | 建议方案 (a)（非受控 + 失焦提交，与键名输入对称），**待 maintainer 确认**——会改 7 条 i18n 承诺文案 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
-| UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | 已定案待实施（0.5.2 批次：4 处不改生产签名 + `typecheck:tests` + CI 一步） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
+| UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |

@@ -69,7 +69,7 @@
    pnpm changelog:gen -- --write # 直接写入 [Unreleased] 节
    ```
    然后人工润色（补日期、合并条目、删噪音）。**正式版发版前必须已有对应 `## [<version>]` 条目**——publish.yml 的 `Verify changelog entry` 步会拦截缺失（预发布跳过该校验）。
-3. 本地自测：`pnpm build && pnpm test`（CI 也会跑同样步骤，但先自查）
+3. 本地自测：`pnpm typecheck && pnpm typecheck:tests && pnpm build && pnpm test`（CI 也会跑同样步骤，但先自查）
 
 ### 2. 提交 + 打 tag + 推送（触发发布）
 ```bash

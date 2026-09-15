@@ -78,7 +78,8 @@ Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取�
 
 ## 测试要求
 
-- 每次改动跑 `pnpm typecheck && pnpm test`，保持绿。
+- 每次改动跑 `pnpm typecheck && pnpm typecheck:tests && pnpm test`，保持绿
+  （前两条分别是 src 与 tests 两个 tsconfig 的类型检查，CI 也跑它们）。
 - 新增/修改 `src/state.ts` 契约字段时，同步更新 `tests/state.spec.ts`
   与 `tests/client.spec.ts` 的断言（字段有专门的镜像守卫测试）。
 - 涉及 settings 文档/持久化：看 `docs/state-migrations.md` 的约定。

@@ -149,8 +149,13 @@ The same package covers the TUI. Install it into the dsh-tui profile:
 dsh plugin --profile dsh-tui add @nonamelego/dsh-catppuccin
 ```
 
-Installing from the repository works the same way (use the git form while the npm release
-is pending). The package ships a tiny theme-sync plugin row
+Installing from the repository works the same way:
+
+```sh
+dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-theme
+```
+
+The package ships a tiny theme-sync plugin row
 (`dsh-catppuccin-tui-themes`, no service dependencies): on every dsh-TUI start it syncs the
 four theme JSONs to `~/.dsh-tui/themes/`, so upgrades pick up the new palettes. After
 installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
@@ -247,9 +252,10 @@ What this plugin does:
 
 ```sh
 pnpm install
-pnpm typecheck   # tsc --noEmit type check
-pnpm test        # vitest palette-coverage tests
-pnpm build       # tsdown build -> lib/index.js (host) + lib/client.js (browser)
+pnpm typecheck       # tsc --noEmit: type check for src
+pnpm typecheck:tests # tsc --noEmit: type check for the specs (vitest transpiles, it never type checks)
+pnpm test            # vitest palette-coverage tests
+pnpm build           # tsdown build -> lib/index.js (host) + lib/client.js (browser)
 ```
 
 Palettes are produced by a generator script — after editing
@@ -326,4 +332,8 @@ Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`
 
 <p align="center">
 	Copyright &copy; 2021-present <a href="https://github.com/catppuccin/catppuccin" target="_blank">Catppuccin Org</a>
+</p>
+
+<p align="center">
+	<a href="https://github.com/catppuccin/catppuccin/blob/main/LICENSE"><img src="https://img.shields.io/static/v1.svg?style=for-the-badge&label=License&message=MIT&logoColor=d9e0ee&colorA=363a4f&colorB=b7bdf8"/></a>
 </p>

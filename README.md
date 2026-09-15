@@ -142,7 +142,7 @@ dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 dsh plugin --profile dsh-tui add @nonamelego/dsh-catppuccin
 ```
 
-从仓库安装同理（npm 版尚未发版时可用 git 形式，效果一致）：
+从仓库安装同理（也可用 git 形式，效果一致）：
 
 ```sh
 dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-theme
@@ -232,9 +232,10 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 ```sh
 pnpm install
-pnpm typecheck   # tsc --noEmit 类型检查
-pnpm test        # vitest 跑配色表 / 契约 / e2e 覆盖测试
-pnpm build       # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js（浏览器）
+pnpm typecheck       # tsc --noEmit：src 的类型检查
+pnpm typecheck:tests # tsc --noEmit：tests 的类型检查（vitest 跑 esbuild，不做类型检查）
+pnpm test            # vitest 跑配色表 / 契约 / e2e 覆盖测试
+pnpm build           # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js（浏览器）
 ```
 
 配色表由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑
@@ -243,6 +244,13 @@ pnpm build       # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js�
 
 ```sh
 node scripts/generate-palettes.mjs [--pin <upstream-sha>]
+```
+
+CHANGELOG 草稿由 conventional 提交生成（提交正文里的 `EN:` 行会被渲染成英文摘要）：
+
+```sh
+pnpm changelog:gen            # 打印上一 tag 之后的草稿
+pnpm changelog:gen -- --write # 直接写入 [Unreleased] 节
 ```
 
 对外 API（`./client`、`./tui-themes` 子路径导出）的 typedoc 文档**按需本地生成**到

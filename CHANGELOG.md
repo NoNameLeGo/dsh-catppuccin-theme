@@ -14,10 +14,18 @@
 
 - **更新检查失败的自动重试真的只重试一次**：此前只要检查失败就排 30s 定时器，重试再失败又排一次——断网时设置行每 30s 打一次宿主路由（宿主失败不缓存，等于每 30s 真打一次 npm），倒计时永不消失。现在每次用户发起的检查只带一次自动重试预算（手动点击复位），并补上倒计时 ticker 在卸载时的 `clearInterval`。（EN: the failure auto-retry now stops after one retry as documented, and the countdown ticker is cleared on unmount）
 
+- **暗色下 success / warn 芯片的标签对比度不足（VV）**：`state-success-tertiary` / `state-warn-tertiary` 是**标签下面的着色表面**（官方 `contextGreen` / `warn-label` 芯片），但 `greenPlan` / `amberPlan` 的 900 步只能混向 `base`，暗色三风味实测标签对为 **3.67/4.37/5.02（success）与 3.18/3.79/4.34（warn）**——既低于 AA，也低于上游官方同对（**5.25 / 5.53**，本次用 `dsw-tokens.json` 实测）。现按 issue #11 的同款机制给 900 步加**混色目标**：暗色混向 `crust` 取 **18%**（扫描 10→30%：14% 过冲到 6.3~9.3、22% 时 Frappé 琥珀只剩 4.54:1，18% 落在上游比值带 4.96~8.30），Latte 保持原样（它的 900 步是浅色芯片配深标签，官方本身 2.09 / 2.58，属上游设计特性）。新增 `tests/palettes.spec.ts` 的 `dark status tint readability (VV)` 两条断言（旧表失败、新表通过）。（EN: repaint the dark success/warn chip tints toward crust — 3.18–4.37:1 before, 4.96–8.30:1 after, matching upstream's ratio band instead of overshooting）
+
+- **玻璃接缝 stamper 的 dispose 漏网**：`dispose` 能断开 MutationObserver、取消已排的帧，但**已经作为微任务排队的 observer 回调收不回来**——该回调会在 dispose 之后重新排帧并 stamp，契约上的「dispose 之后不再改写 DOM」并不成立。全量测试（并行调度）稳定复现，单文件跑通常赢在竞态之前。加 `disposed` 守卫（`schedule()` 先查）后 dispose 成为终局。（EN: a dispose-time guard so an already-queued observer callback cannot re-arm seam stamping）
+
 ### 改进
 
 - **设置弹窗玻璃化的 seam 不再依赖宿主构建哈希**：`[class*="VOzbGW_overlay"]`（dsh-client-ui-settings-general 的 CSS Module 哈希，宿主改样式即失效且无声）换成 `:has(> [role="dialog"][aria-modal="true"])`——命中同一个覆盖层元素，键的是稳定的无障碍属性。测试同步改为断言真实属性组合，并断言无 `aria-modal` 的普通 dialog 不被命中。（EN: the settings-dialog glass seam keys off role/aria-modal instead of the host's CSS-module hash）
 - **`pnpm changelog:gen -- --write` 不再因缺少 `[Unreleased]` 节中止**：发版会把该节落成版本节，脚本现在在缺失时自动补建在最新版本节之上（此前直接 `exit 1`，而 AGENTS.md 的 SOP 正是让 Agent 跑这条命令）。（EN: the changelog writer recreates the [Unreleased] section instead of aborting after a release consumed it）
+
+- **测试类型检查链路接上（UU）**：`tsconfig.vitest.json` 的注释承诺「src + tests 一起类型检查」，但三条链路都不跑它：`pnpm typecheck` 的 include 只有 `src`、vitest 用 esbuild 转译不做类型检查、CI 只有 install/build/test——4 处既有类型错误因此长期隐形。现在修掉这四处（**不动生产签名**：`builtinPickWins` 是 issue #6 的回归守卫，改在测试内取它的参数类型；`reentrancy` 的 double 用 `as unknown as ThemeSnapshot` 并注明它只建模插件读取的字段；`versions` 用可选链），新增 `pnpm typecheck:tests`，并在 CI 里加 `Typecheck` 步同时跑 `typecheck` 与 `typecheck:tests`（src 侧此前同样从未被检查过——不接 CI 必然再次腐烂）。（EN: wire the test type-check chain — the 4 latent errors are fixed and CI now runs both typechecks）
+
+- **无障碍：玻璃旋钮的滑杆补 `aria-valuetext`（Z）**：`<input type="range">` 此前只播报裸数字（「20」）且不带单位。按评估后的**零文案版**补 `aria-valuetext={`${value}${unit}`}` → 屏幕阅读器念「20%」/「14px」，与视力用户所见一致；**不为 3 个旋钮 × 7 语言新增 21 条档位文案**，定性档位名（「中等磨砂」）保留为可选后续，只在真有屏幕阅读器用户反馈时再做。（EN: range knobs announce their unit via aria-valuetext without adding 21 locale strings）
 
 ## [0.5.1] - 2026-09-13
 
