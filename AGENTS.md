@@ -90,6 +90,8 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 
 **背景**：`Publish to npm` 步骤历史上**连续失败多次**（v0.1.2 ~ v0.2.5），而 `0.2.6` / `0.2.6-beta.0` 是绕过 CI、本地手动 `npm publish` 发出的——原因是 Trusted Publisher 的 Repository 与（改名前的）仓库名不匹配。改名并同步配置后，下次发版是 CI 通道的首次验证点。
 
+- 失败在 **pnpm/action-setup** 步（`Multiple versions of pnpm specified`）→ workflow 的 `version` 与 `package.json` 的 `packageManager` **字符串必须完全相等**，否则 action 直接抛错。本仓库只保留 `packageManager`（workflow 不传 `version`，官方推荐用法）——2026-09-15 加 `packageManager` 时踩过一次，差点让发版在第二步失败。
+
 - 失败在 **install / build / test** 步 → 本地构建问题，先在本地重跑 `pnpm install && pnpm build && pnpm test`。
 - 只失败在 **Publish to npm** 步：
   1. 首选怀疑 **Trusted Publisher 与仓库名不匹配** → npmjs 网页确认 Repository = `dsh-catppuccin-theme`。

@@ -6,7 +6,7 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.2] - 2026-09-15
 
 ### 修复
 
@@ -24,6 +24,8 @@
 - **`pnpm changelog:gen -- --write` 不再因缺少 `[Unreleased]` 节中止**：发版会把该节落成版本节，脚本现在在缺失时自动补建在最新版本节之上（此前直接 `exit 1`，而 AGENTS.md 的 SOP 正是让 Agent 跑这条命令）。（EN: the changelog writer recreates the [Unreleased] section instead of aborting after a release consumed it）
 
 - **测试类型检查链路接上（UU）**：`tsconfig.vitest.json` 的注释承诺「src + tests 一起类型检查」，但三条链路都不跑它：`pnpm typecheck` 的 include 只有 `src`、vitest 用 esbuild 转译不做类型检查、CI 只有 install/build/test——4 处既有类型错误因此长期隐形。现在修掉这四处（**不动生产签名**：`builtinPickWins` 是 issue #6 的回归守卫，改在测试内取它的参数类型；`reentrancy` 的 double 用 `as unknown as ThemeSnapshot` 并注明它只建模插件读取的字段；`versions` 用可选链），新增 `pnpm typecheck:tests`，并在 CI 里加 `Typecheck` 步同时跑 `typecheck` 与 `typecheck:tests`（src 侧此前同样从未被检查过——不接 CI 必然再次腐烂）。（EN: wire the test type-check chain — the 4 latent errors are fixed and CI now runs both typechecks）
+
+- **CI 的 pnpm 版本只留一处**：上一批给 `package.json` 加了 `packageManager: pnpm@10.33.3`，而 workflow 里还留着 `version: 10`——两者字符串不等，`pnpm/action-setup` 会直接抛 `Multiple versions of pnpm specified`，**发版会在第二步就失败**（发版前检查时发现）。按官方用法删掉 workflow 的 `version`，pnpm 版本由 `packageManager` 单点决定；AGENTS.md 的故障排查补上了这条坑。（EN: single source of truth for the pnpm version — the workflow no longer duplicates packageManager）
 
 - **无障碍：玻璃旋钮的滑杆补 `aria-valuetext`（Z）**：`<input type="range">` 此前只播报裸数字（「20」）且不带单位。按评估后的**零文案版**补 `aria-valuetext={`${value}${unit}`}` → 屏幕阅读器念「20%」/「14px」，与视力用户所见一致；**不为 3 个旋钮 × 7 语言新增 21 条档位文案**，定性档位名（「中等磨砂」）保留为可选后续，只在真有屏幕阅读器用户反馈时再做。（EN: range knobs announce their unit via aria-valuetext without adding 21 locale strings）
 

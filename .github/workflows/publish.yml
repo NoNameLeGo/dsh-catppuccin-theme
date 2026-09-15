@@ -32,9 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # version 故意省略：pnpm 版本由 package.json 的 packageManager 字段单点决定。
+      # 两者同时给出且字符串不等时，action-setup 会直接 throw
+      # 「Multiple versions of pnpm specified」——2026-09-15 加 packageManager 时踩到，
+      # 会让发版在第二步就失败。（严格来说这里不需要 `with:` 块。）
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       # registry-url 故意省略：一旦设置，setup-node 会写带
       # `_authToken=${NODE_AUTH_TOKEN}` 的 ~/.npmrc 并可能导出占位
