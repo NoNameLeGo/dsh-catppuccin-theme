@@ -31,3 +31,9 @@ quicksort.py
 .debug/
 .pideck-paste/
 .client-*.tmp.ts
+
+# Stray local pnpm store (should live outside the repo)
+.pnpm-store/
+
+# Generated API docs (typedoc) — regenerate on demand with `pnpm docs:api`
+docs/api/
