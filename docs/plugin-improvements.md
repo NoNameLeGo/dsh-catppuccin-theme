@@ -126,7 +126,9 @@
 - 实施方法：用 dsh-client-ui-slots 已有 tooltip API；locale 增加 `*.help` 字典。
 - 预期效果：发现性增强，新用户上手更快。
 
-**TT. 覆盖编辑器的值输入逐键提交：清空值即删行（打字中途整行消失）** — 优先级 **P2**（2026-09-13 复核新增，**待评估**）
+**TT. 覆盖编辑器的值输入逐键提交：清空值即删行（打字中途整行消失）** — 优先级 **P2**（✅ **已实施：方案 (a)，2026-09-15**）
+- **实施结果（2026-09-15）**：值输入改为非受控 + `onBlur` 提交（与键名输入对称），`commitPersistedValue` 的「空值=删除」语义保留但只在失焦时发生。同时消掉了两个附带代价：每个字符都 `reapplyThemePrefs()`（dispose 并重登一次 700 token 的主题表）、中间态（如 `#89b4`）作为无效 CSS 生效。7 语言的 `row.overridesHint` 已同步为「失焦生效」。
+- **有意接受的取舍（写在这里，免得下次被当成 bug）**：① 失去「边打边变色」——粘贴完整色值不受影响，且逐字符打字时中间态本来就是无效值 ；② 焦点未离开就关弹窗（Esc）时，最后一笔不提交；③ 其它标签页 / settings 文档写入的值要重开弹窗才刷新（非受控输入的固有行为）。三条与既有的键名输入完全一致。
 - 现象：`CatppuccinRow` 里**已保存**条目的值输入框是受控 + 逐键提交（`value={value}` + `onChange → commitPersistedValue`），而 `commitPersistedValue` 把空串当删除（`if (value.trim() === '') delete next[key]`）。渲染源是 `Object.entries(overrideMap).map(...)`，所以光标还在框里、整行（含输入框）就被卸载：想重打一个新值只能「全选覆盖」（一次 onChange 即完整串，正常）或先按 ✕ 再新增；逐字符清空会中途丢行。每次按键还会连带 `reapplyThemePrefs()`（重新注册主题）+ `scheduleDurablePersist`。
 - **这是文档化的设计，不是缺陷**：7 种语言的 `row.overridesHint` 都写着「输入即生效，清空值即删除」/ "Applies as you type; an empty value deletes the entry"。改行为等于同时改 7 条 i18n 文案 + 一条交互承诺，属产品决定。
 - 为什么暂缓（2026-09-13）：三条路线行为互斥，需 maintainer / 视觉复核拍板，且不阻塞发版（✕ 按钮一直在，现状是「粗糙」不是「坏掉」）：
@@ -139,7 +141,13 @@
 
 - 建议（若采纳）：走 (a)，与 2026-09-13 已改的键名输入（非受控 + 失焦提交）对称，两个输入框语义一致——`<input defaultValue={value} onBlur={(e) => { commitPersistedValue(key, e.target.value) }} />`，`commitPersistedValue` 的「空串=删除」保持不变，只改 7 处文案为「失焦生效，清空值即删除」。
 - 关联文件：`src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`）。
-- 附注：**键名**输入已在 cdccb09 改为非受控 + 失焦提交，原因是 `readOverrides()` 改为 read 侧 sanitize 后，逐键重写的中间态（`-`、`--`）会被丢弃并让整行消失；值路径对任意字符串都合法，没有同类新风险，故当时维持原设计。
+- 附注：**键名**输入已在 cdccb09 改为非受控 + 失焦提交，原因是 `readOverrides()` 改为 read 侧 sanitize 后，逐键重写的中间态（`-`、`--`）会被丢弃并让整行消失；值路径对任意字符串都合法，没有同类新风险，故当时维持原设计。（该判断已在 2026-09-15 被 TT 的实施修正：值路径确实没有键名那类失效风险，但**逐键提交本身有另外两个代价**——逐键重建主题、中间态无效值。）
+
+**XX. 覆盖编辑器「+ 添加」的新行在值第一个字符后夺走焦点** — 优先级 **P2**（2026-09-15 复核新增，**待评估 / 待反馈**）
+- 现象（读码得出，**未实机确认**）：新建覆盖按常规顺序「先填键名、再填值」——键名已是合法 `--` token 时，`commitDraft` 的提交条件只需值非空，所以**键入值的第一个字符**就会把该草稿行转成持久化行（`draftRows.filter(...)` 卸载草稿行 + 覆盖表新增一行），正在打字的输入框被卸载、焦点丢失，后续字符无处可去。值靠粘贴（一次 onChange 即完整串）时无感。
+- 为什么没随 TT 一起改：TT 只动「已持久化行」的值输入；这条是草稿行 → 持久化行的**转换时机**问题，要决定「何时算一条新覆盖成型」（值字段失焦？显式确认？），属产品决定，且同样会连带 7 语言文案。
+- 候选方向：草稿行的两个输入也改成失焦提交（键名 + 值都失焦且都合法时才转持久化），与 TT 后的语义一致；代价是新建一条覆盖要先在值框外点一下。
+- 关联文件：`src/client/CatppuccinRow.tsx`（`commitDraft` 与 draftRows 渲染）。
 
 ---
 
@@ -454,10 +462,12 @@
 |---|---|---|
 | **VV**（新，源自 CHANGELOG `[0.5.1]` 内联待办） | 暗色 `state-success-tertiary` / `state-warn-tertiary` 改走 `crust` 混色目标——`greenPlan` / `amberPlan` 的 900 步支持「混色目标」参数，与 `blueDarkPlan`（issue #11）同构 | 实测现状：green-500 on green-900 = **3.67 / 4.37 / 5.02**（Frappé、Macchiato ❌）；amber-600 on amber-900 = **3.18 / 3.79 / 4.34**（三风味全 ❌）。改 `crust@14%` 后预测 **5.40 ~ 9.34** ✅。新增 `tests/palettes.spec.ts` 断言（照 issue #11 用例的写法） |
 | **UU** | 修 4 处既有类型错误（**不动生产签名**：`builtinPickWins` 是 issue #6 的回归守卫，改为在测试内标真实类型）+ 加 `typecheck:tests` + CI 一步 | `npx tsc --noEmit -p tsconfig.vitest.json` 实测仍 **4 错**，与记录一致；修后应为 0 错 |
-| **TT**（需 maintainer 点头：会改 7 条 i18n 承诺文案） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交（`CatppuccinRow.tsx:333`），键名输入已是 `defaultValue` + `onBlur`（:325） |
+| **TT**（已实施 2026-09-15：非受控 + 失焦提交，7 语言 hint 同步） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交（`CatppuccinRow.tsx:333`），键名输入已是 `defaultValue` + `onBlur`（:325） |
 | **Z**（降配后） | `aria-valuetext={`${value}${unit}`}`，零新文案 | 见正文 Z 条复核结论 |
 
-> **2026-09-15 实施完成**：`VV`（暗色 900 步混向 `crust` 18%，实测 4.96~8.30）、`UU`（4 处修复 + `typecheck:tests` + CI 两步）、`Z`（零文案版 `aria-valuetext`）已落地并进 `CHANGELOG [Unreleased]`；`TT` 仍等 maintainer 拍板（要改 7 条 i18n 承诺文案）。期间另发现并修掉一条**真实竞态**：`glass-seams` 的 dispose 挡不住已排队的 observer 回调（见 N 行与 CHANGELOG）。
+> **2026-09-15 实施完成**：`VV`（暗色 900 步混向 `crust` 18%，实测 4.96~8.30）、`UU`（4 处修复 + `typecheck:tests` + CI 两步）、`Z`（零文案版 `aria-valuetext`）、`TT`（值输入改失焦提交，7 语言 hint 同步）+ 期间发现并修掉的 `glass-seams` dispose 契约与跨测试污染、幽灵类型依赖、CI pnpm 版本冲突，均已落地（0.5.2 已发布）。
+>
+> **其余全部转为「待评估 / 待反馈」**（2026-09-15 决定：不占当前排期，等具体需求或用户反馈再启动）：`BB`（只保留静态阈值版）、视觉批次 9 项（`F/G/Q/NN/PP/QQ/RR/OO/P`，前置仍是修 `screenshot-previews.cjs` 的 4 风味出图）、`D`（只余向上游提 issue）、新增 `XX`（见下一条）。
 
 **视觉批次（9 项：F / G / Q / NN / PP / QQ / RR / OO / P）** —— 统一前置 = **修好 `screenshot-previews.cjs` 的 4 风味出图**。没有 baseline 的观感改动无法回归，**不要由文本模型拍板观感**。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」，可无限期推后。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
@@ -517,6 +527,7 @@
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
 | FF | 视觉回归 | P3 | ▲ 前置：截图流水线（`screenshot-previews.cjs:96` 风味切换对 Frappé/Macchiato 失败，baseline 建不起来） | CI | — |
 | VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | ✅ 已实施（0.5.2）：900 步混向 `crust` 18%，实测 **4.96~8.30** ✅；`tests/palettes.spec.ts` 新增 `dark status tint readability (VV)` 两条断言 | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
-| TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | 建议方案 (a)（非受控 + 失焦提交，与键名输入对称），**待 maintainer 确认**——会改 7 条 i18n 承诺文案 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
+| TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | ✅ 已实施（2026-09-15，方案 a）：值输入非受控 + `onBlur`，7 语言 hint 同步；取舍见正文 TT 条 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
 | UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
+| XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |

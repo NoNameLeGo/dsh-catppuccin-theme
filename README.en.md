@@ -192,7 +192,7 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
   in code blocks and diffs.
 - **Custom overrides** (collapsible; the button shows the entry count): override individual tokens
   with `--dsw-* var: value` pairs, e.g. `--dsw-static-blue-500` → `#89b4fa`. The **key** commits on
-  blur and must start with `--` (otherwise the entry is dropped); the **value** applies as you type,
+  blur and must start with `--` (otherwise the entry is dropped); the **value** also commits on blur,
   and an **empty value deletes the entry**; ✕ removes the row. Overrides persist with the flavour.
 
 ### Glass skin

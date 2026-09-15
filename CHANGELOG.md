@@ -6,6 +6,12 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 修复
+
+- **覆盖编辑器的值输入改为失焦提交（TT）**：此前值输入受控 + 逐键提交，而「空值 = 删除」→ 想改颜色时逐字符清空会在中途把整行（含正在打字的输入框）卸载、光标丢失；同时**每个字符都会 dispose 并重新注册一次主题**（700 个 token 的表），中间态（如 `#89b4`）还是无效 CSS。现在键名与值都是非受控 + 失焦提交：清空后失焦才删除，打字期间行稳定、主题不再逐键重建；7 语言的 `row.overridesHint` 已同步为「失焦生效」。**有意接受的取舍**：不再「边打边变色」（粘贴完整色值不受影响）、焦点未离开就关弹窗时最后一笔不提交、其它标签页 / settings 文档写入的值需重开弹窗才刷新——三者与既有键名输入完全一致。（EN: the override editor's value field now commits on blur like the key field — clearing a value no longer unmounts the row mid-typing and typing no longer re-registers the theme per keystroke）
+
 ## [0.5.2] - 2026-09-15
 
 ### 修复

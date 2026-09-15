@@ -218,7 +218,21 @@ export function CatppuccinRow({
     setOverrides(next)
   }
 
+  /** Set (or, with an empty value, delete) a persisted override's value.
+   *
+   *  Item TT: the value input is uncontrolled and commits on blur, symmetric
+   *  with the key input. Per-keystroke commits meant `value.trim() === ''`
+   *  deleted the entry while the caret was still in the field, so the row
+   *  (input included) unmounted mid-typing — and every keystroke additionally
+   *  re-registered the whole theme. Trade-off, accepted deliberately: no more
+   *  "recolour as I type" preview (intermediate values like `#89b4` are invalid
+   *  CSS anyway, so that preview was only ever complete on paste), and an edit
+   *  that never loses focus (dialog closed with Esc) is not committed.
+   *
+   *  Known trade-off: an uncontrolled input keeps its text when the persisted
+   *  value changes from another tab/settings write; the row re-syncs on reopen. */
   const commitPersistedValue = (key: string, value: string): void => {
+    if (value === overrideMap[key]) return
     const next = { ...overrideMap }
     if (value.trim() === '') delete next[key]
     else next[key] = value
@@ -330,8 +344,8 @@ export function CatppuccinRow({
                 <input
                   type="text"
                   aria-label={t('row.overridesValue')}
-                  value={value}
-                  onChange={(e) => { commitPersistedValue(key, e.target.value) }}
+                  defaultValue={value}
+                  onBlur={(e) => { commitPersistedValue(key, e.target.value) }}
                   placeholder="#89b4fa"
                   style={{ flex: '1 1 140px', ...inputBase }}
                 />
