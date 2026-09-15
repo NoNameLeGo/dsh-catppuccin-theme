@@ -52,7 +52,7 @@ describe('startGlassSeamStamper (item N)', () => {
 
   it('batches a same-frame mutation burst into one stamp pass', async () => {
     vi.useFakeTimers()
-    startGlassSeamStamper()
+    const disposer = startGlassSeamStamper()
     const first = newSessionButton()
     const second = newSessionButton()
     const third = newSessionButton()
@@ -63,6 +63,10 @@ describe('startGlassSeamStamper (item N)', () => {
     for (const button of [first, second, third]) {
       expect(button.hasAttribute('data-dsh-glass-surface')).toBe(true)
     }
+    // Leaving this stamper alive would keep observing documentElement and
+    // stamp the buttons of every later test in this file (…: the dispose
+    // assertions in the last case then flake depending on frame ordering).
+    disposer()
   })
 
   it('does not re-stamp during frames without mutations', async () => {
@@ -76,6 +80,7 @@ describe('startGlassSeamStamper (item N)', () => {
     newSessionButton()
     await vi.advanceTimersByTimeAsync(16)
     expect(stampSpy).toHaveBeenCalledWith('data-dsh-glass-surface', '')
+    stampSpy.mockRestore()
     disposer()
   })
 
