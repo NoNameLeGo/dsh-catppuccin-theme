@@ -120,7 +120,7 @@ describe('Catppuccin palettes', () => {
   })
 })
 
-describe('weak label readability on dark flavours (issue #7)', () => {
+describe('weak label readability (issues #7, #12)', () => {
   // Backgrounds the weak label aliases land on, resolved through their
   // official var() chains: menus/cards (specific-menu -> bg-layer-3 ->
   // bluish-800) and the page base (bg-base -> bluish-950).
@@ -191,6 +191,69 @@ describe('weak label readability on dark flavours (issue #7)', () => {
           `${f.themeId} label level ${i - 1} (${ratios[i - 1]}) should stay above level ${i} (${ratios[i]})`,
         ).toBeGreaterThan(ratios[i])
       }
+    }
+  })
+
+  it('latte keeps the official light ladder — order intact, nothing slides lighter', () => {
+    // Issue #12. The light flavour deliberately keeps the OFFICIAL alias→step
+    // mapping (unlike the dark flavours, which need the issue #7 overrides),
+    // because upstream's light theme itself paints weak labels with light
+    // greys: official label-caption is rgb(173,178,184) = 2.14:1 on its own
+    // white input, while Latte's bluish-400 #7c7f93 lands at 3.49:1 on
+    // #eff1f5 — i.e. the faithful mapping is already 1.6× STRONGER than the
+    // theme it adapts. So there is no "official value does not hold under DSH"
+    // evidence here, and per rule 1 nothing is deviated.
+    //
+    // Dragging caption up to AA (4.5) is a product decision, not a
+    // faithfulness fix: bluish-500 #6c6f85 only reaches 4.37:1, so AA needs
+    // bluish-600 #5c5f77 (5.53:1) — exactly secondary/tertiary's own value,
+    // collapsing two ladder levels. Both options were measured and rejected on
+    // 2026-09-16; what is locked here is (a) the official step per alias and
+    // (b) the resulting ratio floors (measured minus headroom), so no future
+    // tweak can slide a weak label lighter or flatten the ladder silently.
+    const latte = CATPPUCCIN_FLAVORS.find((f) => f.colorScheme === 'light')!
+    const officialSteps: Record<string, string> = {
+      '--dsw-alias-label-primary-dimmed': 'var(--dsw-static-neutral-bluish-950)',
+      '--dsw-alias-label-secondary': 'var(--dsw-static-neutral-bluish-700)',
+      '--dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-600)',
+      '--dsw-alias-label-caption': 'var(--dsw-static-neutral-bluish-400)',
+      '--dsw-alias-label-dimmed': 'var(--dsw-static-neutral-bluish-200)',
+    }
+    for (const [token, step] of Object.entries(officialSteps)) {
+      expect(latte.tokens[token], `latte ${token}`).toBe(step)
+    }
+
+    // Measured 2026-09-16 (menu == page here: Latte maps both to bluish-00):
+    // primary 7.06 | primary-dimmed 7.06 | secondary 5.53 | tertiary 5.53 |
+    // caption 3.49 | dimmed 2.30.
+    const floors: Record<string, { menu: number; page: number }> = {
+      '--dsw-alias-label-primary-dimmed': { menu: 6.5, page: 6.5 },
+      '--dsw-alias-label-secondary': { menu: 5.0, page: 5.0 },
+      '--dsw-alias-label-tertiary': { menu: 5.0, page: 5.0 },
+      '--dsw-alias-label-caption': { menu: 3.2, page: 3.2 },
+      '--dsw-alias-label-dimmed': { menu: 2.1, page: 2.1 },
+    }
+    const menu = resolveAliasHex(latte.tokens, MENU)
+    const page = resolveAliasHex(latte.tokens, PAGE)
+    const ladder = [
+      '--dsw-alias-label-primary',
+      '--dsw-alias-label-primary-dimmed',
+      '--dsw-alias-label-secondary',
+      '--dsw-alias-label-tertiary',
+      '--dsw-alias-label-caption',
+      '--dsw-alias-label-dimmed',
+    ]
+    const ratios = ladder.map((token) => contrast(resolveAliasHex(latte.tokens, token), page))
+    for (let i = 1; i < ratios.length; i++) {
+      expect(
+        ratios[i - 1],
+        `latte label level ${i - 1} (${ratios[i - 1].toFixed(2)}) must not sink below level ${i} (${ratios[i].toFixed(2)})`,
+      ).toBeGreaterThanOrEqual(ratios[i])
+    }
+    for (const [token, { menu: menuFloor, page: pageFloor }] of Object.entries(floors)) {
+      const text = resolveAliasHex(latte.tokens, token)
+      expect(contrast(text, menu), `latte ${token} on menu`).toBeGreaterThanOrEqual(menuFloor)
+      expect(contrast(text, page), `latte ${token} on page base`).toBeGreaterThanOrEqual(pageFloor)
     }
   })
 

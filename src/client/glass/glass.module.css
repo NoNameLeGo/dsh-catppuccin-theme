@@ -594,12 +594,19 @@
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
-/* Composer placeholder and stats text: neutral, scheme-adaptive tones from
-   the label tokens — no colour cast fighting the glass. */
-[data-dsh-glass-float] [data-composer-card] textarea::placeholder {
-  color: color-mix(in srgb, var(--dsw-alias-label-primary) 45%, transparent);
-}
+/* NO placeholder rule here on purpose (issue #12). The composer hint is not a
+   textarea::placeholder: DSH paints it as a `div[data-composer-placeholder]`
+   inside the contenteditable editor, with its own --dsw-alias-label-caption.
+   A `textarea::placeholder` rule matches nothing (0 textareas inside
+   [data-composer-card] in DSH 0.1.2-rc.1 and 0.1.5-rc.2), so it painted no
+   pixel while reading like the glass owned that colour — and had it ever
+   matched, `label-primary` at 45% is a 2.1:1 wash on a light sheet (fine only
+   on dark flavours). Caption is already scheme-adaptive (Latte #7c7f93 on
+   #eff1f5 = 3.5:1); the official light theme's own #adb2b8 on white = 2.1:1 is
+   upstream's call, not ours to repaint. */
 
+/* Composer stats text: a neutral tone from the label tokens — no colour cast
+   fighting the glass. */
 [data-dsh-glass-float] [data-dsh-glass-inputbar] [data-slot] {
   color: var(--dsw-alias-label-secondary);
 }
