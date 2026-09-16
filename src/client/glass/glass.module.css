@@ -234,12 +234,15 @@
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(46% * var(--dsh-glass-frost, 1)), transparent);
   /* NO backdrop-filter here (issue #13). The transcript column is transparent
      and the page ground behind it is a SOLID colour (the body rule above), so
-     blurring a bubble's backdrop is the identity transform: zero pixels
-     change, while Chromium still promotes the bubble to a compositing layer
-     and re-reads its backdrop every frame — and every streamed token repaints
-     the transcript. Bubbles are the most numerous surface in the busiest
-     region, so this was the cheapest blur to delete. The frosted look comes
-     from the translucent fill, which stays. */
+     blurring a bubble's backdrop is the identity transform: the flat area is
+     pixel-for-pixel unchanged, while Chromium still promotes the bubble to a
+     compositing layer and re-reads its backdrop every frame — and every
+     streamed token repaints the transcript. (Measured on the same
+     composition: 0 differing interior pixels; the only delta is ±1/255 on a
+     few pixels of the element's own antialiased edge — see
+     docs/plugin-improvements.md, issue #13.) Bubbles are the most numerous
+     surface in the busiest region, so this was the cheapest blur to delete.
+     The frosted look comes from the translucent fill, which stays. */
 }
 
 /* Card family: hover cards, panels, plugin cards, tool cards, the composer. */
@@ -374,8 +377,9 @@
    rail collapse animation in the rule below.
    NO backdrop-filter here (issue #13): the column floats with a 12px margin
    and the frame above it is transparent, so the sheet's backdrop is the
-   SOLID page ground — blurring it changed no pixel while costing the
-   largest backdrop read on the page (≈250k px², re-read every frame).
+   SOLID page ground — measured: the flat area renders pixel-identically and
+   only the element's own antialiased edge shifts by ±1/255, while the blur
+   cost the largest backdrop read on the page (≈250k px², every frame).
    The fill alone carries the frost look. */
 [data-dsh-glass-float] [class*='sidebarCol']::before {
   content: '';

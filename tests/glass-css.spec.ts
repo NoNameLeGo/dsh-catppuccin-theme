@@ -9,9 +9,11 @@
  *
  * This skin paints a SOLID page ground (`glass.module.css`, the body rule), so
  * every surface that floats over nothing but that ground blurs an identity —
- * pixels unchanged, GPU still billed. Issue #13 measured exactly that: ~80% GPU
- * on the 3D engine during streaming with mica, <30% with compat, and no
- * sensitivity to the blur slider.
+ * the flat area renders pixel-for-pixel unchanged (measured: 0 differing
+ * interior pixels; only the element's own antialiased edge shifts ±1/255 — see
+ * `docs/plugin-improvements.md`) while the GPU is still billed. Issue #13
+ * measured exactly that: ~80% GPU on the 3D engine during streaming with mica,
+ * <30% with compat, and no sensitivity to the blur slider.
  *
  * The guard below locks the two halves of the answer:
  *  - surfaces over the flat ground (sidebar sheet, chat bubbles, trajectory

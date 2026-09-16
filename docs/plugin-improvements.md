@@ -534,7 +534,7 @@
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |
 | YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题） | `src/client/locales.ts` | — |
-| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 零像素变化、每帧白付一次 backdrop 回读）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
+| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读，画面几乎不变）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
 
 ### 2026-09-15 复核：issue #13（玻璃 blur 的 GPU 成本）
 
@@ -549,4 +549,17 @@
 - issue 建议 2（开关：高频内容区摘 blur、低频元素留）→ **部分做、不加开关**：实测方向与原文相反——气泡在两种模式下**都有** blur（issue 自己 compat <30% 里就含气泡），而 mica 多出来的是侧栏/顶栏；且气泡的 blur 本身就是恒等变换，已随批次免费删除。新增持久化开关要动 `state.ts` schema + 迁移 + 7 语言文案，**在拿到复测数字前不做**（YAGNI）。
 - issue 建议 3（blur 层静态化、只在静止时重算）→ **驳回**：CSS 层不存在该能力，Chromium 只要 `backdrop-filter ≠ none` 就提升图层并每帧回读，`will-change` / `contain` 无法绕开。最接近的等价物是「去掉顶栏那层自造重叠」，已作为复测不达标时的第二手（见 `glass.module.css` 内注释）。
 
-**验收**：`tests/glass-css.spec.ts` 锁两条不变量——地面之上的面不得有 blur、覆盖移动内容的面必须保留 blur（并核对「同一片像素不重复读」：composer 板内的卡片卡保持 `backdrop-filter:none`）。硬验收是 **issue #13 的复测**：预测 `mica` 明显下降且观感不变；若数字不动，说明「面积 × 帧率」模型不成立，改用退重叠方案。
+**验收**：`tests/glass-css.spec.ts` 锁两条不变量——地面之上的面不得有 blur、覆盖移动内容的面必须保留 blur（并核对「同一片像素不重复读」：composer 板内的卡片保持 `backdrop-filter:none`）。硬验收是 **issue #13 的复测**：预测 `mica` 明显下降且观感不变；若数字不动，说明「面积 × 帧率」模型不成立，改用退重叠方案。
+
+#### 附：本机实测（2026-09-16，隔离构图）
+
+「`backdrop-filter` 在纯色背景上是否真的一个像素都不变」在提交时只是推断，事后用 playwright + headless Chromium（`chromium-1228`）补了实测，**结论比原措辞弱一点、但方向成立**：
+
+| 区域 | 差异像素 | 最大差 | 说明 |
+|---|---|---|---|
+| 侧栏玻璃片（纯色地面） | **24 / 96000 = 0.03%** | **1/255** | 全在元素自身抗锯齿外缘（`y=0` 行与圆角弧上，坐标如 `(14,0) (224,0) (8,3)`） |
+| 气泡（纯色地面） | **24 / 48000 = 0.05%** | **1/255** | 同上 |
+| 内部平整区 | **0** | 0 | 精确相同——即「恒等变换」本身成立 |
+| 对照组：同材质但确实盖住文字 | **42973 / 48000 = 89.53%** | **100/255** | 证明该测法能看出差异，前两行的「几乎为零」才有意义 |
+
+机制解释：多一层 render surface 后，元素边缘的抗锯齿合成发生 **1 级舍入差**（远低于 JND）；平整区域完全不受影响。**方法学踩坑（值得记）**：头两次跑全部 IDENTICAL，是因为（a）控制项的文字是 DOM 尾部兄弟节点、画在盒子**上面**，盒子的 backdrop 仍是纯色；（b）`<script>` 在目标元素之前执行、`classList.add` 空跑——所以 `backdrop-filter` 压根没生效。**一个永远 "IDENTICAL" 的像素测法等于没测**，控制项必须 DIFFERS。
