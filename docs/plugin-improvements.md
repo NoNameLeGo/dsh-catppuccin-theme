@@ -534,7 +534,7 @@
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |
 | YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题） | `src/client/locales.ts` | — |
-| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读）；真页实测：**玻璃填充逐像素不变**（气泡隐藏内容后 0/19184），可见差异只是玻璃面上字形的重抗锯齿（侧栏 2.81% ≤16/255、气泡 15.17% ≤64/255）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
+| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读）；真页实测：**玻璃填充逐像素不变**（气泡隐藏内容后 0/19184），可见差异只是玻璃面上字形的重抗锯齿（侧栏 2.81% ≤16/255、气泡 15.17% ≤64/255）；面积账：mica 的可见模糊面积 460k px² → 236k px²（−49%），mica/compat 由 4.32× 降到 2.22×（剩下的最大 mica 独有面 = 顶栏 ~96k px²）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
 
 ### 2026-09-15 复核：issue #13（玻璃 blur 的 GPU 成本）
 
@@ -585,6 +585,29 @@
 **更正交接时的一条推断**：交接文档写「本机侧栏背后那层非纯色来自第三方环境插件（`radial-gradient` 辉光）」。**本轮不成立**——同一个实例里**根本没有**环境图层（0 canvas / 0 渐变），而「清环境层前 2.81% vs 清后 2.79%」几乎相同，且 2.81% 的来源是字形而非背景。⇒「删掉在纯 DSH 下不可见」这条**成立**，但成立的理由是「字形像素之外零差异」，不是「本机装了环境插件所以才有差异」。
 
 **未覆盖**：轨迹视图（`[data-dsh-glass-trajectory]`，需在 UI 里打开该视图）本轮仍没测到；气泡只测到 1 条会话里最大的一块（436×44，3 个气泡中最大）。
+
+##### ③ 面积账（本机实测，顺带更正 issue 表格的两处）
+
+口径：在真页上把视口按 **4px 栅格**铺开，凡被某个「`backdrop-filter ≠ none` 的面」覆盖的格子标 1，最后按格子数 × 16 px² 报**可见面积的并集**——不是把各面的盒子相加（相加会把嵌套盒、视口外的详情抽屉都算进来；第一版就是这么算错的）。compat 一列是把 compat 的选择器表套在同一份 DOM 上算的**模拟值**（没有真的切到 compat 模式，那会动用户的持久化设置），只能当「会命中哪些面」看。
+
+| | 首屏（新会话） | 会话视图（有气泡） |
+|---|---|---|
+| mica（0.5.1）可见模糊面积 | **361,888 px² = 27.9%** 视口 | **459,760 px² = 35.5%** |
+| 其中待删的侧栏 `::before` | **221,996 px²（占 61%）** | **221,996 px²（占 48%）** |
+| mica 删后 | **137,632 px²（10.6%）＝ −62.0%** | **235,504 px²（18.2%）＝ −48.8%** |
+| compat（模拟） | 94,000 px²（7.3%） | 106,320 px²（8.2%） |
+| mica / compat | 3.85× → **1.46×** | 4.32× → **2.22×** |
+
+会话视图里 mica 的明细（都是并集后的可见面积）：侧栏 `::before` 221,996 ｜ 输入板 slab `[data-dsh-glass-inputbar]` 97,825 ｜ **顶栏 `header` 95,880** ｜ 2× 页面边缘渐变条 18,720×2 ｜ 新会话按钮 7,676 ｜ `+` 珠 784×2 ｜ 3 个气泡合计 31,172（那 3 个在本次截图里滚到了视口外，可见时才有面积）。
+
+**更正 issue 表格两处**（其余与代码/实测相符）：
+
+1. **「全宽渐变条」不是 mica 独有**：两条 13px 的页面边缘渐变条挂在 `[data-dsh-glass] [data-dsh-glass-fade]`（`glass-layer.ts` 注入，随总开关一起增删），**两个模式都有**，合计 37,440 px²。
+2. **`[data-composer-card]` 也不是 mica 独有**：DSH 的 composer 卡片类名是 `uV2eYG_card`，compat 的通用规则 `[data-dsh-glass-compat] [class*='card']` 一样把它糊掉（本机实测该面在 compat 下约 **76k px²**）。mica 与 compat 真正的差是**顶栏**（~96k px²）与**侧栏**（本次删掉的 ~222k px²），不是输入框。
+
+其余核对结果：`DEFAULT_GLASS` 在 `v0.4.3` 与 `v0.5.2` **逐字相同** ✓；`glass.module.css` 在这两个 tag 之间多了 54 行，但全是设置弹窗的**填充 token**（注释明写 "no backdrop-filter here"），**没有增删任何 `backdrop-filter`** ✓ ⇒ 「升级版本不改变本现象」成立。issue 那句「气泡本身即内容，用伪元素手法绕不开」**不需要绕**：气泡背后就是纯色地面，直接删掉即可（见 ②：填充 0 像素差）。
+
+⇒ 对本 issue 的意义：本轮删除把 mica/compat 的模糊面积比从 **4× 量级压到 1.5~2.2×**；剩下的最大 mica 独有面是**顶栏（~96k px²，占 mica 的 21%）**，而那正是「批次 B」要退掉的自造重叠（`margin-top:-95px`）。
 
 ##### 方法学（两轮踩到的，别再踩）
 

@@ -694,8 +694,16 @@
    to a compositing layer in the streaming region. (The float-mode rule above
    used to narrow the same selector to the transcript — that narrowing is gone
    with the rest of the blur.)
-   Compat mode remains the cheaper material overall: it never blurs the top
-   bar, the sidebar or the composer seat. */
+   Compat mode remains the cheaper material overall — measured on the live GUI
+   (1440×900, one conversation): mica carries ~460k px² of visible blurred
+   surface, compat ~106k px². But do NOT read that as "compat never blurs the
+   composer": the generic `[class*='card']` rule above still blurs DSH's
+   composer card (~76k px²), which is why issue #13's surface table is off on
+   two rows — the composer card is not mica-only, and neither are the page-edge
+   fade bands (they are gated on `[data-dsh-glass]`, so both modes have them).
+   What mica genuinely adds on top of compat: the top bar (~96k px²), the
+   sidebar sheet (dropped here — it was ~222k px²), the trajectory panel and
+   the "+" bead / new-session button. */
 
 /* Compatibility-mode modal panels: same live translucent fill as the float
    mode (the generic blur above alone would sit behind an opaque panel). */
