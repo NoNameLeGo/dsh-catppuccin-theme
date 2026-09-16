@@ -534,3 +534,19 @@
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |
 | YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题） | `src/client/locales.ts` | — |
+| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 零像素变化、每帧白付一次 backdrop 回读）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
+
+### 2026-09-15 复核：issue #13（玻璃 blur 的 GPU 成本）
+
+**issue 的机制推断成立、但漏了最关键的一条**：本皮肤把页面地面强制成**纯色**（`glass.module.css` 的 body 规则 = `bg-base` 实色 + 亮度混合）。于是**凡背后只有地面的玻璃面，`backdrop-filter` 是恒等变换**——一个像素都不变，Chromium 照样提升合成层并**每帧回读** backdrop（半径 0 px 也一样，只有 `backdrop-filter:none` 才免提升）。issue 测到的「半径无效、面积有效」正是这件事的另一面。
+
+**面积账**（据 issue 的三行表 + 代码核对）：`mica` 比 `compat` 多出来的模糊面 ≈ 侧栏 `::before`（~250k px²，后无内容）+ 顶栏（全宽，后为聊天流）+ 轨迹视图（仅打开时）+ 输入板（与 compat 的 composer card 同块，抵消）。其中**侧栏是纯浪费**，且面积约为顶栏的 3 倍 ⇒ 按 issue 的「面积 × 帧率」模型，删它应带来可观下降且**视觉零变化**。
+
+**第二个发现（issue 未列）**：顶栏那笔开销是**本插件自己造的**——DSH 里 header 是滚动容器**上方**的 `flex: 0 0 auto` 兄弟节点，原版不重叠；是 `glass.module.css` 的 `margin-top:-95px; padding-top:107px` 把聊天内容塞到顶栏底下。所以它是一笔「可以一次性退掉的可见效果」，而不是既成成本。
+
+**判决**：
+- issue 建议 1（文档/UI 性能提示）→ **做**（用文案替代新开关）。
+- issue 建议 2（开关：高频内容区摘 blur、低频元素留）→ **部分做、不加开关**：实测方向与原文相反——气泡在两种模式下**都有** blur（issue 自己 compat <30% 里就含气泡），而 mica 多出来的是侧栏/顶栏；且气泡的 blur 本身就是恒等变换，已随批次免费删除。新增持久化开关要动 `state.ts` schema + 迁移 + 7 语言文案，**在拿到复测数字前不做**（YAGNI）。
+- issue 建议 3（blur 层静态化、只在静止时重算）→ **驳回**：CSS 层不存在该能力，Chromium 只要 `backdrop-filter ≠ none` 就提升图层并每帧回读，`will-change` / `contain` 无法绕开。最接近的等价物是「去掉顶栏那层自造重叠」，已作为复测不达标时的第二手（见 `glass.module.css` 内注释）。
+
+**验收**：`tests/glass-css.spec.ts` 锁两条不变量——地面之上的面不得有 blur、覆盖移动内容的面必须保留 blur（并核对「同一片像素不重复读」：composer 板内的卡片卡保持 `backdrop-filter:none`）。硬验收是 **issue #13 的复测**：预测 `mica` 明显下降且观感不变；若数字不动，说明「面积 × 帧率」模型不成立，改用退重叠方案。

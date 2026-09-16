@@ -203,6 +203,9 @@ Right below the **Catppuccin theme** row in **Settings → General** you'll find
   become frosted glass; off — the UI reverts to stock instantly (no refresh needed).
 - **Mode**: **Mica** turns the interface into floating frosted cards; **Compatibility** keeps
   the stock layout and swaps only the material.
+- **Performance**: Mica blurs **large areas** (top bar, composer, sidebar), which shows up as
+  GPU load while output streams; the blur radius is not the driver (0 px is billed the same).
+  Prefer **Compatibility** (no large-area blur) or the **Clear** preset if that matters.
 - **Presets**: **Clear / Standard / Frosted** one-click presets; fine-tune with the sliders
   afterwards (a preset lights up when the current knob values match it).
 - **Blur** (0–40 px) and **Frost** (0–100%): the blur radius and opacity of the glass.

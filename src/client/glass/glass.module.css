@@ -232,7 +232,14 @@
   border-radius: 14px;
   border: 1px solid var(--dsh-glass-rim-soft);
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(46% * var(--dsh-glass-frost, 1)), transparent);
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  /* NO backdrop-filter here (issue #13). The transcript column is transparent
+     and the page ground behind it is a SOLID colour (the body rule above), so
+     blurring a bubble's backdrop is the identity transform: zero pixels
+     change, while Chromium still promotes the bubble to a compositing layer
+     and re-reads its backdrop every frame — and every streamed token repaints
+     the transcript. Bubbles are the most numerous surface in the busiest
+     region, so this was the cheapest blur to delete. The frosted look comes
+     from the translucent fill, which stays. */
 }
 
 /* Card family: hover cards, panels, plugin cards, tool cards, the composer. */
@@ -334,11 +341,12 @@
    dialog guard can see them) then lands inside the column, and the column's
    overflow:hidden clips it into a narrow strip. The frosted fill + blur
    therefore live on a ::before CHILD layer instead: a pseudo-element is not
-   an ancestor of the column's content, so its backdrop-filter blurs the
-   page ground behind the card without ever re-anchoring a fixed descendant
-   — the generic fix, no per-plugin selectors, all sidebar-slot popovers
-   (menus, dialogs, third-party dashboards) keep the viewport containing
-   block. ---------- */
+   an ancestor of the column's content, so the fill never re-anchors a fixed
+   descendant — the generic fix, no per-plugin selectors, all sidebar-slot
+   popovers (menus, dialogs, third-party dashboards) keep the viewport
+   containing block. The column must stay free of backdrop-filter too (the
+   blur that used to sit on the sheet was dropped as pure waste — issue #13).
+   ---------- */
 [data-dsh-glass-float] [class*='sidebarCol'] {
   --dsw-specific-sidebar-fill: transparent;
   position: relative;
@@ -358,12 +366,17 @@
   overflow: hidden;
 }
 
-/* The glass sheet: translucent fill + backdrop blur + top edge light drawn
-   on a child layer (negative z-index paints below the in-flow content, so
-   the sidebar's own rows stay readable on top of it; plain content needs
-   no extra z-index). The outer drop shadow stays on the column — it lives
-   outside the border box where the sheet cannot cover it. The radius
-   transition matches the rail collapse animation in the rule below. */
+/* The glass sheet: translucent fill + top edge light drawn on a child layer
+   (negative z-index paints below the in-flow content, so the sidebar's own
+   rows stay readable on top of it; plain content needs no extra z-index).
+   The outer drop shadow stays on the column — it lives outside the border
+   box where the sheet cannot cover it. The radius transition matches the
+   rail collapse animation in the rule below.
+   NO backdrop-filter here (issue #13): the column floats with a 12px margin
+   and the frame above it is transparent, so the sheet's backdrop is the
+   SOLID page ground — blurring it changed no pixel while costing the
+   largest backdrop read on the page (≈250k px², re-read every frame).
+   The fill alone carries the frost look. */
 [data-dsh-glass-float] [class*='sidebarCol']::before {
   content: '';
   position: absolute;
@@ -371,7 +384,6 @@
   border-radius: inherit;
   background: var(--dsh-glass-card);
   box-shadow: var(--dsh-glass-edge);
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
   z-index: -1;
   pointer-events: none;
   transition: border-radius 150ms var(--ds-ease-in-out);
@@ -402,7 +414,11 @@
 }
 
 /* ---------- Trajectory view (轨迹视图): a glass panel aligned with the
-   header card's left/right edges, frosted like the other surfaces. ---------- */
+   header card's left/right edges, filled like the other surfaces.
+   NO backdrop-filter (issue #13): the trajectory overlay is a SIBLING view
+   inside the scroll body (stock: `.scrollBody:has([data-conversation-
+   composer-overlay])`), so the transcript is not behind it — its backdrop is
+   the solid ground again. ---------- */
 [data-dsh-glass-float] [data-dsh-glass-trajectory] {
   margin: 8px 16px 12px;
   width: calc(100% - 32px);
@@ -411,7 +427,6 @@
   border-radius: 20px;
   background: var(--dsh-glass-card);
   box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
   overflow: hidden;
 }
 
@@ -669,13 +684,14 @@
   backdrop-filter: blur(12px);
 }
 
-/* Compat-mode bubbles are narrowed to the transcript like the float-mode
-   rule above, for the same reason: the generic `[class*='bubble']`
-   substring would blur foreign widgets (e.g. dsh-whale-widget's body-level
-   `.dshwv-bubble`) that only share the word "bubble" in their class name. */
-[data-dsh-glass-compat] [data-conversation-scroll] [class*='bubble'] {
-  backdrop-filter: blur(12px);
-}
+/* Compat-mode bubbles carry NO glass at all (issue #13). They used to inherit
+   a bare `backdrop-filter: blur(12px)` from this rule; the backdrop is the
+   solid page ground, so it painted nothing while still promoting every bubble
+   to a compositing layer in the streaming region. (The float-mode rule above
+   used to narrow the same selector to the transcript — that narrowing is gone
+   with the rest of the blur.)
+   Compat mode remains the cheaper material overall: it never blurs the top
+   bar, the sidebar or the composer seat. */
 
 /* Compatibility-mode modal panels: same live translucent fill as the float
    mode (the generic blur above alone would sit behind an opaque panel). */
