@@ -618,6 +618,7 @@
 - **「内容 `visibility:hidden`」是分辨「填充 vs 字形」的关键对照**：只测 ON/OFF 会把「填充/背景变了」（设计降级）与「文字重栅格化」（不是降级）混为一谈。
 - **半径对照（`blur(24px)` vs `blur(2px)`）能一句话证明背景无结构**：半径放大 12 倍而板内零变化 ⇒ 背后没有可失的细节。
 - （① 的旧账）**控制项必须 DIFFERS**：头两次全绿是假的，因为（a）控制项的文字是 DOM 尾部兄弟节点、画在盒子**上面**，盒子的 backdrop 仍是纯色；（b）`<script>` 写在目标元素之前、`classList.add` 空跑。**一个永远 "IDENTICAL" 的像素测法等于没测**。
+- **「占用率」不能靠 trace 的「时间」自证**：试过 headful Chromium + CDP trace（`devtools.timeline,cc,gpu`）跑 6s 匀速滚动，相位 `blur 开 → 关 → 开`：composite ON 3178ms（A1 3152.8 / A2 3203.4，同配置漂移 50ms）vs OFF 3254ms——**OFF 反而略高，差异落在噪声里**；trace 里没有 `GPUTask` 事件，只有 `CommandBuffer::Flush` 这类跨帧流水线事件（≈整段时长）。负载下 rAF 未节流（6s 跑 1100+ 帧）、合成管线压满，多出的 backdrop 回读不改变关键路径 ⇒ **这台机器上量不出这笔开销**，报告人的占用率读数无法在本机复现（脚本 `gpuverify.cjs`，别原样重试）。
 
 #### 附：issue #12 复核的两条补充（2026-09-16）
 
