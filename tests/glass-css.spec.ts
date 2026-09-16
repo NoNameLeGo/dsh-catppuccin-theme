@@ -9,11 +9,13 @@
  *
  * This skin paints a SOLID page ground (`glass.module.css`, the body rule), so
  * every surface that floats over nothing but that ground blurs an identity —
- * the flat area renders pixel-for-pixel unchanged (measured: 0 differing
- * interior pixels; only the element's own antialiased edge shifts ±1/255 — see
- * `docs/plugin-improvements.md`) while the GPU is still billed. Issue #13
- * measured exactly that: ~80% GPU on the 3D engine during streaming with mica,
- * <30% with compat, and no sensitivity to the blur slider.
+ * measured on the live GUI, the frosted fill is pixel-identical with the blur
+ * removed (0 of 19184 pixels once the surface's own content is hidden); the
+ * only pixels that move are the glyphs drawn above it, which get re-antialiased
+ * because the surface becomes a composited layer (≤16/255 on the sidebar sheet,
+ * ≤64/255 on a chat bubble). Issue #13 measured the bill for that: ~80% GPU on
+ * the 3D engine during streaming with mica, <30% with compat, and no
+ * sensitivity to the blur slider.
  *
  * The guard below locks the two halves of the answer:
  *  - surfaces over the flat ground (sidebar sheet, chat bubbles, trajectory
