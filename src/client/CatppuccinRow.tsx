@@ -197,12 +197,27 @@ export function CatppuccinRow({
   // and silently dropped one read later.
   const isTokenKey = (key: string): boolean => key.trim().startsWith('--')
 
-  const commitDraft = (index: number, key: string, value: string): void => {
-    if (isTokenKey(key) && value.trim() !== '') {
-      setOverrides({ ...overrideMap, [key.trim()]: value })
+  /** Commit a draft row on blur. If both fields are valid, promote to persisted;
+   *  otherwise keep in draft state. Item XX: changed from onChange to onBlur so
+   *  the row stays stable while typing—typing the first character of the value
+   *  previously made the draft immediately promote and unmount the input mid-edit. */
+  const commitDraftKey = (index: number, key: string): void => {
+    const row = draftRows[index]
+    if (isTokenKey(key) && row.value.trim() !== '') {
+      setOverrides({ ...overrideMap, [key.trim()]: row.value })
       setDraftRows(draftRows.filter((_, i) => i !== index))
     } else {
-      setDraftRows(draftRows.map((row, i) => (i === index ? { key, value } : row)))
+      setDraftRows(draftRows.map((r, i) => (i === index ? { ...r, key } : r)))
+    }
+  }
+
+  const commitDraftValue = (index: number, value: string): void => {
+    const row = draftRows[index]
+    if (isTokenKey(row.key) && value.trim() !== '') {
+      setOverrides({ ...overrideMap, [row.key.trim()]: value })
+      setDraftRows(draftRows.filter((_, i) => i !== index))
+    } else {
+      setDraftRows(draftRows.map((r, i) => (i === index ? { ...r, value } : r)))
     }
   }
 
@@ -364,16 +379,16 @@ export function CatppuccinRow({
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
-                  value={row.key}
-                  onChange={(e) => { commitDraft(index, e.target.value, row.value) }}
+                  defaultValue={row.key}
+                  onBlur={(e) => { commitDraftKey(index, e.target.value) }}
                   placeholder="--dsw-static-blue-500"
                   style={{ flex: '1 1 220px', ...inputBase }}
                 />
                 <input
                   type="text"
                   aria-label={t('row.overridesValue')}
-                  value={row.value}
-                  onChange={(e) => { commitDraft(index, row.key, e.target.value) }}
+                  defaultValue={row.value}
+                  onBlur={(e) => { commitDraftValue(index, e.target.value) }}
                   placeholder="#89b4fa"
                   style={{ flex: '1 1 140px', ...inputBase }}
                 />
