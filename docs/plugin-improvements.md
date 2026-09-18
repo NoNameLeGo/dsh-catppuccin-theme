@@ -243,6 +243,13 @@
 - 实施方法：`CatppuccinState` 加 `accentOverride` 字段；CatppuccinRow 加色板选择器。与 K（任意 token KV 覆盖）是父子关系——本条是 80% 用户想要的简化入口，K 服务 power user。
 - 预期效果：个性化卖点，与官方主题系统差异化。
 
+**AAA. 插件市场卡片背景不透明** — 优先级 **P1**（✅ **已实施，2026-09-18**）
+- **现象**：设置 → 插件市场对话框内，插件卡片显示为不透明深色块（`#313244` 等实色），未应用玻璃态半透明效果，与对话框面板不协调。
+- **根因**：插件卡片使用 `--dsw-alias-bg-layer-1` token，但 `[data-dsh-glass-settings]` 规则只重写了 `layer-2` / `layer-3` / `module-platform`，遗漏了 `layer-1`。
+- **修复**：在深色/浅色两条规则中补充 `--dsw-alias-bg-layer-1` 的玻璃态重写，使用 `soft` 档位透明度（因 layer-1 低于 layer-2/layer-3）。
+- **验收**：重载插件后打开插件市场，卡片背景变为半透明玻璃态。
+- 关联文件：`src/client/glass/glass.module.css` (:285 深色 / :303 浅色)。
+
 ---
 
 ### 3.4 TUI 集成
@@ -535,6 +542,7 @@
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | **待评估 / 待反馈**（2026-09-15 新增）：等具体反馈或维护者定义「何时算一条新覆盖成型」；候选 = 草稿行也改失焦提交 | `src/client/CatppuccinRow.tsx`（`commitDraft`） | — |
 | YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题） | `src/client/locales.ts` | — |
 | ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读）；真页实测：**玻璃填充逐像素不变**（气泡隐藏内容后 0/19184），可见差异只是玻璃面上字形的重抗锯齿（侧栏 2.81% ≤16/255、气泡 15.17% ≤64/255）；面积账：mica 的可见模糊面积 460k px² → 236k px²（−49%），mica/compat 由 4.32× 降到 2.22×（剩下的最大 mica 独有面 = 顶栏 ~96k px²）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
+| AAA | 插件市场卡片背景不透明（设置对话框内的插件卡片显示为不透明深色块，未应用玻璃态） | P1 | ✅ 已实施（2026-09-18）：在 `[data-dsh-glass-settings]` 的深色/浅色两条规则中补充 `--dsw-alias-bg-layer-1` 的玻璃态重写（使用 `soft` 档位，因 layer-1 低于 layer-2/layer-3）；根因 = 插件卡片用 layer-1 token，但规则只重写了 layer-2/layer-3/module-platform | `src/client/glass/glass.module.css` (:285/:303) | — |
 
 ### 2026-09-15 复核：issue #13（玻璃 blur 的 GPU 成本）
 
