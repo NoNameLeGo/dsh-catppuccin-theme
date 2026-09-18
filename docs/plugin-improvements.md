@@ -497,7 +497,7 @@
 | I | prerelease 选择 | P2 | ✅ | `src/state.ts`、`src/client/UpdateRow.tsx`、`src/update-check.ts`（selectNewest 三态）、`src/update-check/host.ts`（per-channel 缓存） | — |
 | J | tooltip/帮助图标 | P3 | ✅ | `src/client/{CatppuccinRow,UpdateRow}.tsx`、`glass/glass-row.tsx`、`src/client/locales.ts`（原生 title 落地，上游无 API） | — |
 | E | 按钮 wrap | P1 | ✅ | `src/client/CatppuccinRow.tsx`（既有实现，确认关闭） | — |
-| D | row 分组 | P1 | ▲ | 上游 `settings.general.item` 无 group/label 支持，发起 `@deepseek-ai/dsh-web-ui` 上游请求 | — |
+| D | row 分组 | P3 | ❌ 不推进 | 上游 `settings.general.item` 无 group/label 支持。**决策（2026-09-18）**：不向上游提特性请求——插件适配 DSH，不是改变 DSH；上游项目大且有自身设计考量；三行挨在一起实际可用性尚可，性价比不足 | — |
 | A | host half 拆分 | P2 | ✅ | `src/update-check/host.ts`（路由/缓存/etag/channel 迁出，index.ts ≤120 行） | — |
 | K | token 覆盖 | P2 | ✅ | `src/state.ts`（`overrides`）、`src/client/CatppuccinRow.tsx`（折叠 KV 编辑器）、懒注册时合并 | — |
 | R | TUI 自定义保护 | P2 | ✅ | `src/tui-themes.ts`（`onConflict` 默认 backup → `.bak`） | — |
