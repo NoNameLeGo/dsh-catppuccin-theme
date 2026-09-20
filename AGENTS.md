@@ -112,7 +112,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - 玻璃质感（玻璃拟态）皮肤代码在 `src/client/glass/`；主题调色板由 `pnpm gen:palettes` 生成（`scripts/generate-palettes.mjs`）。
 - dsh-TUI 主题文件在 `themes/`（四个风味各一个 `~/.dsh-tui/themes/` 用 JSON），由 `pnpm gen:themes` 生成（`scripts/generate-tui-themes.mjs`，读同一份官方色板缓存）；改键映射后重跑并核对 dsh-TUI `src/theme.ts` 的 Theme 键。
 - TUI 安装入口是 `src/tui-themes.ts`（子路径导出 `./tui-themes`，cordis.patch.yml 第二行）：激活时幂等同步主题到 `~/.dsh-tui/themes/`；dsh-TUI 没有主题注册 API，目录是唯一接缝，`catppuccin-*.json` 命名空间归本插件所有、同步即覆盖。
-- 插件预览图（README 专用，存在 `assets/previews/`）：`scripts/screenshot-previews.cjs` 出四风味图、`scripts/screenshot-glass.cjs` 出玻璃图、`scripts/combine-previews.py` 合成斜切大图（输出 `combined.png` / `glass-combined.png`）。三者都要求本地 GUI 跑在 `http://127.0.0.1:3080`；`screenshot-previews.cjs` 目前对 Frappé / Macchiato 的风味切换断言失败（脚本内 `ponytail:` 标记），重截前先修。
+- 插件预览图（README 专用，存在 `assets/previews/`）：`scripts/screenshot-previews.cjs` 出四风味图、`scripts/screenshot-glass.cjs` 出玻璃图、`scripts/combine-previews.py` 合成斜切大图（输出 `combined.png` / `glass-combined.png`）。三者都要求本地 GUI 跑在 `http://127.0.0.1:3080`；`screenshot-previews.cjs` 已修好并端到端跑通（2026-09-18），但**必须把 `dsh web` 打印的 token 传进去**：`node scripts/screenshot-previews.cjs <token>`。不带 token 时 bare origin 回 401 空白页，脚本会以 `openSettings` 90s 超时的形式失败——这是它长期卡住的真因（其余两个：行标题 `?` 徽标让 exact 文本匹配恒为 0；弹窗内「跟随系统」有两处）。
 - **`assets/` 不进 npm 包**（`package.json` 的 `files` 不含它，图片只在 README 用），所以 README 里的图片一律写**绝对** `raw.githubusercontent.com` URL——别改回相对路径，否则 npm 页面会失去图。
 - 对外 API 文档：`pnpm docs:api`（typedoc）→ `docs/api/`。**该目录不入库**（已 `git rm --cached` + 进 `.gitignore`，见 WW），本地按需生成即可；生成物当前是旧的（本次已重生成，但以后只在需要时重建）。重跑时 typedoc 会打一条 `origin` remote "not valid" 的警告——**实测是虚警**：链接照样生成，且指向当前 commit 的 permalink（`blob/<sha>/src/...`），无需改配置。真要自己写模板就用 `disableGit` + `sourceLinkTemplate`，注意 `{path}` **不含 `src/` 前缀**（否则生成 404 链接）。
 - `src/profile-detect.ts`：更新检查里「自动探测当前 profile 名」的实现（探测失败回退 `web`）。
@@ -130,7 +130,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 ## 本机测量资产（真页 A/B 与面积账）
 
 - **配置真源**：`~/.dsh/settings.yaml` 的 `catppuccin:` 段是玻璃/主题设置的**唯一真源**；`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（本轮它还写着 `brightness: 50`，真值 100）——引用旧文件会把玻璃参数写错。
-- **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（token 见 `%TEMP%\dsh-web.log`，每次重启都变；`dsh web` 默认会弹浏览器，加 `--no-open`）。
+- **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（**token 在 `dsh web` 的 stdout**——`%TEMP%\dsh-web.log` 会过期，引用它会让浏览器/探针打开一个 401 空白页；`dsh web` 默认会弹浏览器，加 `--no-open`）。
 - **探针目录**（**未入库**，`D:\Vibe-Coding\.cache\glass-blur-probes\`）：`area.cjs`（面积账：4px 栅格取**可见面积并集** + compat 选择器模拟）、`uniform.cjs`（判定「填充变了」还是「文字重栅格化」）、`diag2.cjs`（稳定性 / 合成栈 / 注入是否生效）、`bubble.cjs`、`real.cjs`、`probe12.cjs`、`probe-ground.cjs`、`gpuverify.cjs`（负结果）。
 - **跑法**：`NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node <x>.cjs <token>`——必须 `.cjs` / `require`（`NODE_PATH` 只对 CJS 生效），Chromium 显式给 `executablePath = %LOCALAPPDATA%\ms-playwright\chromium-1228\chrome-win64\chrome.exe`。
 - **三条硬要求**：① **噪声底线先收敛**（轮询到两张连续截图完全一致再测；首轮 UNSTABLE 时的数字不可引用，本轮首轮 2.79% 就这么来的）；② **A/B 双向显式注入**并核对 `getComputedStyle` 实际值（本机装的可能还是旧版，只注入一侧等于测空气）；③ **控制项必须 DIFFERS**（把地面换成高对比条纹，差异必须巨大），否则全零的 A/B 什么都没证明。

@@ -6,6 +6,22 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 修复
+
+- **兼容模式的玻璃材质终于画得出来了（OO）**：`compat` 分支此前只给 `menu` / `card` / `popover` 等家族加 `blur(12px)`，**填充却是不透明的原生色**——而本皮肤把页面地面画成纯色，纯色地面上的 blur 一个像素都不变（issue #13 的同款结论），于是兼容模式读起来≈原生界面，用户以为插件没生效（真页 computed style 实测：composer 卡 `rgb(30,30,46)` 实色）。现在这些浮动家族带上皮肤自己的材质：`--dsh-glass-card-raised` 半透明填充 + `outline` 画的 hairline rim。三个刻意取舍：① **`panel` 不填**——面板会嵌套（`panel` 里是透明的 `panelBody`），两个都填会叠出宿主没有的内框（真页实测发现），它只保留 blur；② **rim 用 `outline` + 负 offset，不用 `border` / `box-shadow`**——border 会挤动 `box-sizing:content-box` 的宿主面、box-shadow 会盖掉宿主自己的投影，`outline` 两样都不碰，再加 `:not(:focus-visible)` 让共享焦点环继续生效；③ **Latte 下让它「看得出玻璃」的是 rim 而不是填充**——那里 `--dsw-alias-bg-layer-1` === `--dsw-alias-bg-base`（官方映射），填充合成后与页面地面同色，和 PP 踩的是同一个坑。`tests/glass-css.spec.ts` 新增断言锁住「浮动家族有填充 + rim」与「panel 不得被填」。（EN: compat mode finally shows a material — the blur alone painted nothing over the solid ground, so these floating families now carry this skin's translucent fill plus an `outline`-drawn hairline rim; panels are deliberately excluded because they nest panel > transparent panelBody and filling both stacks an inner rectangle the host never asked for, and no new backdrop-filter is added）
+
+- **会话列表的选中行终于有底色了（PP）**：真页实测发现上游 **hover 与选中的行用的是同一个 6% tint**（`rgba(38,49,72,.06)`），用户只能靠那根 2px accent 条分辨「点中的是哪一行」。选中行改用 DSH 自己的选中态 token `--dsw-specific-sidebar-nav-item-active` 的 40% 填充：`card-hover` 那一族试过但**隐形**（该 recipe 与页面地面同色，铺上去逐像素不变——同一个坑）。40% 是**对比度天花板**不是审美：该行的 12px 时间戳是 `label-secondary`，对填充的对比度在 40% 时是 4.62、到 50% 掉到 4.41（低于 AA）。四风味实测标题（14px `label-primary`）对合成后填充为 Latte **5.89** / Frappé 8.29 / Macchiato 10.07 / Mocha 11.38。上游的 hover 有意保留不动（它的 6% 与面板填充差得开；改成 `card` 档会与面板同值、又变隐形）。（EN: the selected sidebar row now gets a real fill from DSH's own selected-nav token at 40% — upstream gives hover and selected the same 6% tint, so a row could only be located by the accent bar; 40% is the contrast ceiling because the row's 12px timestamp drops below AA at 50%）
+
+- **插件市场对话框里的卡片不再是实色块（AAA，已随 `0.5.4-beta.0` 发布）**：设置 → 插件市场的插件卡片用 `--dsw-alias-bg-layer-1` 上色，而设置弹窗作用域的玻璃化重写**漏了这一档**（只重写了 `layer-2` / `layer-3` / `module-platform`），于是四五个设置页里只有插件卡片读起来像贴在玻璃上的实色板子。补上 `layer-1` 的半透明重写（用 `soft` 档，因 layer-1 低于 layer-2/3）。（EN: the plugin-market cards inside the settings dialog were left opaque because the settings-scope glass re-pointing covered layer-2/-3/module-platform but not layer-1）
+
+- **覆盖编辑器的新建行不再在键入第一个字符时丢焦点（XX，已随 `0.5.4-beta.0` 发布）**：草稿行按「先键名、再值」填，键名一旦是合法 `--` token，值的**第一个字符**就把草稿行转成持久化行（行被卸载、光标丢失），靠粘贴整串时无感。现在键名与值都改为非受控 + `onBlur` 提交（与已持久化行对称），打字期间输入框保持稳定。（EN: a new override row no longer loses focus on the first character typed into its value field — both draft fields now commit on blur, symmetric with the persisted rows）
+
+### 其他
+
+- **预览图脚本修好并端到端跑通（FF）**：`scripts/screenshot-previews.cjs` 卡了很久，此前记的「风味切换断言失败」只是表象，真因有三个：① **`page.goto('http://127.0.0.1:3080')` 没带 token** → 401 空白页 → `openSettings` 等 90s 超时（这才是那个「`设置` 定位器超时」）；② 行标题自 J 项加了 `?` 帮助徽标后，`getByText('Catppuccin 主题', { exact: true })` **恒为 0 命中**；③ 「跟随系统」在设置弹窗里有两处（外观分段 + Catppuccin 行），原 `.first()` 恢复的是错的那个。现在：token 支持 argv / `DSH_WEB_TOKEN` / 旧日志文件三路回退并在 401 时立刻给出明确报错，行内作用域改用角色定位，且**读取并恢复本机真实的原风味**、等 300ms 防抖持久化落地。四风味 + hero 图可一键重出。（EN: the preview script was actually blocked by a missing web token (401 page -> a confusing 90s timeout), an exact-text locator broken by the `?` help badge, and a duplicated follow-system control; it now resolves the token, scopes the row, and restores the user's real flavour preference）
+
 ## [0.5.3] - 2026-09-16
 
 ### 修复
