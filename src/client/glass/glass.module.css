@@ -540,8 +540,22 @@
   padding-right: 0;
 }
 
-/* ---------- Sidebar: the selected session gets an accent bar and a soft halo. ---------- */
+/* ---------- Sidebar rows: the selected row gets a real fill, because
+   upstream gives hover and selected the SAME 6% tint (`rgba(38,49,72,.06)`
+   on both, measured on the live GUI) — a row could only tell you it was
+   picked through the 2px accent bar, and the list had no resting locator.
+   The fill uses DSH's own selected-nav token, not this skin's `card-hover`:
+   that recipe is the SAME colour as the page ground, so over the solid
+   ground it composites to a pixel-identical fill (measured: 0 visible delta,
+   only glyph antialiasing). Hover stays upstream's own 6% tint (227,229,235
+   on Latte); the 40% selected fill composites to (219,221,229) there, a clear
+   step above it while keeping the translucency. 40% is the ceiling, not a
+   taste call: the row's 12px timestamp is `label-secondary` and its contrast
+   against the fill is 4.62 at 40% but 4.41 at 50% — under AA.
+   The row title (14px `label-primary`) measures 5.89 / 8.29 / 10.07 / 11.38
+   across the four flavours (injected A/B on the live GUI, 2026-09-18). ---------- */
 [data-dsh-glass-float] [role='treeitem'][aria-selected='true'] {
+  background: color-mix(in srgb, var(--dsw-specific-sidebar-nav-item-active) 40%, transparent);
   box-shadow:
     inset 2px 0 0 var(--dsw-specific-sidebar-nav-item-active-accent),
     0 0 16px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);
@@ -682,7 +696,28 @@
    The layout rules above are gated on data-dsh-glass-float, so in compat
    mode the stock layout stays byte-for-byte; the conservative surface
    families get the frosted blur so other plugins' UI picks up the glass
-   with zero coordination. Dialogs keep their stock surface (see above). ---------- */
+   with zero coordination. Dialogs keep their stock surface (see above).
+
+   OO (2026-09-18): the blur alone read as nothing — a blur over the flat page
+   ground paints no pixels at all, so the surface still looked stock and
+   compat mode "看不出皮肤". The floating families now carry the material
+   itself: this skin's own raised fill plus a hairline rim. Three deliberate
+   choices:
+   - `[class*='panel']` is deliberately NOT filled (it keeps only its blur).
+     Panels nest — probed on the live GUI 2026-09-18: `P3OORG_panel` (opaque)
+     contains a transparent `P3OORG_panelBody`; filling both stacks two layers
+     and paints an inner rectangle the host never asked for. Cards and the
+     overlay families (menu / tooltip / popover / dropdown) do not nest this way.
+   - the rim is drawn with `outline` (+ negative offset), not `border` /
+     `box-shadow`: a border shifts box-sizing:content-box host surfaces and a
+     box-shadow would clobber the host's own elevation — `outline` touches
+     neither, so "the stock layout stays byte-for-byte" still holds.
+     `:focus-visible` is excluded so the shared focus ring (below) keeps winning.
+   - the rim is what carries the material in Latte: there
+     `--dsw-alias-bg-layer-1` === `--dsw-alias-bg-base` (official Catppuccin
+     mapping), so the fill mixes to the page ground and is invisible on its own;
+     the dark flavours get both. Same trap PP hit with `--dsh-glass-card*`.
+   No new `backdrop-filter` here — see the blur budget note under the bubbles. ---------- */
 [data-dsh-glass-compat] [role='menu'],
 [data-dsh-glass-compat] [role='tooltip'],
 [data-dsh-glass-compat] [class*='card'],
@@ -690,6 +725,23 @@
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
   backdrop-filter: blur(12px);
+}
+
+[data-dsh-glass-compat] [role='menu'],
+[data-dsh-glass-compat] [role='tooltip'],
+[data-dsh-glass-compat] [class*='card'],
+[data-dsh-glass-compat] [class*='popover'],
+[data-dsh-glass-compat] [class*='dropdown'] {
+  background: var(--dsh-glass-card-raised);
+}
+
+[data-dsh-glass-compat] [role='menu']:not(:focus-visible),
+[data-dsh-glass-compat] [role='tooltip']:not(:focus-visible),
+[data-dsh-glass-compat] [class*='card']:not(:focus-visible),
+[data-dsh-glass-compat] [class*='popover']:not(:focus-visible),
+[data-dsh-glass-compat] [class*='dropdown']:not(:focus-visible) {
+  outline: 1px solid var(--dsh-glass-rim);
+  outline-offset: -1px;
 }
 
 /* Compat-mode bubbles carry NO glass at all (issue #13). They used to inherit

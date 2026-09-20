@@ -81,4 +81,49 @@ describe('glass blur budget (issue #13)', () => {
     expect(erasers.length).toBeGreaterThanOrEqual(3)
     expect(erasers.some((rule) => rule.selector.includes('[data-composer-card]'))).toBe(true)
   })
+
+  it('gives compat surfaces a material, not just a blur over the flat ground (OO)', () => {
+    // Compat's blur alone painted nothing (a blurred flat ground is a no-op), so
+    // the surface still read as stock DSH. The material has to be the fill + rim.
+    const fill = rules.find(
+      (rule) =>
+        rule.selector.includes('[data-dsh-glass-compat]') &&
+        rule.selector.includes("[class*='card']") &&
+        /background\s*:\s*[^;]*--dsh-glass-card/.test(rule.decls),
+    )
+    expect(fill, 'compat surfaces lost their translucent fill').toBeDefined()
+
+    const rim = rules.filter(
+      (rule) =>
+        rule.selector.includes('[data-dsh-glass-compat]') &&
+        /outline\s*:\s*1px solid var\(--dsh-glass-rim\)/.test(rule.decls),
+    )
+    expect(rim.length, 'compat surfaces lost their hairline rim').toBeGreaterThan(0)
+    // The rim must step aside for the shared focus ring (outline vs outline);
+    // given the same specificity, only `:not(:focus-visible)` keeps a11y intact.
+    expect(rim.every((rule) => rule.selector.includes(':not(:focus-visible)'))).toBe(true)
+
+    // Panels keep their blur but must NOT be filled: they nest (`panel` >
+    // transparent `panelBody`), so filling both stacks two layers and paints an
+    // inner rectangle the host never asked for (probed on the live GUI).
+    const filledPanels = rules.filter(
+      (rule) =>
+        rule.selector.includes('[data-dsh-glass-compat]') &&
+        rule.selector.includes("[class*='panel']") &&
+        /(?:^|;)\s*background\s*:/.test(rule.decls),
+    )
+    expect(filledPanels.map((rule) => rule.selector), 'compat must not double-fill nested panels').toEqual([])
+  })
+
+  it('paints the selected sidebar row with a fill that is not the page ground (PP)', () => {
+    // The sheet recipe (`--dsh-glass-card*`) is the SAME colour as the ground
+    // (both --dsw-alias-bg-base), so over the solid ground it composites to a
+    // pixel-identical fill — measured on the live GUI: 0 visible delta. A
+    // selected row declared with it reads as "no background", which is exactly
+    // the weak-feedback bug PP is about.
+    const selected = rules.find((rule) => rule.selector.includes("[role='treeitem'][aria-selected='true']"))
+    expect(selected, 'the selected sidebar row lost its rule').toBeDefined()
+    expect(/background\s*:\s*[^;]*--dsw-specific-sidebar-nav-item-active/.test(selected?.decls ?? '')).toBe(true)
+    expect(/background\s*:\s*var\(--dsh-glass-card/.test(selected?.decls ?? '')).toBe(false)
+  })
 })
