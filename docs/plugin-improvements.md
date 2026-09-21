@@ -90,6 +90,7 @@
 - 优化方向：每个风味按钮下方加 32×18 的 mini 缩略图（用 inline SVG 画 4 个色块：base / mantle / text / accent）。
 - 实施方法：在 `palettes.ts` 的 `CatppuccinFlavorInfo` 增加 `preview: { base, mantle, text, accent }`；按钮改两层布局。
 - 预期效果：用户决策时间缩短、误选率下降。
+- **复核结论（2026-09-21）：❌ 不推进**。按钮上已经有 accent 色块 + 「浅色/深色」副标题；再加一块 32×18 的四色块属于边际改善（它仍然不是「UI 长什么样」的答案——那件事由 README 的四风味预览图回答），而且没有用户提过选风味看不清。**重开条件**：有用户反馈「按钮上看不出差别 / 经常选错风味」。
 
 **G. `GlassRow` 缺实时预览** — 优先级 **P1**
 - 现象：拖动 blur / frost / brightness 滑块时，整个页面立即变化 → 副作用大；用户无法在不"先动手"的情况下比较 preset。
@@ -224,6 +225,7 @@
 - 优化方向：在 row 内对 mode picker 加一段 2 行的 micro-preview（左边 mica 卡片浮起、右边 compat 平铺）。
 - 实施方法：抽 `<LayoutPreview>` SVG 组件。
 - 预期效果：用户能直观理解模式含义。
+- **复核结论（2026-09-21）：❌ 不推进**。同一行已有 `glass.modeHint` 的文字解释，0.5.3 又给兼容模式补了性能提示（「不模糊大面积区域·更稳妥」）；本条要加的是同一件事的图形化版本，而且 P3、无用户请求。**重开条件**：有用户问「两种模式到底差在哪」而现有文字解释不够。
 
 **NN. hero 空状态毫无皮肤感** — 优先级 **P2**
 - 现象：`data-phase='hero'` 只有一条 0.32s 淡入动画（`glass.module.css`），标语「探索未至之境」为纯默认文字，主区大留白，页面像"没加载完"。
@@ -254,6 +256,7 @@
 - 优化方向：开放 Catppuccin 官方 14 色（mauve/pink/teal…）做 accent 覆盖，重映射 `--dsw-alias-brand-*` 一族。
 - 实施方法：`CatppuccinState` 加 `accentOverride` 字段；CatppuccinRow 加色板选择器。与 K（任意 token KV 覆盖）是父子关系——本条是 80% 用户想要的简化入口，K 服务 power user。
 - 预期效果：个性化卖点，与官方主题系统差异化。
+- **复核结论（2026-09-21）：❌ 不推进**。K（token 覆盖）已经给了等价能力——在覆盖编辑器里写 `--dsw-alias-brand-primary-new-colorprimary-new-color: #cba6f7` 就是「Mocha 底 + mauve 点缀」，而且立刻生效。本条只是它的色板点选外壳，属重复入口。**重开条件**：有用户明确说「想要点选色板而不是手写 token 名」。
 
 **AAA. 插件市场卡片背景不透明** — 优先级 **P1**（✅ **已实施，2026-09-18**）
 - **现象**：设置 → 插件市场对话框内，插件卡片显示为不透明深色块（`#313244` 等实色），未应用玻璃态半透明效果，与对话框面板不协调。
@@ -405,13 +408,23 @@
 | **C. B + 像素对比** | 再接 Playwright 截图 + pixelmatch + baseline 入库 | 高 | 阈值 / 字体 / 动画 → flaky；失败信息对维护者不友好 | 抓「预览被悄悄改坏」——但样式断言已覆盖大半 |
 | **D. 折中：B + 关键区域采样** | 启动级 e2e 里不只断言行为，还对**关键元素**取计算样式 / 小区域像素（如选中行背景、compat 面 outline） | 中 | 低（不做整图 diff） | 拿到大部分「视觉回归」价值，几乎无 flaky |
 
-**需要拍板的四件事**：
-1. 走 A / B / C / D 哪个？
-2. 若走 B/C/D：要不要把 `playwright` 加进 devDependencies（现在脚本依赖全局 `@playwright/cli`，CI 里没有），Chromium 用 `npx playwright install --with-deps chromium`？
-3. 引导流程怎么绕：提交一份预置 DSH_HOME fixture（要写清它含什么、怎么刷新），还是在 CI 里脚本化走一遍（脆弱）？
-4. CI 时长预算：当前约 25 s；加宿主启动 + 浏览器预计 **+1~3 min**（冷缓存更久），接受吗？
+**四件事（2026-09-21 已定，结论见下）**：
+1. 走哪个方案？→ **A + D 的后半**：不接整图 diff，做启动级 e2e + 关键区域采样。
+2. `playwright` 进 devDependencies？→ **不进**：宿主与 Playwright 都装在 `boot-e2e` job 的全局（非本仓库依赖）。
+3. 引导流程怎么绕？→ **不用 fixture**：用点击驱动（2 步，失败时打印当前模态的按钮名并退出）。
+4. CI 时长预算？→ 实测 **+73 s**（详见下面的实施结果）。
 
-**建议（可被推翻）**：**A，或 A+D 的后半**——不接整图 diff；若真想要启动级保障，按 D 的形态做（需先拿到稳定 fixture），否则就留在 A（手动 + 样式断言）。理由：本仓库已有的样式级断言已经很硬，整图像素对比的边际价值不高，而它的 flaky 与维护成本会在每次改 CSS 时持续收「税」。
+**✅ 2026-09-21 实施结果（`9a5ff7f`，CI run `35569103567`）**：`scripts/e2e-boot-check.cjs` + CI job `boot-e2e` 已落地，并在 **GitHub Actions 的 `ubuntu-latest`** 上首跑通过（本机是 Windows，**没有本地 Linux 环境**——平台证据是那次 run 的日志：临时目录 `/tmp/dsh-boot-e2e-…`、10 个步骤全绿）。
+
+- **做法**：建临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>`（**444 ms**）→ `dsh web --no-open --port 0`（**6.1 s**，URL+token 打在 stdout）→ 走掉宿主首次运行引导（**2 步**：内测声明「继续」、API Key「稍后配置」）→ 打开设置做行为断言 + 关键区域采样。
+- **断言清单（15 项，1 项按环境跳过）**：三行真注册上；切 Mocha 后 `--dsw-alias-bg-base` = `#11111b`；玻璃默认关（`DEFAULT_GLASS.enabled === false`）→ 开启后 `data-dsh-glass` 挂上且默认模式是云母；**级联后**的真页计算值（侧栏玻璃片 `backdrop-filter: none`、composer 卡保留 `blur(2px)`——样式表级不变量在 `glass-css.spec.ts`，这里验的是级联结果）；compat 下浮动面拿到 rim（`uV2eYG_card … 1px color(srgb …)`）、`panel` 不被描边；总开关能关能开；页面无未捕获异常。
+- **实测成本**：脚本本身 **28 s**（本地与 CI 一致）；`boot-e2e` job **101 s**（含 dsh / playwright 安装、Chromium 下载、build），与 `check` **并行** ⇒ 工作流总时长 28 s → 101 s（**+73 s**）。已带缓存：`ms-playwright` 与 pnpm store。**缓存命中路径尚未验过**（首次跑是现下载的），下一次 push 会给出结果。
+- **不加重 devDependencies**：宿主与 Playwright 都装全局；`dsh` 钉 `0.1.5-rc.1`——它换版本就可能改掉首次运行引导，而那正是本检查的前置。
+- **已做变异测试**：把 OO 的 `outline` 改 `none` ⇒ **只有该断言失败**，证明它会红（不是假绿）。
+- **另一个 CI 专属坑**：DSH 界面语言在没存过偏好时由 `navigator.languages` 推导，而 CI 默认是 en-US ⇒ 界面对不上中文选择器；脚本显式用 `locale: 'zh-CN'` 的 browser context。
+- **已知边界**：新 `DSH_HOME` 没有工作区/会话 ⇒ **PP 的选中行采样会跳过**（会打印 skipped 而不会默默算过）；选中行底色仍由样式级断言 + 真机实测覆盖。将来若要覆盖，得再喂一份会话 fixture（当前不值得）。
+
+**建议（已采纳）**：**A + D 的后半**——不接整图 diff；启动级保障按 D 的形态做（断言式采样），已完成，见下。理由：本仓库已有的样式级断言已经很硬，整图像素对比的边际价值不高，而它的 flaky 与维护成本会在每次改 CSS 时持续收「税」。
 
 **原文（保留作背景）**：EE 想要「起一个最小 web 加载插件，断言 4 个主题已注册、玻璃开关可切换、update-check 返回 200」；FF 想要「Playwright screenshot + pixelmatch，diff > 阈值即 fail，baseline 存 git LFS」。baseline 体积实测：四张风味图 **166~182 KB / 张**（合计 ~0.7 MB，全目录含玻璃图共 ~2.4 MB）——**就体积而论 LFS 并非必要**。
 
@@ -525,9 +538,9 @@
 
 - **前置条件已真正解除**（本节前后改了两次：先是误标「已解除」，后又标「尚未满足」——现在有实测）：`screenshot-previews.cjs` 已**端到端跑通**（2026-09-18 实测：4 风味 + hero 图 + 成功恢复原偏好，日志 `DONE`）。真因和 `pickFlavor` 无关：**① `page.goto` 没带 token → 401 空白页 → `openSettings` 等 90s 超时；② 行标题自 J 项加 `?` 帮助徽标后 `getByText(..., {exact:true})` 恒为 0；③ 「跟随系统」在弹窗里有两处（外观分段 + Catppuccin 行）**。任何视觉改动现在都能先出 baseline。
 - **已实施（2 项 + 1 项半）**：`PP` ✅（选中行真底色，四风味实测对比度 5.89 / 8.29 / 10.07 / 11.38）、`OO` ✅（compat 浮动家族补填充 + outline rim，`panel` 有意不填——嵌套会叠出内框）、`FF` ⏳ **半**（脚本已修好并跑通、四风味预览已重出；**CI 像素对比未做且需先决策**，见 §3.9 FF 条）。另 `P` / `QQ` / `G` 三条 ❌ 不推进（见正文）。
-- **仍在本批次（3 项）**：`F` / `Q` / `NN`（`RR` 可无限期推后；`G` 已判 ❌ 不推进，见正文复核结论）。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
+- **本批次已清完（2026-09-21）**：`PP` ✅ / `OO` ✅ 已实施；`FF` ✅（形式改为断言式，不做整图 diff，接入 CI `boot-e2e`）；`F` / `Q` / `RR` / `BB` ❌ 不推进（各有重开条件，见正文）；`G` ❌（前提被设置弹窗的实时玻璃预览取代）；`QQ` / `P` ❌。**只剩 `NN` 一条 ▲ 待维护者拍板**（纯装饰决策）。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
-**驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、**`QQ` ❌ 不推进**（2026-09-18：issue #9 已对外关闭并推介社区皮肤插件；且背景层会让 ZZ 的性能修复归零、`glass-css.spec.ts` 的前提失效——属架构级反悔）、**`P` ❌ 不推进**（2026-09-18：原诉求拆两半都不成立——「强制不透明」已由总开关 / 兼容模式提供，「文字加深」是缺证据的 palette 偏离）、`BB` ▲ 仅保留静态版、`D` ❌ 不推进（插件适配 DSH，不改变 DSH）。
+**驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、**`QQ` ❌ 不推进**（2026-09-18：issue #9 已对外关闭并推介社区皮肤插件；且背景层会让 ZZ 的性能修复归零、`glass-css.spec.ts` 的前提失效——属架构级反悔）、**`P` ❌ 不推进**（2026-09-18：原诉求拆两半都不成立——「强制不透明」已由总开关 / 兼容模式提供，「文字加深」是缺证据的 palette 偏离）、**`F` / `Q` / `RR` / `BB` ❌ 不推进**（2026-09-21：分别属边际改善 / 文字已解释的图形重复 / K 已给等价能力 / 实时对比度不可靠且源头已锁下限；各自的重开条件在正文对应条）、`D` ❌ 不推进（插件适配 DSH，不改变 DSH）。
 
 **四、优先级路线图需要按此修正**：Sprint 1 的六条（O / P / Z / BB / LL / MM）现状是 O ✅ 与 LL ✅ 早已实施、MM ❌ 驳回、Z 降配、BB 缓做、P 归视觉批次——**Sprint 1 实际只剩 Z 一条要做**。
 
@@ -551,7 +564,7 @@
 | S | dry-run | P3 | ✅ | `src/tui-themes.ts`（`dryRun` 返回 planned writes） | — |
 | T | 社区主题 | P3 | ✅ | `src/tui-themes.ts`（`catppuccin-community/` write-if-missing） | — |
 | Y | schema 迁移 | P2 | ✅ | `src/state.ts`（`migrate`）、`docs/state-migrations.md` | — |
-| EE | e2e 测试 | P2 | ✅ **路由/宿主级已实施**（`tests/e2e/update-check.e2e.spec.ts`：真 cordis + 真 HTTP + stub registry，覆盖路由 200 / channel / 缓存 / ETag 304 / 错误码 / settings namespace）；**剩余「起宿主 + 浏览器」那半已于 2026-09-21 与 FF 合并为 `EE+FF`** —— 立项材料、可行性实测数据与四个方案见 §3.9 | `tests/e2e/update-check.e2e.spec.ts` | — |
+| EE | e2e 测试 | P2 | ✅ **两层都有**：① 路由/宿主级 `tests/e2e/update-check.e2e.spec.ts`（真 cordis + 真 HTTP + stub registry）；② **启动级** `scripts/e2e-boot-check.cjs` + CI job `boot-e2e`（2026-09-21，临时 DSH_HOME + link 本仓库 + 真 `dsh web` + 行为断言与关键区域采样，Linux 首跑通过）。与 FF 的合并见 §3.9 | `tests/e2e/update-check.e2e.spec.ts`、`scripts/e2e-boot-check.cjs`、`.github/workflows/ci.yml` | — |
 | L | palette 版本锁定 | P2 | ✅ | `scripts/generate-palettes.mjs`（`--pin <sha>` → `// UPSTREAM_PIN`） | — |
 | II | glass CSS lazy | P2 | ✅ | `scripts/gen-glass-css.mjs` + `glass-css.gen.ts` + `glass-layer.ts`（enable 才挂 `<style>`） | — |
 | KK | sourcemap 发布 | P3 | ✅ | `tsdown.config.ts`（`sourcemap: true`）、`package.json`（`"*.map"`） | — |
@@ -565,23 +578,23 @@
 | HH | typedoc | P3 | ✅ | `typedoc.json` + `pnpm docs:api` → `docs/api/`（**2026-09-15 起不入库**：本地按需生成，见 WW；Pages 发布仍未做） | — |
 | JJ | 主题 lazy-register | P3 | ✅ | `src/client/index.ts`（只注册当前风味，选中时按需注册） | — |
 | AA | 键盘导航 | P2 | ✅ | `src/client/glass/glass-row.tsx`（segmented roving tabindex + 方向键/Home/End） | — |
-| F | 主题预览缩略图 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
+| F | 主题预览缩略图 | P2 → ❌ | ❌ 不推进（2026-09-21，见正文 F 条）：按钮已有 accent 色块 + 浅/深副标题，32×18 四色块属边际改善（仍不是「UI 长什么样」的答案，那由 README 预览图回答）；无用户请求。重开条件：有人反馈按钮上看不出风味差别 | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
 | G | glass 预览 | P1 → ❌ | ❌ 不推进（2026-09-21，见正文 G 条复核结论）：前提已被 0.5.1 的设置弹窗玻璃化取代——行本身就坐在实时玻璃面板里（`glass-layer.ts:375-378` 的 `--dsh-glass-blur` / `--dsh-glass-frost` 挂在 documentElement，拖 knob 时弹窗跟着变），再加 swatch 是重复能力；brightness（改页面地面）与 mode（改布局）也无法在单张 swatch 里表达。重开条件：有人指出弹窗实时预览不够用的具体场景 | `src/client/glass/glass-row.tsx` | — |
 | SS | glass 预设档位 | P1 | ✅ 已实施（`ca979ba`：清透 / 标准 / 磨砂三档，`glass-row.tsx:152-159`）——勿重做 | `src/client/glass/glass-row.tsx` | — |
-| Q | layout preview | P3 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass-row.tsx` | — |
-| NN | hero 空状态品牌化 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass.module.css` | — |
+| Q | layout preview | P3 → ❌ | ❌ 不推进（2026-09-21，见正文 Q 条）：同行已有 `glass.modeHint` 文字 + 兼容模式的性能提示，本条是同一件事的图形化重复；P3 且无请求。重开条件：有用户问「两种模式差在哪」而文字不够 | `src/client/glass/glass-row.tsx` | — |
+| NN | hero 空状态品牌化 | P2 | ▲ **待维护者拍板（唯一一条纯装饰决策）**：给 hero 标语上 accent 渐变 + 极淡径向光晕（纯 CSS）。不涉正确性、不涉配色规则，只是「要不要给宿主空状态一层品牌感」——我不替你拍（不像 G/QQ 那样有「前提已被取代」的证据）。成本：CSS only，落地后用 `hero-mocha.png` 预览图看 | `src/client/glass/glass.module.css` | — |
 | PP | 会话列表选中/hover | P2 | ✅ 已实施（2026-09-18）：选中行补上真底色 `color-mix(nav-item-active 40%, transparent)`（`glass.module.css` 侧栏段）——真页实测上游 **hover 与选中本来就同是 6% tint**（`rgba(38,49,72,.06)`），只能靠 2px accent 条分辨；用 `card-hover` 试过但**隐形**（那 recipe 与地面同色，合成后逐像素不变）。**四风味实测**（注入生成物字节，A/B）：合成填充 Latte `#dbdde5` / Frappé `#2f3243` / Macchiato `#242636` / Mocha `#1e1e2b`，标题 14px `label-primary` 对比度 **5.89 / 8.29 / 10.07 / 11.38**；40% 为天花板（12px 时间戳 `label-secondary` 在 50% 时 4.41 < AA）。`tests/glass-css.spec.ts` 有 PP 断言；typecheck / typecheck:tests / 154 tests 全绿 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts` | — |
 | QQ | 背景层（壁纸/渐变） | P2 → ❌ | ❌ 不推进（2026-09-18 定案，理由见正文 QQ 条）：① issue #9 已对外关闭（「本插件定位不太适合加上自定义壁纸功能」+ 5 个社区皮肤插件可配合）；② 背景层非纯色 ⇒ `backdrop-filter` 不再是恒等变换，ZZ 在 0.5.3 删掉的 4 处 blur 与 mica 460k→236k px² 的收益全部作废；③ 会让 `tests/glass-css.spec.ts:64`「背后只有地面就不许 blur」的前提**假绿**。⇒ 架构级反悔，需单独立项 + 重测 GPU 才可再议 | `src/state.ts`、`src/client/glass/` | — |
-| RR | accent 自定义 | P2 | 待启动（视觉；K 已提供等价能力，可无限期推后） | `src/state.ts`、`src/client/CatppuccinRow.tsx` | — |
+| RR | accent 自定义 | P2 → ❌ | ❌ 不推进（2026-09-21，见正文 RR 条）：K（token 覆盖）已给等价能力（写一行 `--dsw-alias-brand-primary-new-colorprimary-new-color: #cba6f7` 即可），本条只是色板点选外壳。重开条件：有用户明确要「点选而非手写 token」 | `src/state.ts`、`src/client/CatppuccinRow.tsx` | — |
 | OO | compat 材质增强 | P1 | ✅ 已实施（2026-09-18）：compat 的浮动家族（`menu` / `tooltip` / `card` / `popover` / `dropdown`）补上 `--dsh-glass-card-raised` 半透明填充 + `outline` 画的 hairline rim（`outline-offset:-1px`，不动布局、不盖宿主 box-shadow，`:not(:focus-visible)` 保住焦点环）。真页 computed style A/B 实测：composer 卡 `rgb(30,30,46)` 实色 → `color(srgb … / 0.256)` + 1px rim。**有意排除 `panel`**：面板嵌套（`P3OORG_panel` 内是透明的 `P3OORG_panelBody`），两处都填会叠出宿主没要的内框（实测 `newlyFilledFromTransparent=0` 由断言锁定）。Latte 下靠 rim 显形（`layer-1` === `bg-base`，填充合成后与地面同色） | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts` | — |
 | LL | 次级文字 token 提档 | P1 | ✅ 已实施（issue #7 批次：`palettes.ts:326-327` = subtext0 / overlay2，`palettes.spec.ts:197` 锁 floors）——勿重做 | `scripts/generate-palettes.mjs` | — |
 | MM | 暗色 accent 提亮 | P1 | ❌ 已驳回（拿不出「官方取值在 DSH 下不成立」的证据，属审美偏好；品牌蓝已被 `palettes.spec.ts:105` 锁成契约；要更亮的蓝走 K） | `scripts/generate-palettes.mjs` | — |
 | O | reduced-motion | P1 | ✅（既有 `@media (prefers-reduced-motion)`，0.5.0 前已实施） | `src/client/glass/glass.module.css` | — |
 | P | 高对比度模式 | P1 → ❌ | ❌ 不推进（2026-09-18 核查，见正文 P 条）：①「强制 surface 不透明」**已存在**——`glass-row.tsx:221-229` 总开关一关即原版不透明界面，兼容模式也已「不模糊大面积区域」（`glass.modeHint`），再开一个开关是重复能力；②「文字加深」属 palette 层偏离，按规则 1 需「官方取值在 DSH 下不成立」的证据，当前 `prefers-contrast` 实测 0 处、无用户反馈。⇒ 有低视力用户反馈时只做「强制不透明 + 保留官方色」最小版 | `src/client/glass/glass-layer.ts` | — |
 | Z | aria-valuetext | P1 → P3 | ✅ 已实施（零文案版 `aria-valuetext={`${value}${unit}`}`，`glass-row.tsx`）；定性档位名仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
-| BB | 对比度警告 | P1 | ▲ 缓做：仅静态阈值版（glass 下半透明背景使实时对比度不可靠，误报风险 > 收益） | `src/client/glass/glass-row.tsx` | — |
+| BB | 对比度警告 | P1 → ❌ | ❌ 不推进（2026-09-21 定案；正文已有 2026-09-15 复核）：半透明面 + `backdrop-filter` 下实时算对比度不可靠，**误报比不报更伤信任**；静态阈值版收益低，而且对比度下限已经由 `tests/palettes.spec.ts` 在源头锁住（含各语言、深/浅风味的 floors）。重开条件：有低视力用户反馈 | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
-| FF | 视觉回归 | P3 | ⏳ **部分实施 + 已合并**（2026-09-21 与 EE 并成 `EE+FF`，立项见 §3.9）。**✅ 脚本**：`scripts/screenshot-previews.cjs <token>` 端到端跑通（4 风味 + hero + 恢复原偏好），四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的 PP 选中行填充），并修掉「截图时弹窗遮罩压暗整页」（侧栏读成 `182,183,186` 而非 `239,241,245`）。三个真因：① `page.goto` 带不上 token → 401 空白页 → `openSettings` 90s 超时（这才是长期卡点）；② 行标题 `?` 徽标让 `getByText('Catppuccin 主题', {exact:true})` 恒为 0；③ 弹窗内「跟随系统」有两处。**未做**：把截图 diff 接进 CI（待决，见 §3.9） | `scripts/screenshot-previews.cjs`、`assets/previews/` | — |
+| FF | 视觉回归 | P3 | ✅ **已实施（形式改为断言式，不做整图 diff）**：脚本 `scripts/screenshot-previews.cjs <token>` 端到端跑通（4 风味 + hero + 恢复原偏好，四风味预览已用 0.5.4 重出）；启动级关键区域采样在 `scripts/e2e-boot-check.cjs` / CI `boot-e2e`（2026-09-21）。**刻意不接 pixelmatch**——理由、实测成本与取舍见 §3.9。**已知边界**：新 DSH_HOME 无会话 ⇒ PP 选中行采样跳过（会打印 skipped）| `scripts/screenshot-previews.cjs`、`scripts/e2e-boot-check.cjs`、`assets/previews/` | — |
 | VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | ✅ 已实施（0.5.2）：900 步混向 `crust` 18%，实测 **4.96~8.30** ✅；`tests/palettes.spec.ts` 新增 `dark status tint readability (VV)` 两条断言 | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
 | TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | ✅ 已实施（2026-09-15，方案 a）：值输入非受控 + `onBlur`，7 语言 hint 同步；取舍见正文 TT 条 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
 | UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
