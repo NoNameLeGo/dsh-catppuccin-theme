@@ -128,6 +128,21 @@ async function openSettings(page) {
   await page.waitForTimeout(500)
 }
 
+async function closeSettings(page) {
+  // The modal's mask dims the whole page (measured 2026-09-21: the sidebar read
+  // (182,183,186) instead of Latte's #eff1f5), so every preview must be shot with
+  // the dialog CLOSED. Click the dialog's own close button, fall back to Escape,
+  // and fail loudly if it is still there — a dimmed preview is worse than no shot.
+  const dialog = page.locator("[role='dialog'][aria-modal='true']")
+  await dialog.getByRole('button', { name: '关闭', exact: true }).first().click().catch(() => {})
+  await page.waitForTimeout(900)
+  if (await dialog.count()) {
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(900)
+  }
+  if (await dialog.count()) throw new Error('settings dialog did not close — the shot would be dimmed by its mask')
+}
+
 async function pickFlavor(page, label, expectedBase) {
   const button = catppuccinRow(page).getByRole('button', { name: label })
   await button.click()
@@ -185,25 +200,17 @@ async function pickFlavor(page, label, expectedBase) {
     await pickFlavor(page, f.label, BASE[f.name])
     const t = await probeTheme(page)
     console.log(`flavour ${f.name}: colorScheme=${t.colorScheme} rootBg=${t.rootBg} bodyBg=${t.bodyBg} ✓ applied`)
+    // Close the modal before every shot (the mask dims the page), then reopen it
+    // for the next flavour.
+    await closeSettings(page)
+    await page.waitForTimeout(600)
     await shot(page, `${f.name}.png`)
+    await openSettings(page)
   }
 
-  // Hero shot: main view under Mocha. Close the settings panel (a modal
-  // overlay — try the explicit button, then Escape, then the backdrop mask).
+  // Hero shot: main view under Mocha.
   await pickFlavor(page, 'Mocha', BASE.mocha) // ensure mocha is the active flavour
-  const back = page.getByText('返回对话', { exact: true }).first()
-  if (await back.isVisible().catch(() => false)) {
-    await back.click()
-  } else {
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(600)
-    if (await page.getByText('Catppuccin 主题', { exact: true }).first().isVisible().catch(() => false)) {
-      await page.evaluate(() => {
-        const mask = document.querySelector('[class*="_mask"]')
-        if (mask) mask.click()
-      })
-    }
-  }
+  await closeSettings(page)
   await page.waitForTimeout(1500)
   await shot(page, 'hero-mocha.png')
 
