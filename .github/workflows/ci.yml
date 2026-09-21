@@ -42,3 +42,49 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # 启动级检查（EE+FF 合并立项的 D 方案）：建一个临时 DSH_HOME、把本仓库 link 进它的 web
+  # profile、真起 `dsh web`，然后用 Playwright 断言「插件真被加载 / 风味真生效 / 玻璃真能切 /
+  # 关键区域的计算样式符合不变量」。**刻意不做整图像素对比**——理由与取舍见
+  # docs/plugin-improvements.md §3.9（断言式采样不随字体/渲染器漂移，且仓库已有很强的样式级断言）。
+  #
+  # 为什么单独一个 job：它要装宿主、下载 Chromium（~150 MB），不该让每次 typecheck/test 都付这笔钱；
+  # 宿主与浏览器都放全局，仓库的 devDependencies 不为「能跑一次 e2e」而变重。
+  # `dsh` 刻意钉版本：它换版本就可能换掉首次运行引导的步骤，而那是本检查的前置。
+  boot-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          # pnpm store 也被缓存：宿主会在临时 profile 里做一次安装，命中缓存后是秒级。
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install dsh + Playwright
+        run: |
+          npm i -g @deepseek-ai/dsh@0.1.5-rc.1 playwright
+          echo "DSH_BIN=$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" >> "$GITHUB_ENV"
+          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Chromium
+        # 直接走全局装的 playwright 的 cli.js，避免 `npx playwright` 在本地没装时又去拉一个不同版本。
+        run: node "$(npm root -g)/playwright/cli.js" install --with-deps chromium
+
+      - name: Boot check
+        run: node scripts/e2e-boot-check.cjs
