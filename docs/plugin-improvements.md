@@ -371,16 +371,18 @@
 
 ### 3.9 测试与文档
 
-**EE. 缺 e2e 测试** — 优先级 **P2**
-- 现象：tests/ 下全是 vitest 单测，没有真实 plugin 启动验证。
+**EE. 缺 e2e 测试** — 优先级 **P2**（✅ 已实施，本条可关闭）
+- **✅ 实施（见跟踪表）**：`tests/e2e/update-check.e2e.spec.ts`（真 cordis + 真 HTTP + stub registry）已落地，所以下面那句「没有真实 plugin 启动验证」已不成立；剩余可选项是「起一个最小 web 加载插件」级别的启动验证，归入 FF 的待决策项一起看。
+- 现象（原文，已过时）：tests/ 下全是 vitest 单测，没有真实 plugin 启动验证。
 - 优化方向：用 `@deepseek-ai/dsh` 测试 profile 起一个最小 web，加载插件，断言 4 个主题已注册、玻璃开关可切换、update-check 路由返回 200。
 - 实施方法：扩 `tests/e2e/` 用 supertest + 真 cordis 启动。
 - 预期效果：发布前回归保护。
 
-**FF. 缺视觉回归** — 优先级 **P3**（▲ **前置：截图流水线必须先修**）
-- **复核结论（2026-09-15）**：`scripts/screenshot-previews.cjs` 有已知缺陷（脚本内 `ponytail:` 标记，:96）：风味切换断言只对 Latte / Mocha 成立，Frappé / Macchiato 点完后仍停在 latte 的 `#eff1f5`，`if (!applied) throw` 直接失败、**不保存截图**。baseline 建不起来，CI 接上去就是空跑。
-- **正确顺序**：修风味切换（或改断言目标）→ 4 风味 × 2 模式出 8 张 baseline → 再接 pixelmatch。**倒过来做必然白干**（先改视觉、后建 baseline，baseline 本身录的就是错的状态）。
-- 现象：`assets/previews/` 有手动截图，但没在 CI 里跑对比。
+**FF. 缺视觉回归** — 优先级 **P3**（⏳ **脚本那半已做，CI 像素对比那半未做且需先决策**）
+- **✅ 脚本（2026-09-18/21）**：`scripts/screenshot-previews.cjs` 已端到端跑通，且四风味预览已用 **0.5.4** 重出。三个真因（细节见跟踪表与 `AGENTS.md`）：**缺 token → 401 空白页**（这才是「`设置` 定位器 90s 超时」的来源）、行标题 `?` 徽标让 `getByText(..., {exact:true})` 恒为 0、弹窗内「跟随系统」有两处；另修了「截图时弹窗遮罩把整页压暗」。正文早先写的「脚本内有 `ponytail:` 标记、断言只对 Latte/Mocha 成立」**已全部失效**（标记已删、断言改为逐风味轮询 token）。
+- **⏳ 未做：把视觉回归接进 CI**（pixelmatch / `pnpm test:visual` / baseline 入库）。**先决策再动手**，因为有三个绕不开的前提：① 预览脚本依赖**跑着的 `dsh web` + 浏览器**，CI 里得先起宿主并把「被测版本」装进一个 profile（≈ EE 的启动验证，两件事合并做更划算）；② baseline 是数 MB 二进制（正文原提「存 git LFS」是个未定的决策）；③ 出图受字体/渲染器影响，阈值定不好会变成 flaky。
+- **若决定不做**：就把「发版前手动重出四风味预览」（`AGENTS.md` 已写步骤，含必须传 token）当作流程，本条按「手动替代」归档。
+- 现象（原文）：`assets/previews/` 有手动截图，但没在 CI 里跑对比。
 - 优化方向：用 Playwright screenshot + pixelmatch，diff > 阈值即 fail。
 - 实施方法：`pnpm test:visual` 接 Playwright；baseline 存 git LFS。
 - 预期效果：CSS 改动不会悄悄毁预览。
@@ -494,7 +496,7 @@
 **视觉批次（原 9 项）—— 2026-09-18 收尾：已实施 3 项，剩 4 项待评估**
 
 - **前置条件已真正解除**（本节前后改了两次：先是误标「已解除」，后又标「尚未满足」——现在有实测）：`screenshot-previews.cjs` 已**端到端跑通**（2026-09-18 实测：4 风味 + hero 图 + 成功恢复原偏好，日志 `DONE`）。真因和 `pickFlavor` 无关：**① `page.goto` 没带 token → 401 空白页 → `openSettings` 等 90s 超时；② 行标题自 J 项加 `?` 帮助徽标后 `getByText(..., {exact:true})` 恒为 0；③ 「跟随系统」在弹窗里有两处（外观分段 + Catppuccin 行）**。任何视觉改动现在都能先出 baseline。
-- **已实施（3 项）**：`PP` ✅（选中行真底色，四风味实测对比度 5.89 / 8.29 / 10.07 / 11.38）、`OO` ✅（compat 浮动家族补填充 + outline rim，`panel` 有意不填——嵌套会叠出内框）、`FF` ✅（脚本修好并跑通）。另 `P` / `QQ` 两条 ❌ 不推进（见正文）。
+- **已实施（2 项 + 1 项半）**：`PP` ✅（选中行真底色，四风味实测对比度 5.89 / 8.29 / 10.07 / 11.38）、`OO` ✅（compat 浮动家族补填充 + outline rim，`panel` 有意不填——嵌套会叠出内框）、`FF` ⏳ **半**（脚本已修好并跑通、四风味预览已重出；**CI 像素对比未做且需先决策**，见 §3.9 FF 条）。另 `P` / `QQ` / `G` 三条 ❌ 不推进（见正文）。
 - **仍在本批次（3 项）**：`F` / `Q` / `NN`（`RR` 可无限期推后；`G` 已判 ❌ 不推进，见正文复核结论）。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
 **驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、**`QQ` ❌ 不推进**（2026-09-18：issue #9 已对外关闭并推介社区皮肤插件；且背景层会让 ZZ 的性能修复归零、`glass-css.spec.ts` 的前提失效——属架构级反悔）、**`P` ❌ 不推进**（2026-09-18：原诉求拆两半都不成立——「强制不透明」已由总开关 / 兼容模式提供，「文字加深」是缺证据的 palette 偏离）、`BB` ▲ 仅保留静态版、`D` ❌ 不推进（插件适配 DSH，不改变 DSH）。
@@ -551,7 +553,7 @@
 | Z | aria-valuetext | P1 → P3 | ✅ 已实施（零文案版 `aria-valuetext={`${value}${unit}`}`，`glass-row.tsx`）；定性档位名仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
 | BB | 对比度警告 | P1 | ▲ 缓做：仅静态阈值版（glass 下半透明背景使实时对比度不可靠，误报风险 > 收益） | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
-| FF | 视觉回归 | P3 | ✅ 已实施（2026-09-18 端到端跑通）：状态经历两次误标（先虚假 ✅、后 ⏳），现在有实测——`node scripts/screenshot-previews.cjs <token>` 跑出 **4 风味 + hero 图**并成功恢复原偏好（日志 `DONE`）。三个真因：① **`page.goto` 没带 token**（bare origin 回 401 文本页 → `openSettings` 90s 超时，这才是「定位器超时」）；② 行标题自 J 项加 `?` 徽标后 `getByText('Catppuccin 主题', {exact:true})` **恒为 0 命中**；③ 「跟随系统」在弹窗内有两处（外观分段 + Catppuccin 行），原 `.first()` 恢复的是错的那个。修复：token 三路回退（argv / `DSH_WEB_TOKEN` / 旧日志）+ 401 立即报错、行内作用域角色定位、读取并恢复**本机真实原风味** + 等 300ms 防抖落地。遗留：README 预览图未入库（应在装上新版后重出，需 `assets/previews` 同步） | `scripts/screenshot-previews.cjs` | — |
+| FF | 视觉回归 | P3 | ⏳ **部分实施**（更正 2026-09-21：此前整条标 ✅ 不准——修好的是脚本，CI 像素对比那半没做）。**✅ 脚本**：`node scripts/screenshot-previews.cjs <token>` 端到端跑通（4 风味 + hero + 恢复原偏好），四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的 PP 选中行填充），并修掉「截图时弹窗遮罩把整页压暗」（侧栏读成 `182,183,186` 而非 `239,241,245`）。三个真因：① `page.goto` 带不上 token → 401 空白页 → `openSettings` 90s 超时（这才是长期卡点）；② 行标题 `?` 徽标让 `getByText('Catppuccin 主题', {exact:true})` 恒为 0；③ 弹窗内「跟随系统」有两处（外观分段 + Catppuccin 行）。**⏳ 未做：把视觉回归接进 CI**（pixelmatch / `pnpm test:visual` / baseline 入库）——**需先决策**：依赖跑着的 `dsh web` + 浏览器（≈ 与 EE 的启动验证合并做）、baseline 是数 MB 二进制（LFS？）、阈值易 flaky。不做则按「发版前手动重出预览」归档（步骤在 `AGENTS.md`） | `scripts/screenshot-previews.cjs`、`assets/previews/` | — |
 | VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | ✅ 已实施（0.5.2）：900 步混向 `crust` 18%，实测 **4.96~8.30** ✅；`tests/palettes.spec.ts` 新增 `dark status tint readability (VV)` 两条断言 | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
 | TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | ✅ 已实施（2026-09-15，方案 a）：值输入非受控 + `onBlur`，7 语言 hint 同步；取舍见正文 TT 条 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
 | UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
