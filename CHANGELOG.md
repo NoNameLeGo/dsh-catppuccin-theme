@@ -6,7 +6,7 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.5] - 2026-09-21
 
 ### 修复
 
@@ -18,7 +18,9 @@
 
 ### 其他
 
-- **预览图脚本改为关闭设置弹窗后拍摄**：此前每张风味图都是在设置弹窗打开时拍的，弹窗遮罩把整页压暗（实测侧栏读成 `182,183,186`，而 Latte 地面是 `239,241,245`）——四张预览图都是暗的。现在拍每张前先关弹窗（点关闭 → Escape 兜底 → 仍开着就直接报错，不交出暗图），再为下一风味重开。四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的选中行填充）。（EN: flavour previews are shot with the settings dialog closed — its mask dimmed every shot before — and the script now asserts the dialog is gone instead of shipping a dim image）
+- **预览图脚本改为关闭设置弹窗后拍摄**：此前每张风味图都是在设置弹窗打开时拍的，弹窗遮罩把整页压暗（实测侧栏读成 `182,183,186`，而 Latte 地面是 `239,241,245`）——四张预览图都是暗的。现在拍每张前先关弹窗（点关闭 → Escape 兜底 → 仍开着就直接报错，不交出暗图），再为下一风味重开；四张风味图随之重出（**图本身在本版本才提交**）。（EN: flavour previews are shot with the settings dialog closed — its mask dimmed every shot before — and the script now asserts the dialog is gone instead of shipping a dim image）
+
+- **新增启动级 e2e 检查（CI job `boot-e2e`）**：建一个临时 `DSH_HOME`、把本仓库 `link:` 进它的 web profile、真起 `dsh web`，然后断言「插件真被加载 / 风味真生效 / 玻璃真能切」，并读取**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 模式下浮动面有 hairline rim 而 `panel` 不被描边）。刻意**不做整图像素对比**：断言式采样不随字体/渲染器漂移，而仓库已有的样式级断言已覆盖大半（取舍与可行性实测见 `docs/plugin-improvements.md` §3.9）。实测 CI 成本 **+54~73 s**（独立 job，与 `check` 并行，Chromium 与 pnpm store 都带缓存）。（EN: a startup-level e2e check boots a throwaway DSH_HOME with this repo linked, runs a real `dsh web` and asserts behaviour plus key-region computed styles — no image diffing; it runs as its own cached CI job）
 
 - **语言字典审计与复核清单（YY）**：见 `docs/locale-review.md`。结论：结构层（键集 / 空值 / 占位符 `{profile}`、`{s}`）全部通过；「与 en 逐字相同」的命中项均为合法同源词（Mica / Mode / Standard / Stable / Beta / Frost），**没有漏翻**；真正需要人读的只有 9 条长文案。（EN: locale audit + checklist in docs/locale-review.md）
 
@@ -284,7 +286,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.1...v0.5.2
