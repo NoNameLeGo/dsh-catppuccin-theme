@@ -51,6 +51,8 @@
 
 发布走 GitHub Actions 的 OIDC **Trusted Publisher** 自动发 npm。正常流程**不要手动 `npm publish`**（手动只是 CI 故障时的紧急回退，见下）。
 
+> ⚠️ **推 tag 前必须先问维护者**：tag 一推就自动发 npm、**撤不回来**（`npm unpublish` 会留下公开痕迹，还可能断掉已安装者的 lockfile）。Agent 可以把准备工作全做完——版本号、CHANGELOG 落节、本地全量验证、release commit——但 `git push origin main --tags` 这一步要等维护者点头。（2026-09-21 教训："继续未完成的工作" 被理解成含发版，于是自行发了 v0.5.5；版本内容没问题，但流程错了。）
+
 ### 发布前检查（一次性配置，已就绪但请复核）
 - npmjs.com → 包 `@nonamelego/dsh-catppuccin` → Settings → **Trusted Publisher**：Repository 必须为 `dsh-catppuccin-theme`（当前已配好）。若与仓库名不一致，CI 的 `Publish to npm` 步会失败。
 
@@ -80,11 +82,15 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 
 ### 3. 验证发布成功
 - GitHub → Actions → `Publish Package` run 应为 `success`（`gh run watch <id> --exit-status` 可以直接等结果）。日志里出现 `+ @nonamelego/dsh-catppuccin@<version>` 就是发出去了（还会带 provenance 签名）。
-- `npm view @nonamelego/dsh-catppuccin dist-tags` 确认 `latest`（正式版）或 `beta`（预发布）已是新版本号。**npm 有约 2 分钟的处理/缓存延迟**——刚发完 `dist-tags` 可能还是旧值，轮询几次再判（2026-09-16 发 v0.5.3 时第 5 次轮询才刷新）；别据此以为发布失败。
+- **确认版本号时必须绕开仓库的 `.npmrc`**：本仓库的 `.npmrc` 指向 `npmmirror`，所以裸跑的 `npm view` 读的是**镜像**，而镜像滞后没有上限——2026-09-21 发 v0.5.5 时，官方 registry 隔一分钟就有 `latest: 0.5.5`，而镜像过了 4 分钟仍显示 `0.5.4`（上一轮 v0.5.4 记的「约 3.5 分钟延迟」其实也是镜像滞后，不是 npm 的）。验证命令显式带 registry：
+  ```bash
+  npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org
+  ```
+  权威信号是 `Publish to npm` 步日志里的 `+ @nonamelego/dsh-catppuccin@<version>`（带 provenance 签名）；`npm notice ... may take a few minutes` 只是 npm 的常规提示，不代表要等。
 - `git push` 偶发 GitHub **502**，直接重试即可（不要改 remote、不要 `--force`）。
 
 ### 4. 发布后
-- **把上面 `> ⚠️ 发版版本号` 那句的版本号改掉**——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2 / 0.5.3）。
+- **把上面 `> ⚠️ 发版版本号` 那句的版本号改掉**（历史：写 0.5.1 时已到 0.5.2/0.5.3、写 0.5.3 时已到 0.5.4 —— 所以把它当成发版流程的最后一步，别指望“下次顺手”）。
 - **CHANGELOG 底部的链接引用**也要顺手维护：`[Unreleased]` 指向新 tag（`compare/v<new>...HEAD`），并给新版本补一行 `[<version>]: compare/v<prev>...v<new>`。上个版本漏了，导致它停在 `v0.5.1...HEAD`。
 - 若插件已收录于 awesome-dsh-plugin，收录条目无需随发版改动。
 - 正式版发完如 README 需要同步变化点，并入本次 release commit。
@@ -116,7 +122,8 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - **`assets/` 不进 npm 包**（`package.json` 的 `files` 不含它，图片只在 README 用），所以 README 里的图片一律写**绝对** `raw.githubusercontent.com` URL——别改回相对路径，否则 npm 页面会失去图。
 - 对外 API 文档：`pnpm docs:api`（typedoc）→ `docs/api/`。**该目录不入库**（已 `git rm --cached` + 进 `.gitignore`，见 WW），本地按需生成即可；生成物当前是旧的（本次已重生成，但以后只在需要时重建）。重跑时 typedoc 会打一条 `origin` remote "not valid" 的警告——**实测是虚警**：链接照样生成，且指向当前 commit 的 permalink（`blob/<sha>/src/...`），无需改配置。真要自己写模板就用 `disableGit` + `sourceLinkTemplate`，注意 `{path}` **不含 `src/` 前缀**（否则生成 404 链接）。
 - `src/profile-detect.ts`：更新检查里「自动探测当前 profile 名」的实现（探测失败回退 `web`）。
-- CI 配置：`.github/workflows/ci.yml`（push main / PR：install + typecheck + build + test，只读权限）与 `.github/workflows/publish.yml`（`v*` tag / 手动 dispatch 才跑，OIDC 可信发布，无 token 入库）。**普通提交只靠 ci.yml 把关**——发布链路里才跑检查的旧格局已经让两次发版失败（幽灵类型依赖、跨测试污染）。
+- CI 配置：`.github/workflows/ci.yml`（push main / PR，只读权限）——两个 job：`check`（install + typecheck + build + test）与 `boot-e2e`（**启动级 e2e**，见下一条；独立 job 是因为它要装宿主 + 下载 Chromium，且与 `check` 并行，实测 +54~73 s）；发布另有 `.github/workflows/publish.yml`（`v*` tag / 手动 dispatch，OIDC 可信发布，无 token 入库）。**普通提交只靠 ci.yml 把关**——发布链路里才跑检查的旧格局已经让两次发版失败（幽灵类型依赖、跨测试污染）。
+- **启动级 e2e**：`scripts/e2e-boot-check.cjs`（**在仓库里**，不是本机探针目录）。做法：临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>` → `dsh web --no-open --port 0`（token 在 stdout）→ 走掉宿主首次运行引导（2 步：内测声明「继续」、API Key「稍后配置」）→ 打开设置断言行/风味/玻璃开关，并采样**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 下浮动面有 rim 而 `panel` 不被描边）。本地跑法：`pnpm build` 后 `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node scripts/e2e-boot-check.cjs`。**刻意不做整图 diff**（理由与方案取舍见 `docs/plugin-improvements.md` §3.9）。已知边界：新 `DSH_HOME` 没有工作区/会话 ⇒ PP 选中行采样**会跳过并打印 skipped**（不会假绿）；改过视觉后仍应手动重出四风味预览（上一条）。
 - 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。
 
 ## 与报告人协作（issue / 评论 / 关闭）
