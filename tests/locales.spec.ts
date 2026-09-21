@@ -6,10 +6,35 @@
  * language (the locale lookup falls back per key, so the breakage would be
  * silent).
  */
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { de, en, es, fr, ja, ko, zh } from '../src/client/locales.ts'
 
 const LANGUAGES = { en, ja, ko, es, fr, de } as const
+
+/** Keys built as templates at their render site, so a literal search cannot see
+ *  them (`CatppuccinRow.tsx` does the `flavor.${id}.subtitle` splice). */
+const TEMPLATE_KEYS = new Set([
+  'flavor.latte.subtitle',
+  'flavor.frappe.subtitle',
+  'flavor.macchiato.subtitle',
+  'flavor.mocha.subtitle',
+])
+
+const SOURCE_ROOT = fileURLToPath(new URL('../src', import.meta.url))
+
+/** Every TypeScript source under src/, except the dictionaries themselves. */
+const sourceText = (dir: string = SOURCE_ROOT): string =>
+  readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) return sourceText(full)
+      if (!/\.tsx?$/.test(entry.name) || entry.name === 'locales.ts') return []
+      return [readFileSync(full, 'utf8')]
+    })
+    .join('\n')
 
 describe('locale dictionaries (item CC)', () => {
   it('every language mirrors the zh key set exactly', () => {
@@ -44,6 +69,22 @@ describe('locale dictionaries (item CC)', () => {
       expect(dict['flavor.mocha.subtitle']).not.toBe('')
       expect(dict['update.err.networkLocal']).not.toBe(undefined)
     }
+  })
+
+  it('no dictionary key is left unreferenced in src (dead-key guard, 2026-09-21)', () => {
+    // Six keys had rotted by the time of the 2026-09-21 audit: `glass.on` /
+    // `glass.off` lost their render site when the master switch became a track +
+    // check mark (eeb8096) and were then copied into five more languages by the
+    // language batch, and `flavor.<id>` was never used at all because the buttons
+    // render the brand name from the palette. None of that is caught by the key-set
+    // test (every dictionary carried the same dead keys), so this walks the sources
+    // for a literal occurrence of every key.
+    const text = sourceText()
+    const dead = Object.keys(zh).filter((key) => !TEMPLATE_KEYS.has(key) && !text.includes(`'${key}'`))
+    expect(
+      dead,
+      'unreferenced dictionary keys — delete them from all 7 dictionaries, or list them in TEMPLATE_KEYS if they are built as templates',
+    ).toEqual([])
   })
 
   it('the frost knob and its preset stay in one word family per language (2026-09-21)', () => {
