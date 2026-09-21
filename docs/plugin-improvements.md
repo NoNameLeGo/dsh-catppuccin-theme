@@ -418,7 +418,7 @@
 
 - **做法**：建临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>`（**444 ms**）→ `dsh web --no-open --port 0`（**6.1 s**，URL+token 打在 stdout）→ 走掉宿主首次运行引导（**2 步**：内测声明「继续」、API Key「稍后配置」）→ 打开设置做行为断言 + 关键区域采样。
 - **断言清单（15 项，1 项按环境跳过）**：三行真注册上；切 Mocha 后 `--dsw-alias-bg-base` = `#11111b`；玻璃默认关（`DEFAULT_GLASS.enabled === false`）→ 开启后 `data-dsh-glass` 挂上且默认模式是云母；**级联后**的真页计算值（侧栏玻璃片 `backdrop-filter: none`、composer 卡保留 `blur(2px)`——样式表级不变量在 `glass-css.spec.ts`，这里验的是级联结果）；compat 下浮动面拿到 rim（`uV2eYG_card … 1px color(srgb …)`）、`panel` 不被描边；总开关能关能开；页面无未捕获异常。
-- **实测成本**：脚本本身 **28 s**（本地与 CI 一致）；`boot-e2e` job **101 s**（含 dsh / playwright 安装、Chromium 下载、build），与 `check` **并行** ⇒ 工作流总时长 28 s → 101 s（**+73 s**）。已带缓存：`ms-playwright` 与 pnpm store。**缓存命中路径尚未验过**（首次跑是现下载的），下一次 push 会给出结果。
+- **实测成本**：脚本本身 **28 s**（本地与 CI 一致）；`boot-e2e` job **冷 101 s**（run `35569103567`，含 dsh / playwright 安装、Chromium 下载、build）→ **热 81 s**（run `35569567224`：`Cache hit for: ms-playwright-Linux-…` → `Cache restored successfully`，pnpm store 也命中）；与 `check`（~27 s）**并行** ⇒ 工作流总时长约 **+54~73 s**。
 - **不加重 devDependencies**：宿主与 Playwright 都装全局；`dsh` 钉 `0.1.5-rc.1`——它换版本就可能改掉首次运行引导，而那正是本检查的前置。
 - **已做变异测试**：把 OO 的 `outline` 改 `none` ⇒ **只有该断言失败**，证明它会红（不是假绿）。
 - **另一个 CI 专属坑**：DSH 界面语言在没存过偏好时由 `navigator.languages` 推导，而 CI 默认是 en-US ⇒ 界面对不上中文选择器；脚本显式用 `locale: 'zh-CN'` 的 browser context。
