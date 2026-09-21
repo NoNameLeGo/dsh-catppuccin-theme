@@ -6,6 +6,18 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 修复
+
+- **ja / ko 的「磨砂」旋钮与预设不再各说各词（YY）**：`glass.frost`（磨砂度）与 `glass.presetFrosted`（磨砂预设）在同一语言里用了两个词——日语旋钮 `曇り` / 预设 `フォグ`（fog），韩语 `프로스트` / `포그`（fog）。现各自统一为 `曇り` / `프로스트`（不引入新词，只收拢到已经在用的那个），并同步两语言 `glass.help` 里的预设列表（否则 tooltip 会指着一个不存在的预设名）。`tests/locales.spec.ts` 新增两条断言：旋钮与预设必须同词根（归一化后前缀关系，容忍 fr Givre/Givré 与 en Frost/Frosted）、`glass.help` 必须列出三个预设名。同时把 zh 的引号统一为「」（原 `row.overridesEmpty` / `update.help` 用 “”）。**本项不假装完成母语复核**：复核清单（9 条长文案 + 长度膨胀 + 遗留的 ja `すりガラス` vs `曇り` 选择）已落到 `docs/locale-review.md`，触发条件=有对应语言的用户反馈。（EN: the frost knob and its preset no longer use two different words in ja/ko — unified on the term already in use, the help tooltips now name the current preset labels, and two assertions lock the wording family plus the help/preset coupling; zh quote style unified too; the native-review checklist lives in docs/locale-review.md）
+
+### 其他
+
+- **预览图脚本改为关闭设置弹窗后拍摄**：此前每张风味图都是在设置弹窗打开时拍的，弹窗遮罩把整页压暗（实测侧栏读成 `182,183,186`，而 Latte 地面是 `239,241,245`）——四张预览图都是暗的。现在拍每张前先关弹窗（点关闭 → Escape 兜底 → 仍开着就直接报错，不交出暗图），再为下一风味重开。四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的选中行填充）。（EN: flavour previews are shot with the settings dialog closed — its mask dimmed every shot before — and the script now asserts the dialog is gone instead of shipping a dim image）
+
+- **语言字典审计与复核清单（YY）**：见 `docs/locale-review.md`。结论：结构层（键集 / 空值 / 占位符 `{profile}`、`{s}`）全部通过；「与 en 逐字相同」的命中项均为合法同源词（Mica / Mode / Standard / Stable / Beta / Frost），**没有漏翻**；真正需要人读的只有 9 条长文案。（EN: locale audit + checklist in docs/locale-review.md）
+
 ## [0.5.4] - 2026-09-21
 
 ### 修复
