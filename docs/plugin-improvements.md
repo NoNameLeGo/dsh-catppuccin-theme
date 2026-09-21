@@ -371,21 +371,49 @@
 
 ### 3.9 测试与文档
 
-**EE. 缺 e2e 测试** — 优先级 **P2**（✅ 已实施，本条可关闭）
-- **✅ 实施（见跟踪表）**：`tests/e2e/update-check.e2e.spec.ts`（真 cordis + 真 HTTP + stub registry）已落地，所以下面那句「没有真实 plugin 启动验证」已不成立；剩余可选项是「起一个最小 web 加载插件」级别的启动验证，归入 FF 的待决策项一起看。
-- 现象（原文，已过时）：tests/ 下全是 vitest 单测，没有真实 plugin 启动验证。
-- 优化方向：用 `@deepseek-ai/dsh` 测试 profile 起一个最小 web，加载插件，断言 4 个主题已注册、玻璃开关可切换、update-check 路由返回 200。
-- 实施方法：扩 `tests/e2e/` 用 supertest + 真 cordis 启动。
-- 预期效果：发布前回归保护。
+**EE+FF. 宿主启动级 e2e + 视觉回归（2026-09-21 合并立项，待评估）** — 优先级 **P2**
 
-**FF. 缺视觉回归** — 优先级 **P3**（⏳ **脚本那半已做，CI 像素对比那半未做且需先决策**）
-- **✅ 脚本（2026-09-18/21）**：`scripts/screenshot-previews.cjs` 已端到端跑通，且四风味预览已用 **0.5.4** 重出。三个真因（细节见跟踪表与 `AGENTS.md`）：**缺 token → 401 空白页**（这才是「`设置` 定位器 90s 超时」的来源）、行标题 `?` 徽标让 `getByText(..., {exact:true})` 恒为 0、弹窗内「跟随系统」有两处；另修了「截图时弹窗遮罩把整页压暗」。正文早先写的「脚本内有 `ponytail:` 标记、断言只对 Latte/Mocha 成立」**已全部失效**（标记已删、断言改为逐风味轮询 token）。
-- **⏳ 未做：把视觉回归接进 CI**（pixelmatch / `pnpm test:visual` / baseline 入库）。**先决策再动手**，因为有三个绕不开的前提：① 预览脚本依赖**跑着的 `dsh web` + 浏览器**，CI 里得先起宿主并把「被测版本」装进一个 profile（≈ EE 的启动验证，两件事合并做更划算）；② baseline 是数 MB 二进制（正文原提「存 git LFS」是个未定的决策）；③ 出图受字体/渲染器影响，阈值定不好会变成 flaky。
-- **若决定不做**：就把「发版前手动重出四风味预览」（`AGENTS.md` 已写步骤，含必须传 token）当作流程，本条按「手动替代」归档。
-- 现象（原文）：`assets/previews/` 有手动截图，但没在 CI 里跑对比。
-- 优化方向：用 Playwright screenshot + pixelmatch，diff > 阈值即 fail。
-- 实施方法：`pnpm test:visual` 接 Playwright；baseline 存 git LFS。
-- 预期效果：CSS 改动不会悄悄毁预览。
+**为何合并**：两件事的**前置条件完全同一**——都要在 CI 里「起一个真的 DSH web + 浏览器 + 把本仓库装进一个 profile」。分开做等于把同一套脆弱的引导流程写两遍；合并后一次启动就能同时跑行为断言与出图。
+
+**已经做完的一半（不要重复做）**：
+
+| 已做的 | 在哪 | 覆盖到哪 |
+|---|---|---|
+| 宿主**路由级** e2e | `tests/e2e/update-check.e2e.spec.ts` | 真 cordis + 真 HTTP + stub registry：路由 200 / channel 偏好 / 5 分钟缓存 / ETag 304 / 错误码 502 / settings namespace 已注册 |
+| 截图流水线 | `scripts/screenshot-previews.cjs` | 端到端跑通（4 风味 + hero + 恢复原偏好），四张预览已用 0.5.4 重出 |
+| **样式级**视觉断言 | `tests/glass-css.spec.ts`、`tests/palettes.spec.ts` | blur 预算两条不变量、composer 不重复读、PP 选中行填充、OO 面板不得被填、各语言对比度下限、品牌 pin — **CSS 悄悄坏掉的大部分情况已经被这些挡住** |
+
+**缺口**：① 没有**启动级**验证（插件真被 DSH 加载、四个风味真注册上了、玻璃开关真能切）；② 截图 diff 没接进 CI。
+
+**CI 可行性：2026-09-21 在本机实测了关键几步**（`DSH_HOME` 是现成的隔离开关）：
+
+| 步骤 | 实测结果 |
+|---|---|
+| 全新 `DSH_HOME` 起 web | ✅ `dsh web --no-open --port 0` 正常，URL + token 打在 stdout（`--port 0` 让 OS 选端口，适合 CI） |
+| 首次启动引导 | ⚠️ **有≥2 步宿主引导**：先「内测声明 → 继续」，再「添加一个 API Key 开始使用」（`稍后配置` / `保存并继续`）；**引导走完之前设置入口被遮罩挡住**（实测点 `设置` 被 mask 拦截、直接超时） |
+| 把本仓库装进那个 profile | ✅ `DSH_HOME=… dsh plugin --profile web add link:<repo>`，236 ms（本地 link，不走网络） |
+| 全新 profile 首次安装 | ⚠️ 自动拉了一整套 `profiles/node_modules`（CI 冷缓存下是**分钟级 + 大量网络**，需要 cache） |
+
+⇒ **技术可行，但成本集中在两处**：宿主引导流程（属于 DSH，会随版本变）+ 全新 profile 安装（时间 / 网络）。
+
+**四个方案（供评估）**：
+
+| 方案 | 内容 | 成本 | 风险 | 收益 |
+|---|---|---|---|---|
+| **A. 不接 CI** | 维持现状：脚本 + 样式级断言；发版前手动重出预览（`AGENTS.md` 有步骤） | 0 | 无 | 视觉改动靠**人**在发版前看一眼 + 样式断言兜底 |
+| **B. 只做启动级 e2e** | CI 里用一份**预置好的 DSH_HOME fixture**（已跳过引导）起宿主，断言行 / 风味 / 开关 | 中（要维护 fixture） | fixture 会随 DSH 版本过期 | 抓「插件没被加载 / 行没注册」这类真事故——**目前完全没覆盖** |
+| **C. B + 像素对比** | 再接 Playwright 截图 + pixelmatch + baseline 入库 | 高 | 阈值 / 字体 / 动画 → flaky；失败信息对维护者不友好 | 抓「预览被悄悄改坏」——但样式断言已覆盖大半 |
+| **D. 折中：B + 关键区域采样** | 启动级 e2e 里不只断言行为，还对**关键元素**取计算样式 / 小区域像素（如选中行背景、compat 面 outline） | 中 | 低（不做整图 diff） | 拿到大部分「视觉回归」价值，几乎无 flaky |
+
+**需要拍板的四件事**：
+1. 走 A / B / C / D 哪个？
+2. 若走 B/C/D：要不要把 `playwright` 加进 devDependencies（现在脚本依赖全局 `@playwright/cli`，CI 里没有），Chromium 用 `npx playwright install --with-deps chromium`？
+3. 引导流程怎么绕：提交一份预置 DSH_HOME fixture（要写清它含什么、怎么刷新），还是在 CI 里脚本化走一遍（脆弱）？
+4. CI 时长预算：当前约 25 s；加宿主启动 + 浏览器预计 **+1~3 min**（冷缓存更久），接受吗？
+
+**建议（可被推翻）**：**A，或 A+D 的后半**——不接整图 diff；若真想要启动级保障，按 D 的形态做（需先拿到稳定 fixture），否则就留在 A（手动 + 样式断言）。理由：本仓库已有的样式级断言已经很硬，整图像素对比的边际价值不高，而它的 flaky 与维护成本会在每次改 CSS 时持续收「税」。
+
+**原文（保留作背景）**：EE 想要「起一个最小 web 加载插件，断言 4 个主题已注册、玻璃开关可切换、update-check 返回 200」；FF 想要「Playwright screenshot + pixelmatch，diff > 阈值即 fail，baseline 存 git LFS」。baseline 体积实测：四张风味图 **166~182 KB / 张**（合计 ~0.7 MB，全目录含玻璃图共 ~2.4 MB）——**就体积而论 LFS 并非必要**。
 
 **GG. 缺贡献指南** — 优先级 **P3**
 - 现象：`AGENTS.md` 极好，但只面向 maintainer；外部贡献者想加风味不知如何下手。
@@ -523,7 +551,7 @@
 | S | dry-run | P3 | ✅ | `src/tui-themes.ts`（`dryRun` 返回 planned writes） | — |
 | T | 社区主题 | P3 | ✅ | `src/tui-themes.ts`（`catppuccin-community/` write-if-missing） | — |
 | Y | schema 迁移 | P2 | ✅ | `src/state.ts`（`migrate`）、`docs/state-migrations.md` | — |
-| EE | e2e 测试 | P2 | ✅ | `tests/e2e/update-check.e2e.spec.ts`（真 cordis + 真 HTTP + stub 服务） | — |
+| EE | e2e 测试 | P2 | ✅ **路由/宿主级已实施**（`tests/e2e/update-check.e2e.spec.ts`：真 cordis + 真 HTTP + stub registry，覆盖路由 200 / channel / 缓存 / ETag 304 / 错误码 / settings namespace）；**剩余「起宿主 + 浏览器」那半已于 2026-09-21 与 FF 合并为 `EE+FF`** —— 立项材料、可行性实测数据与四个方案见 §3.9 | `tests/e2e/update-check.e2e.spec.ts` | — |
 | L | palette 版本锁定 | P2 | ✅ | `scripts/generate-palettes.mjs`（`--pin <sha>` → `// UPSTREAM_PIN`） | — |
 | II | glass CSS lazy | P2 | ✅ | `scripts/gen-glass-css.mjs` + `glass-css.gen.ts` + `glass-layer.ts`（enable 才挂 `<style>`） | — |
 | KK | sourcemap 发布 | P3 | ✅ | `tsdown.config.ts`（`sourcemap: true`）、`package.json`（`"*.map"`） | — |
@@ -553,14 +581,14 @@
 | Z | aria-valuetext | P1 → P3 | ✅ 已实施（零文案版 `aria-valuetext={`${value}${unit}`}`，`glass-row.tsx`）；定性档位名仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
 | BB | 对比度警告 | P1 | ▲ 缓做：仅静态阈值版（glass 下半透明背景使实时对比度不可靠，误报风险 > 收益） | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
-| FF | 视觉回归 | P3 | ⏳ **部分实施**（更正 2026-09-21：此前整条标 ✅ 不准——修好的是脚本，CI 像素对比那半没做）。**✅ 脚本**：`node scripts/screenshot-previews.cjs <token>` 端到端跑通（4 风味 + hero + 恢复原偏好），四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的 PP 选中行填充），并修掉「截图时弹窗遮罩把整页压暗」（侧栏读成 `182,183,186` 而非 `239,241,245`）。三个真因：① `page.goto` 带不上 token → 401 空白页 → `openSettings` 90s 超时（这才是长期卡点）；② 行标题 `?` 徽标让 `getByText('Catppuccin 主题', {exact:true})` 恒为 0；③ 弹窗内「跟随系统」有两处（外观分段 + Catppuccin 行）。**⏳ 未做：把视觉回归接进 CI**（pixelmatch / `pnpm test:visual` / baseline 入库）——**需先决策**：依赖跑着的 `dsh web` + 浏览器（≈ 与 EE 的启动验证合并做）、baseline 是数 MB 二进制（LFS？）、阈值易 flaky。不做则按「发版前手动重出预览」归档（步骤在 `AGENTS.md`） | `scripts/screenshot-previews.cjs`、`assets/previews/` | — |
+| FF | 视觉回归 | P3 | ⏳ **部分实施 + 已合并**（2026-09-21 与 EE 并成 `EE+FF`，立项见 §3.9）。**✅ 脚本**：`scripts/screenshot-previews.cjs <token>` 端到端跑通（4 风味 + hero + 恢复原偏好），四风味预览已用 0.5.4 重出（每张含 2.6~3.1 万像素的 PP 选中行填充），并修掉「截图时弹窗遮罩压暗整页」（侧栏读成 `182,183,186` 而非 `239,241,245`）。三个真因：① `page.goto` 带不上 token → 401 空白页 → `openSettings` 90s 超时（这才是长期卡点）；② 行标题 `?` 徽标让 `getByText('Catppuccin 主题', {exact:true})` 恒为 0；③ 弹窗内「跟随系统」有两处。**未做**：把截图 diff 接进 CI（待决，见 §3.9） | `scripts/screenshot-previews.cjs`、`assets/previews/` | — |
 | VV | 暗色 success / warn tertiary 对比度（源自 CHANGELOG `[0.5.1]` 内联待办，此前无 ID） | P1 | ✅ 已实施（0.5.2）：900 步混向 `crust` 18%，实测 **4.96~8.30** ✅；`tests/palettes.spec.ts` 新增 `dark status tint readability (VV)` 两条断言 | `scripts/generate-palettes.mjs`、`tests/palettes.spec.ts` | — |
 | TT | 覆盖编辑器值输入逐键提交（清空值即删行） | P2 | ✅ 已实施（2026-09-15，方案 a）：值输入非受控 + `onBlur`，7 语言 hint 同步；取舍见正文 TT 条 | `src/client/CatppuccinRow.tsx`、`src/client/locales.ts`（`row.overridesHint`） | — |
 | UU | 测试类型检查链路断链（4 处既有类型错误） | P3 | ✅ 已实施（0.5.2）：4 处修复（未动生产签名）+ `pnpm typecheck:tests` + CI `Typecheck` 步（同时跑 src 与 tests 两套） | `tsconfig.vitest.json`、`tsconfig.json`、`vitest.config.ts`、`.github/workflows/publish.yml`、`tests/{client,reentrancy,versions}.spec.ts` | — |
 | WW | `docs/api/`（typedoc 产物，89 文件 / 959 KB）曾过期：缺 `overridesSnapshot` 等新导出。**重跑实测**：typedoc 的 `origin` remote 警告是虚警（链接正确、指向当前 commit 的 permalink）；76 文件差异只是链接里的 commit SHA 变了 | P3 | ✅ 已定案（2026-09-15）：选**候选 C / B-lite**——移出版本库（`git rm -r --cached` + `.gitignore`），`pnpm docs:api` 仍可本地按需生成；不开 Pages、不加 workflow（将来需要在线文档再补 B） | `typedoc.json`、`docs/api/`、`.gitignore`、`README.md`、`README.en.md` | — |
 | XX | 覆盖编辑器「+ 添加」的新行在键入值第一个字符后丢失焦点（草稿行→持久化行的转换时机） | P2 | ✅ 已实施（2026-09-18）：草稿行也改为非受控 + `onBlur` 提交，与持久化行对称。commitDraft 拆分为 commitDraftKey / commitDraftValue，输入框在打字期间保持稳定 | `src/client/CatppuccinRow.tsx`（`commitDraftKey` / `commitDraftValue`） | — |
 | YY | ja / ko / es / fr / de 字典未经母语复核（2026-09-15 改动过的键：`row.overridesHint`；此前 CC/DD/J 批量新增的文案同样未复核） | P3 | **待人工**（需母语者；不是流水线能解决的问题）。**2026-09-21 已完成可自动化的那部分**（结构 + 术语 + 长度审计）：键集/空值/占位符全通过（78/78）；「与 en 逐字相同」命中项均为合法同源词（非漏翻）；**实际只有 9 条长文案需要人读**（其余 51 条短标签，估 20~30 分钟/语言）；已修 ja/ko 的「磨砂」旋钮与预设用词分裂并补两条断言。清单与具体靶子见 `docs/locale-review.md` | `src/client/locales.ts`、`docs/locale-review.md` | — |
-| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读）；真页实测：**玻璃填充逐像素不变**（气泡隐藏内容后 0/19184），可见差异只是玻璃面上字形的重抗锯齿（侧栏 2.81% ≤16/255、气泡 15.17% ≤64/255）；面积账：mica 的可见模糊面积 460k px² → 236k px²（−49%），mica/compat 由 4.32× 降到 2.22×（剩下的最大 mica 独有面 = 顶栏 ~96k px²）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**有意未做**：顶栏自造重叠（负 margin）与新增持久化开关——等 issue #13 复测数字再定 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
+| ZZ | issue #13：玻璃 `backdrop-filter` 的「面积成本」——地面之上的 blur 是恒等变换 | P1 | ✅ 已实施（0.5.3）：删掉 **4 处纯浪费**的 `backdrop-filter`（侧栏 `::before` / 气泡（float + compat）/ 轨迹视图，背后均为**纯色地面** ⇒ 成本全在每帧一次 backdrop 回读）；真页实测：**玻璃填充逐像素不变**（气泡隐藏内容后 0/19184），可见差异只是玻璃面上字形的重抗锯齿（侧栏 2.81% ≤16/255、气泡 15.17% ≤64/255）；面积账：mica 的可见模糊面积 460k px² → 236k px²（−49%），mica/compat 由 4.32× 降到 2.22×（剩下的最大 mica 独有面 = 顶栏 ~96k px²）+ `tests/glass-css.spec.ts` 回归锁 + 7 语言与双语 README 的性能提示。**2026-09-21 收尾**：维护者判断 **issue #13 无需复测**，所以「批次 B」（退掉顶栏自造重叠 `-95px`）**不再排期**——那 ~96k px² 是刻意保留的视觉效果（买「内容从磨砂条下穿过」），不是待偿债务；issue 的另一半建议（新增持久化开关）维持驳回。若日后有用户报「大面积模糊吃 GPU」，从 `glass.module.css` 里那段注释的入口重开 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts`、`src/client/locales.ts`、`README.md`、`README.en.md` | — |
 | AAA | 插件市场卡片背景不透明（设置对话框内的插件卡片显示为不透明深色块，未应用玻璃态） | P1 | ✅ 已实施（2026-09-18）：在 `[data-dsh-glass-settings]` 的深色/浅色两条规则中补充 `--dsw-alias-bg-layer-1` 的玻璃态重写（使用 `soft` 档位，因 layer-1 低于 layer-2/layer-3）；根因 = 插件卡片用 layer-1 token，但规则只重写了 layer-2/layer-3/module-platform | `src/client/glass/glass.module.css` (:285/:303) | — |
 
 ### 2026-09-15 复核：issue #13（玻璃 blur 的 GPU 成本）
@@ -576,7 +604,9 @@
 - issue 建议 2（开关：高频内容区摘 blur、低频元素留）→ **部分做、不加开关**：实测方向与原文相反——气泡在两种模式下**都有** blur（issue 自己 compat <30% 里就含气泡），而 mica 多出来的是侧栏/顶栏；且气泡的 blur 本身就是恒等变换，已随批次免费删除。新增持久化开关要动 `state.ts` schema + 迁移 + 7 语言文案，**在拿到复测数字前不做**（YAGNI）。
 - issue 建议 3（blur 层静态化、只在静止时重算）→ **驳回**：CSS 层不存在该能力，Chromium 只要 `backdrop-filter ≠ none` 就提升图层并每帧回读，`will-change` / `contain` 无法绕开。最接近的等价物是「去掉顶栏那层自造重叠」，已作为复测不达标时的第二手（见 `glass.module.css` 内注释）。
 
-**验收**：`tests/glass-css.spec.ts` 锁两条不变量——地面之上的面不得有 blur、覆盖移动内容的面必须保留 blur（并核对「同一片像素不重复读」：composer 板内的卡片保持 `backdrop-filter:none`）。硬验收是 **issue #13 的复测**：预测 `mica` 明显下降且观感不变；若数字不动，说明「面积 × 帧率」模型不成立，改用退重叠方案。
+**验收**：`tests/glass-css.spec.ts` 锁两条不变量——地面之上的面不得有 blur、覆盖移动内容的面必须保留 blur（并核对「同一片像素不重复读」：composer 板内的卡片保持 `backdrop-filter:none`）。原定的硬验收是 **issue #13 的复测**（预测 `mica` 明显下降且观感不变；数字不动则说明「面积 × 帧率」模型不成立、改用退重叠方案）。
+
+**2026-09-21 更新（取消复测）**：维护者判断**不必复测**，因此上述硬验收**不再执行**；模型的可信度改由**本机两轮目标实测**支撑（隔离构图里内部平整区**逐像素相同**、真页气泡隐藏内容后 **0/19184**、面积账 −49%），不再依赖报告人硬件的读数。相应地「批次 B」（退顶栏自造重叠）也不再排期。
 
 #### 附：本机实测（2026-09-16）
 
@@ -636,7 +666,7 @@
 
 其余核对结果：`DEFAULT_GLASS` 在 `v0.4.3` 与 `v0.5.2` **逐字相同** ✓；`glass.module.css` 在这两个 tag 之间多了 54 行，但全是设置弹窗的**填充 token**（注释明写 "no backdrop-filter here"），**没有增删任何 `backdrop-filter`** ✓ ⇒ 「升级版本不改变本现象」成立。issue 那句「气泡本身即内容，用伪元素手法绕不开」**不需要绕**：气泡背后就是纯色地面，直接删掉即可（见 ②：填充 0 像素差）。
 
-⇒ 对本 issue 的意义：本轮删除把 mica/compat 的模糊面积比从 **4× 量级压到 1.5~2.2×**；剩下的最大 mica 独有面是**顶栏（~96k px²，占 mica 的 21%）**，而那正是「批次 B」要退掉的自造重叠（`margin-top:-95px`）。
+⇒ 对本 issue 的意义：本轮删除把 mica/compat 的模糊面积比从 **4× 量级压到 1.5~2.2×**；剩下的最大 mica 独有面是**顶栏（~96k px²，占 mica 的 21%）**，而那正是「批次 B」要退掉的自造重叠（`margin-top:-95px`）——**2026-09-21：复测取消，批次 B 不再排期**，这笔开销作为刻意保留的视觉效果留在树上（见 ZZ 行与本节验收段）。
 
 ##### 方法学（两轮踩到的，别再踩）
 
