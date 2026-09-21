@@ -44,7 +44,14 @@
 
 （`*` = 只出现在原生 `title` tooltip 里，不占布局）
 
-### 3.2 已修（2026-09-21，无需再管，但可复核判断对不对）
+### 3.2 已修（2026-09-21，两批，无需再管但可复核判断对不对）
+
+**第一批（死键 + 时间格式）**：
+
+- **删掉 6 个死键（键集 78 → 72）**：`glass.on` / `glass.off` 在 `eeb8096` 把总开关改成「磨砂轨道 + ✓」时失去了渲染点（那次删掉了 `{enabled ? t('glass.on') : t('glass.off')}`），词条留着并被后续的语言批次复制到 5 种语言；`flavor.latte/frappe/macchiato/mocha` 从未被引用（按钮渲染的是 palette 里的品牌专名）。共 6 键 × 7 语言 = 42 条。`tests/locales.spec.ts` 新增**死键守卫**（遍历 `src` 下除字典外的所有 ts/tsx；4 个模板拼接的 `flavor.<id>.subtitle` 走显式清单），已用变异测试验证会红。
+- **时间格式改跟 DSH 语言**：`UpdateRow.tsx` 的 `new Date(x).toLocaleString()` 不带参数 = 浏览器 locale；现改为注入 `activeLocale` + `subscribeLocale` 并用 `useSyncExternalStore` 订阅，切语言即时重排（`tests/rows.spec.tsx` 有 RTL 断言）。
+
+**第二批（术语一致性）**：
 
 **同语言内「frost / 磨砂」被拆成两个词**：`glass.frost`（磨砂**度**旋钮）与 `glass.presetFrosted`（磨砂**预设**）用词不一致——
 
@@ -97,4 +104,6 @@
 - **漏翻筛查**：列出「与 en 逐字相同」的值 —— 命中项全部是**合法同源词**（`Mica`、`Mode`、`Standard`、`Stable`、`Beta`、`Frost`），**没有漏翻**。
 - **术语分裂筛查**：同一概念在不同 key 上的用词（frost 旋钮 vs 预设 → ja/ko 各一处，已修）。
 - **长度膨胀筛查**：各语言值与 en 的字符数比。
-- 脚本在 `D:\Vibe-Coding\.cache\glass-blur-probes\locale-{audit,terms,quotes,keys,shape}.cjs`（**未入库**，本机探针目录）。
+- **死键筛查**：每个 key 是否在 `src` 里有字面引用（除字典本身）—— 抓到 6 个（已删）。
+- **格式化位置排查**：全仓找 `toLocale*` / `Intl.` —— 只有更新行的一处时间戳（已改为跟 DSH locale）。
+- 脚本在 `D:\Vibe-Coding\.cache\glass-blur-probes\locale-*.cjs`（**未入库**，本机探针目录）。
