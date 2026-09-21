@@ -6,7 +6,7 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.4] - 2026-09-21
 
 ### 修复
 
@@ -16,7 +16,7 @@
 
 - **插件市场对话框里的卡片不再是实色块（AAA，已随 `0.5.4-beta.0` 发布）**：设置 → 插件市场的插件卡片用 `--dsw-alias-bg-layer-1` 上色，而设置弹窗作用域的玻璃化重写**漏了这一档**（只重写了 `layer-2` / `layer-3` / `module-platform`），于是四五个设置页里只有插件卡片读起来像贴在玻璃上的实色板子。补上 `layer-1` 的半透明重写（用 `soft` 档，因 layer-1 低于 layer-2/3）。（EN: the plugin-market cards inside the settings dialog were left opaque because the settings-scope glass re-pointing covered layer-2/-3/module-platform but not layer-1）
 
-- **覆盖编辑器的新建行不再在键入第一个字符时丢焦点（XX，已随 `0.5.4-beta.0` 发布）**：草稿行按「先键名、再值」填，键名一旦是合法 `--` token，值的**第一个字符**就把草稿行转成持久化行（行被卸载、光标丢失），靠粘贴整串时无感。现在键名与值都改为非受控 + `onBlur` 提交（与已持久化行对称），打字期间输入框保持稳定。（EN: a new override row no longer loses focus on the first character typed into its value field — both draft fields now commit on blur, symmetric with the persisted rows）
+- **覆盖编辑器的新建行不再在键入第一个字符时丢焦点（XX）**：草稿行按「先键名、再值」填，键名一旦是合法 `--` token，值的**第一个字符**就把草稿行转成持久化行（行被卸载、光标丢失），靠粘贴整串时无感。现在键名与值都改为非受控 + `onBlur` 提交（与已持久化行对称），打字期间输入框保持稳定。（EN: a new override row no longer loses focus on the first character typed into its value field — both draft fields now commit on blur, symmetric with the persisted rows）
 
 ### 其他
 
@@ -268,7 +268,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.0...v0.5.1

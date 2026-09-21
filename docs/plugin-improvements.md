@@ -96,7 +96,7 @@
 - 优化方向：在 row 底部加一块 240×60 的"玻璃样本"预览区，按当前 knobs 渲染一个小卡片，复用 `glass-layer.ts` 的样式 token。
 - 实施方法：抽 `<GlassSwatch>` 组件，复用 `glass.module.css`，挂同样的 `data-dsh-glass` 属性。
 - 预期效果：preset 选择无需"先看大效果再退回"。
-- **复核结论（2026-09-18，待维护者确认）：建议不推进**——前置已被 0.5.1 的设置弹窗玻璃化工作取代：**这一行本来就坐在一个实时玻璃面板里**，`--dsh-glass-blur` / `--dsh-glass-frost` 挂在 `documentElement`（`glass-layer.ts:375-378`），拖 blur / frost 时弹窗自身跟着变，`[data-dsh-glass-settings]` 的卡片/选择器也都是半透明的。再加一块 240×60 swatch 是重复能力，而 brightness（改的是页面地面）与 mode（改的是布局）本来就无法在一张 swatch 里表达。⇒ 若确认不做，按「前提被取代」归档；若仍要，请先说清“弹窗里的实时玻璃预览哪里不够用”。
+- **复核结论（2026-09-21）：❌ 不推进（前提已被取代）**——0.5.1 的设置弹窗玻璃化之后，**这一行本来就坐在一个实时玻璃面板里**：`--dsh-glass-blur` / `--dsh-glass-frost` 挂在 `documentElement`（`glass-layer.ts:375-378`），拖 blur / frost 时弹窗自身跟着变，`[data-dsh-glass-settings]` 下的卡片与选择器也都是半透明的。再加一块 240×60 swatch 是重复能力；而 brightness（改的是页面地面）与 mode（改的是布局）本来就无法在一张 swatch 里表达。⇒ 与 `D`（插件适配 DSH，不改变 DSH）同一思路：不自己造一套预览。**重开条件**：若维护者或用户指出「设置弹窗里的实时玻璃预览哪里不够用」（例如想在不改动页面 / 不写设置的前提下比较两套参数），按那个具体场景重开。
 
 **SS. `GlassRow` 缺预设档位** — 优先级 **P1**（✅ **已实施（ca979ba），本条可关闭**）
 - **现状修正（2026-09-15）**：`src/client/glass/glass-row.tsx:152-159` 的 `GLASS_PRESETS` 已提供**清透 / 标准 / 磨砂**三档（id `clear` / `standard` / `frosted`），:241-247 渲染为单选，且「当前旋钮值恰好等于某档时该档高亮」（:178-179）；README「使用」已记载。**重做即白干。**（注：同日的审计块曾误把它列进视觉批次，已更正——见六、复核节。）
@@ -495,7 +495,7 @@
 
 - **前置条件已真正解除**（本节前后改了两次：先是误标「已解除」，后又标「尚未满足」——现在有实测）：`screenshot-previews.cjs` 已**端到端跑通**（2026-09-18 实测：4 风味 + hero 图 + 成功恢复原偏好，日志 `DONE`）。真因和 `pickFlavor` 无关：**① `page.goto` 没带 token → 401 空白页 → `openSettings` 等 90s 超时；② 行标题自 J 项加 `?` 帮助徽标后 `getByText(..., {exact:true})` 恒为 0；③ 「跟随系统」在弹窗里有两处（外观分段 + Catppuccin 行）**。任何视觉改动现在都能先出 baseline。
 - **已实施（3 项）**：`PP` ✅（选中行真底色，四风味实测对比度 5.89 / 8.29 / 10.07 / 11.38）、`OO` ✅（compat 浮动家族补填充 + outline rim，`panel` 有意不填——嵌套会叠出内框）、`FF` ✅（脚本修好并跑通）。另 `P` / `QQ` 两条 ❌ 不推进（见正文）。
-- **仍在本批次（4 项）**：`F` / `Q` / `NN` / `RR`；`G` 见正文复核结论（**建议不推进，待确认**）。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」，可无限期推后。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
+- **仍在本批次（3 项）**：`F` / `Q` / `NN`（`RR` 可无限期推后；`G` 已判 ❌ 不推进，见正文复核结论）。其中 `RR` 在 K（token 覆盖）已实施之后只是「可视化外壳」。（`SS` 原列在本批次，2026-09-15 复核发现**已实施**（`ca979ba`）已移出——见正文 SS 条。）
 
 **驳回 / 关闭（不要再排期）** —— `LL` ✅ 已在树中（重做即白干）、`SS` ✅ 已在树中（`ca979ba` 三档预设，重做即白干）、`MM` ❌ 伪需求（无「官方取值在 DSH 下不成立」的证据，属审美偏好；brand pin 已锁契约，要更亮的蓝走 K）、`B` ❌ YAGNI、**`QQ` ❌ 不推进**（2026-09-18：issue #9 已对外关闭并推介社区皮肤插件；且背景层会让 ZZ 的性能修复归零、`glass-css.spec.ts` 的前提失效——属架构级反悔）、**`P` ❌ 不推进**（2026-09-18：原诉求拆两半都不成立——「强制不透明」已由总开关 / 兼容模式提供，「文字加深」是缺证据的 palette 偏离）、`BB` ▲ 仅保留静态版、`D` ❌ 不推进（插件适配 DSH，不改变 DSH）。
 
@@ -536,7 +536,7 @@
 | JJ | 主题 lazy-register | P3 | ✅ | `src/client/index.ts`（只注册当前风味，选中时按需注册） | — |
 | AA | 键盘导航 | P2 | ✅ | `src/client/glass/glass-row.tsx`（segmented roving tabindex + 方向键/Home/End） | — |
 | F | 主题预览缩略图 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
-| G | glass 预览 | P1 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass-row.tsx` | — |
+| G | glass 预览 | P1 → ❌ | ❌ 不推进（2026-09-21，见正文 G 条复核结论）：前提已被 0.5.1 的设置弹窗玻璃化取代——行本身就坐在实时玻璃面板里（`glass-layer.ts:375-378` 的 `--dsh-glass-blur` / `--dsh-glass-frost` 挂在 documentElement，拖 knob 时弹窗跟着变），再加 swatch 是重复能力；brightness（改页面地面）与 mode（改布局）也无法在单张 swatch 里表达。重开条件：有人指出弹窗实时预览不够用的具体场景 | `src/client/glass/glass-row.tsx` | — |
 | SS | glass 预设档位 | P1 | ✅ 已实施（`ca979ba`：清透 / 标准 / 磨砂三档，`glass-row.tsx:152-159`）——勿重做 | `src/client/glass/glass-row.tsx` | — |
 | Q | layout preview | P3 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass-row.tsx` | — |
 | NN | hero 空状态品牌化 | P2 | 待启动（视觉，前置：截图流水线） | `src/client/glass/glass.module.css` | — |
