@@ -5,16 +5,17 @@
  * Until now the client rows were covered by pure-logic tests plus screenshot
  * review, so interaction-level defects had no guard: item TT (per-keystroke
  * commits unmounting the row you are typing into) was found by reading code,
- * and XX is still open. Both rows take every dependency as a prop (no module
+ * and XX is still open. Every row takes its dependencies as props (no module
  * globals), so a fake injected face is enough to render them.
  *
  * `cleanup` is explicit because this repo runs vitest without `globals`, so
  * Testing Library cannot register its own afterEach hook.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CatppuccinRow, type CatppuccinRowProps } from '../src/client/CatppuccinRow.tsx'
 import { GlassRow, type GlassRowProps } from '../src/client/glass/glass-row.tsx'
+import { UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
 import { zh, type CatppuccinKey } from '../src/client/locales.ts'
 import type { ShikiStyle } from '../src/state.ts'
 
@@ -113,6 +114,65 @@ describe('CatppuccinRow override editor', () => {
     fireEvent.change(screen.getByLabelText(t('row.overridesKey')), { target: { value: 'nope' } })
     fireEvent.blur(screen.getByLabelText(t('row.overridesKey')))
     expect(setOverrides.mock.calls[1][0]).toEqual({})
+  })
+})
+
+describe('UpdateRow timestamp formatting', () => {
+  /** Fake face whose subscribed locale listener actually re-renders the row. */
+  function makeUpdateRow(initialLocale: string) {
+    let locale = initialLocale
+    const localeListeners = new Set<() => void>()
+    const payload = {
+      ok: true,
+      current: '0.5.4',
+      latest: '0.5.5',
+      checkedAt: Date.UTC(2026, 8, 21, 12, 0, 0),
+      channel: 'latest',
+    }
+    const props = {
+      t,
+      check: async () => payload,
+      autoCheck: () => false,
+      setAutoCheck: vi.fn(),
+      channel: () => 'latest',
+      setChannel: vi.fn(),
+      subscribePrefs: () => () => {},
+      lastAutoResult: () => null,
+      subscribeConflict: () => () => {},
+      conflictCount: () => 0,
+      activeLocale: () => locale,
+      subscribeLocale: (listener: () => void) => {
+        localeListeners.add(listener)
+        return () => { localeListeners.delete(listener) }
+      },
+    } as unknown as UpdateRowProps
+    return {
+      props,
+      switchLocale: (next: string): void => {
+        locale = next
+        act(() => { for (const listener of localeListeners) listener() })
+      },
+    }
+  }
+
+  it('formats the check time with the active DSH locale, never the browser default (2026-09-21)', async () => {
+    // `toLocaleString()` with no argument uses the JS runtime locale (= browser),
+    // which is exactly the drift this guards: the interface language is DSH's own.
+    const spy = vi.spyOn(Date.prototype, 'toLocaleString')
+    try {
+      const { props, switchLocale } = makeUpdateRow('ja')
+      render(<UpdateRow {...props} />)
+      fireEvent.click(screen.getByRole('button', { name: t('update.check') }))
+      await waitFor(() => { expect(spy.mock.calls.some((call) => call[0] === 'ja')).toBe(true) })
+      expect(spy.mock.calls.filter((call) => call.length === 0), 'called without a locale').toEqual([])
+
+      // A language switch must re-format the timestamp, not wait for a reload.
+      spy.mockClear()
+      switchLocale('en')
+      await waitFor(() => { expect(spy.mock.calls.some((call) => call[0] === 'en')).toBe(true) })
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 

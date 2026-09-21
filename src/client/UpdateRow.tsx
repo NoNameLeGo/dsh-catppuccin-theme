@@ -48,6 +48,12 @@ export interface UpdateRowInjected {
   subscribeConflict: (listener: () => void) => () => void
   /** Number of conflicts this session has seen (item C/X). */
   conflictCount: () => number
+  /** The active DSH locale id — for locale-aware formatting (timestamps).
+   *  `toLocaleString()` with no argument uses the BROWSER locale, which drifts
+   *  from the interface language as soon as the user picks one in Settings. */
+  activeLocale: () => string
+  /** Subscribe to locale switches, so a language change re-formats the row. */
+  subscribeLocale: (listener: () => void) => () => void
 }
 
 /** Full component props: runtime share + locale seat + injected face. */
@@ -139,6 +145,8 @@ export function UpdateRow({
   lastAutoResult,
   subscribeConflict,
   conflictCount,
+  activeLocale,
+  subscribeLocale,
 }: UpdateRowProps): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>('idle')
   const [payload, setPayload] = useState<UpdateCheckPayload | null>(null)
@@ -146,6 +154,9 @@ export function UpdateRow({
   const autoCheckOn = useSyncExternalStore(subscribePrefs, autoCheck)
   const channelValue = useSyncExternalStore(subscribePrefs, channel)
   const conflicts = useSyncExternalStore(subscribeConflict, conflictCount)
+  // The timestamp follows the DSH locale, not the browser: the two only agree
+  // until the user picks a language in Settings (2026-09-21 audit).
+  const locale = useSyncExternalStore(subscribeLocale, activeLocale)
   const [dismissedConflicts, setDismissedConflicts] = useState(0)
   // Item V: ONE automatic retry after a failure, 30s later ("仍失败则停").
   const [retryRemaining, setRetryRemaining] = useState<number | null>(null)
@@ -343,7 +354,7 @@ export function UpdateRow({
           )}
           {payload?.ok === true && payload.checkedAt !== undefined && (
             <span style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, lineHeight: '18px' }}>
-              {t('update.checkedAt')} {new Date(payload.checkedAt).toLocaleString()}
+              {t('update.checkedAt')} {new Date(payload.checkedAt).toLocaleString(locale)}
             </span>
           )}
         </div>

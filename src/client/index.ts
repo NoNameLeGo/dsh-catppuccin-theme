@@ -756,6 +756,10 @@ export function apply(ctx: ClientContext): void {
       return () => { conflictListeners.delete(listener) }
     },
     conflictCount: () => conflictCount,
+    // Timestamps must follow the interface language, not the browser locale
+    // (`toLocaleString()` with no argument silently uses the latter).
+    activeLocale: () => ctx.locale.getLocale().active,
+    subscribeLocale: (listener: () => void) => ctx.locale.subscribe(listener),
   })
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
