@@ -315,7 +315,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6-beta.0...HEAD
+[0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
 [0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.2...v0.5.3

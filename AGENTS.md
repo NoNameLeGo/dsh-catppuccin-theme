@@ -61,7 +61,7 @@
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：当前 `0.5.5`（2026-09-21 发布：YY 语言字典收尾（ja/ko 术语一致、删 6 个死键、时间戳跟 DSH 语言）+ 预览图脚本 + 启动级 e2e CI job；`latest` = `0.5.5`，`beta` 停在 `0.5.4-beta.0`）。下次按常规 semver 判断：**修复走 `0.5.x`，新特性走 `0.6.0`**；预发布仍用 `-beta.n` 后缀。发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
+> ⚠️ **发版版本号**：`latest` = **`0.5.5`**（2026-09-21），`beta` = **`0.5.6-beta.0`**（2026-09-22 发布：审计 F1~F9 的修复——跨窗口旋钮同步、读侧陈旧写保护补真、预设组键盘可达、跨窗口关闭风味落地、草稿行 key、重试通道、override 垃圾键收敛等；+15 条断言 / 173 用例，F1/F2/F3/F5/F6 经变异验证会红）。**这批修复已在两个本地 profile 装上验证过：`web` 与 `desktop` 均为 `0.5.6-beta.0`**（desktop 用 `~/.dsh/profiles/node_modules/pnpm` 的 11.8.0 装，pnpm 会自动把该版本加进 `minimumReleaseAgeExclude`）。下次按常规 semver 判断：**修复走 `0.5.x`，新特性走 `0.6.0`**；预发布仍用 `-beta.n` 后缀。发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
 
 ### 1. 升版本 + 本地验证
 1. 编辑 `package.json` 的 `version`（连同本次要发布的代码改动）
