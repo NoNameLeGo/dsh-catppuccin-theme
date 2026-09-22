@@ -10,6 +10,9 @@
 
 > 本节全部来自 2026-09-22 的全量代码审计（`docs/code-audit-2026-09-22.md`）：9 条缺陷 F1~F9 同日修完，
 > 新增 15 条断言（173 用例全绿），其中 F1/F2/F3/F5/F6 逐条用变异测试验证过「改回旧写法即变红」。
+>
+> 本批已随 **`0.5.6-beta.0`** 发到 npm 的 `beta` 渠道（`dsh plugin --profile <name> add @nonamelego/dsh-catppuccin@beta`）；
+> `latest` 仍是 `0.5.5`。正式版发布时本节整节成为 `## [0.5.6]`。
 
 ### 修复
 
