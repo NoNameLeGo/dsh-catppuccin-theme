@@ -51,6 +51,7 @@ jobs:
   # 为什么单独一个 job：它要装宿主、下载 Chromium（~150 MB），不该让每次 typecheck/test 都付这笔钱；
   # 宿主与浏览器都放全局，仓库的 devDependencies 不为「能跑一次 e2e」而变重。
   # `dsh` 刻意钉版本：它换版本就可能换掉首次运行引导的步骤，而那是本检查的前置。
+  # 钉的是**两层**：`dsh` 的版本 + 下面 `npm i` 的 `--before` 树冻结（理由见那一步的注释）。
   boot-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -70,9 +71,17 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # `--before` 把整棵依赖树冻结到宿主钉的版本所处的时代。不加它时 npm 会把
+      # `^0.1.5-rc.1` 这类子依赖解析到**当时最新**的 rc —— 2026-09-22 上游把 `next`
+      # 推到 `0.1.5-rc.3` 时漏发了 `@deepseek-ai/dsh-client-ui-sidebar-documentpreview`
+      # （该包只到 rc.2），树因此残缺：同一步先表现为 npm 解析循环 9.5 分钟后
+      # `JavaScript heap out of memory`（run 35691580473），重跑则直接
+      # `ETARGET … sidebar-documentpreview@^0.1.5-rc.3`（run 35693097971 重跑）。
+      # 冻结到 2026-09-21（rc.3 发布前、当时 boot-e2e 全绿）后，这一步只取决于
+      # 上游那段已发布且自洽的版本区间，与「上游正在发版」解耦。
       - name: Install dsh + Playwright
         run: |
-          npm i -g @deepseek-ai/dsh@0.1.5-rc.1 playwright
+          npm i -g @deepseek-ai/dsh@0.1.5-rc.1 playwright --before=2026-09-21T00:00:00Z --no-fund --no-audit
           echo "DSH_BIN=$(npm root -g)/@deepseek-ai/dsh/lib/bin.js" >> "$GITHUB_ENV"
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
 
