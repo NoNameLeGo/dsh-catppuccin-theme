@@ -57,6 +57,7 @@ import {
   DEFAULT_AUTO_CHECK,
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
+  hasUnpersistableOverrides,
   isDefaultState,
   sanitizeOverrides,
   settingsSectionFromState,
@@ -71,6 +72,7 @@ import {
 import {
   bindCatppuccinScope,
   cancelDurablePersist,
+  createBaseRevisionTracker,
   durableStateFromSnapshot,
   isScopeUsable,
   persistStateToScope,
@@ -139,6 +141,22 @@ export function readFlavor(): FlavorChoice {
       : 'off'
   } catch {
     return 'off'
+  }
+}
+
+/** Whether localStorage carries an EXPLICIT `off` flavour choice.
+ *
+ * `readFlavor()` maps both "no value" and "off" to `off`, and the two are not
+ * the same thing: DSH Desktop boots the GUI on a fresh random loopback port, so
+ * its localStorage starts empty on every launch and the settings document —
+ * which may legitimately hold a flavour — is what should win. Only a literal
+ * `off` in storage proves the user (or another window) actually turned the
+ * flavour off, which is the case the cross-tab restore must act on (audit F4). */
+export function readExplicitFlavorOff(): boolean {
+  try {
+    return localStorage.getItem(FLAVOR_STORAGE_KEY) === 'off'
+  } catch {
+    return false
   }
 }
 
@@ -429,11 +447,23 @@ export function apply(ctx: ClientContext): void {
   // re-adopted + surfaced in the update row.
   let lastWrittenSection: CatppuccinSettingsSection | undefined
   let handleStaleConflict: (() => void) | undefined
+  // The revision the pending write is based on, captured when the change is
+  // SCHEDULED (audit F2): reading it at flush time made the read-side staleness
+  // guard compare a revision with itself — both reads sit in one synchronous
+  // block — so `'stale'` was unreachable and an external edit inside the
+  // debounce window was silently overwritten. One capture per burst.
+  const baseRevisionTracker = createBaseRevisionTracker()
+  const queuePersist = (): void => {
+    baseRevisionTracker.capture(() => scope.getSnapshot().revision)
+    scheduleDurablePersist(persistLocal)
+  }
   const persistLocal = (): void => {
+    // Consume the base first: a bail-out (unusable scope) must not leave it
+    // behind for the next burst.
+    const baseRevision = baseRevisionTracker.take()
     const snapshot = scope.getSnapshot()
     if (!isScopeUsable(snapshot)) return
     const state = buildLocalState()
-    const baseRevision = snapshot.revision
     void persistStateToScope(scope, state, { baseRevision, lastWrittenSection }).then((outcome) => {
       if (outcome === 'written') {
         lastWrittenSection = settingsSectionFromState(state)
@@ -496,7 +526,11 @@ export function apply(ctx: ClientContext): void {
     // presenter sees. A single in-flight restore coalesces repeated
     // observations (boot, adopt() reloads, storage echoes).
     let restorePending = false
-    const scheduleRestore = (desired: FlavorChoice): void => {
+    // `desired` is widened to string on purpose: the SAME deferred path also
+    // carries the built-in restore (audit F4) — when the persisted choice went
+    // 'off' somewhere else, the theme to apply is a built-in preference
+    // (`system`/`light`/`dark`), not a flavour id.
+    const scheduleRestore = (desired: string): void => {
       if (restorePending) return
       restorePending = true
       queueMicrotask(() => {
@@ -522,7 +556,22 @@ export function apply(ctx: ClientContext): void {
       // 'off' below can hand the user back exactly what they had.
       rememberBuiltinPreference(theme.getTheme().preference)
       const desired = readFlavor()
-      if (desired === 'off') return
+      if (desired === 'off') {
+        // The persisted choice is off — but this session may still be rendering
+        // a Catppuccin flavour (another window or the settings document turned
+        // it off). Hand the user back their built-in preference, exactly like
+        // the row's own `select('off')` path. Gated on an EXPLICIT 'off' in
+        // localStorage (audit F4): Desktop boots on an empty storage (fresh
+        // random port), where the absence of a value is NOT a choice and the
+        // settings document — which may legitimately restore a flavour — is
+        // authoritative. Without that gate we would fight the document at every
+        // Desktop boot.
+        const preference = theme.getTheme().preference
+        if (readExplicitFlavorOff() && flavorFromThemeId(preference) !== 'off') {
+          scheduleRestore(readRestoredPreference())
+        }
+        return
+      }
       const preference = theme.getTheme().preference
       if (preference === desired) return
       // A built-in preference only wins if the user explicitly picked it in
@@ -545,13 +594,23 @@ export function apply(ctx: ClientContext): void {
         } catch {
           /* unknown persisted value — keep the current theme */
         }
+        return
+      }
+      // Another window turned the flavour off (audit F4): this tab must land on
+      // the built-in preference too, or it keeps rendering Catppuccin while the
+      // persisted choice — and the settings row of the other window — say off.
+      if (flavorFromThemeId(theme.getTheme().preference) === 'off') return
+      try {
+        theme.setTheme(readRestoredPreference())
+      } catch {
+        /* keep the current theme rather than dropping the user into nothing */
       }
     }
     window.addEventListener('storage', onStorage)
 
     // Any glass change (enable flag or knob) coalesces into one durable write.
     const offGlass = glass.subscribe(() => {
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
     })
 
     // Hydrate the durable source of truth without blocking paint. The scope
@@ -575,8 +634,16 @@ export function apply(ctx: ClientContext): void {
         // choice is newer than the shipped defaults the document resolves
         // to, so push it into the document (the upgrade path for a
         // localStorage-only session predating the settings migration).
-        if (!isDefaultState(local)) scheduleDurablePersist(persistLocal)
+        if (!isDefaultState(local)) queuePersist()
         return
+      }
+      // A document holding unpersistable override entries (a hand-edited key
+      // that is not a `--` token) can never compare equal to the sanitized
+      // local shape, so every publish would re-run this adoption forever.
+      // Adopt, then push the cleaned map back once so the document converges
+      // (audit F7).
+      if (hasUnpersistableOverrides((snapshot.value as { overrides?: unknown } | undefined)?.overrides)) {
+        queuePersist()
       }
       // A document the user wrote wins over the local cache, but echoes of
       // our own committed writes are skipped (they equal the local state).
@@ -661,7 +728,7 @@ export function apply(ctx: ClientContext): void {
         // previous flavour.
         writeFlavor('off')
         theme.setTheme(readRestoredPreference())
-        scheduleDurablePersist(persistLocal)
+        queuePersist()
         return
       }
       const flavor = flavorInfo(choice)
@@ -672,21 +739,21 @@ export function apply(ctx: ClientContext): void {
       writeFlavor(flavor.themeId)
       ensureThemeRegistered(flavor.themeId)
       theme.setTheme(flavor.themeId)
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
     },
     overrides: overridesSnapshot,
     setOverrides: (overrides: Record<string, string>) => {
       writeOverrides(overrides)
       emitPrefs()
       reapplyThemePrefs()
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
     },
     shikiStyle: () => readShikiStyle(),
     setShikiStyle: (style: ShikiStyle) => {
       writeShikiStyle(style)
       emitPrefs()
       reapplyThemePrefs()
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
     },
     subscribePrefs: (listener: () => void) => {
       prefsListeners.add(listener)
@@ -737,14 +804,14 @@ export function apply(ctx: ClientContext): void {
     setAutoCheck: (value: boolean) => {
       writeAutoCheck(value)
       emitPrefs()
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
       armAutoCheck?.() // re-arm the boot/periodic timers on toggle
     },
     channel: () => readUpdateChannel(),
     setChannel: (channel: UpdateChannel) => {
       writeUpdateChannel(channel)
       emitPrefs()
-      scheduleDurablePersist(persistLocal)
+      queuePersist()
     },
     subscribePrefs: (listener: () => void) => {
       prefsListeners.add(listener)

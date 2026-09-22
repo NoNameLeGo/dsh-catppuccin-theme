@@ -17,8 +17,10 @@ import {
   STATE_VERSION,
   defaultSettingsSection,
   defaultState,
+  hasUnpersistableOverrides,
   isDefaultState,
   migrate,
+  sanitizeOverrides,
   sanitizeState,
   settingsSectionFromState,
   settingsSectionsEqual,
@@ -233,5 +235,28 @@ describe('settings-document section helpers (0.5.0)', () => {
       { ...base, overrides: { '--a': '1', '--b': '2' } },
       { ...base, overrides: { '--b': '2', '--a': '1' } },
     )).toBe(true)
+  })
+})
+
+describe('hasUnpersistableOverrides (audit F7)', () => {
+  // The settings schema types the map as a dict of strings, so a hand-edited
+  // document can hold keys `sanitizeOverrides` drops. The client reads them
+  // away but never wrote the cleaned map back, so every publish re-ran the
+  // "document wins" adoption for a difference nothing could clear.
+  it('flags anything sanitizeOverrides would drop', () => {
+    expect(hasUnpersistableOverrides(undefined)).toBe(false)
+    expect(hasUnpersistableOverrides({})).toBe(false)
+    expect(hasUnpersistableOverrides({ '--dsw-static-blue-500': '#89b4fa' })).toBe(false)
+    expect(hasUnpersistableOverrides({ 'dsw-static-blue-500': '#89b4fa' })).toBe(true)
+    expect(hasUnpersistableOverrides({ '--dsw-static-blue-500': 42 })).toBe(true)
+    expect(hasUnpersistableOverrides({ '--ok': '1', nope: '2' })).toBe(true)
+  })
+
+  it('is consistent with what sanitizeOverrides keeps', () => {
+    const mixed = { '--keep': '#fff', drop: '#000' }
+    expect(hasUnpersistableOverrides(mixed)).toBe(true)
+    expect(sanitizeOverrides(mixed)).toEqual({ '--keep': '#fff' })
+    const clean = sanitizeOverrides(mixed)
+    expect(hasUnpersistableOverrides(clean)).toBe(false)
   })
 })

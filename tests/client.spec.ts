@@ -14,6 +14,7 @@ import {
   flavorFromThemeId,
   flavorInfo,
   overridesSnapshot,
+  readExplicitFlavorOff,
   readFlavor,
   readOverrides,
   readRestoredPreference,
@@ -23,6 +24,7 @@ import {
 } from '../src/client/index.ts'
 import {
   cancelDurablePersist,
+  createBaseRevisionTracker,
   durableStateFromSnapshot,
   isScopeUsable,
   persistStateToScope,
@@ -275,6 +277,57 @@ describe('persistStateToScope', () => {
       mutate() { return Promise.resolve() },
     } as unknown as SettingsScope<CatppuccinSettingsSection>
     expect(await persistStateToScope(flaky, defaultState())).toBe('error')
+  })
+})
+
+describe('createBaseRevisionTracker (audit F2)', () => {
+  it('keeps the FIRST revision of a burst and clears it on take', () => {
+    const tracker = createBaseRevisionTracker()
+    let revision = 3
+    tracker.capture(() => revision)
+    revision = 4 // the document moved on while the burst was still open
+    tracker.capture(() => revision)
+    expect(tracker.take()).toBe(3)
+    expect(tracker.take()).toBeUndefined() // consumed — the next burst starts fresh
+  })
+
+  it('captures nothing when the scope has no revision yet', () => {
+    const tracker = createBaseRevisionTracker()
+    tracker.capture(() => undefined)
+    tracker.capture(() => 5) // still unset → this one lands
+    expect(tracker.take()).toBe(5)
+  })
+
+  it('turns an external edit inside the debounce window into a conflict, not an overwrite', async () => {
+    // Timeline: we scheduled at revision 3, tab B committed a newer document
+    // (revision 4) before the debounce elapsed. With the base captured at
+    // SCHEDULE time the flush is abandoned as stale.
+    const remote = settingsSectionFromState({ ...defaultState(), flavor: 'catppuccin-latte' as never })
+    const { scope, mutations } = scopeDouble({ snapshot: { ...hostSnapshot(remote), revision: 4 } })
+    const tracker = createBaseRevisionTracker()
+    let revision = 3
+    tracker.capture(() => revision) // ← schedule time
+    revision = 4 // ← tab B's write lands during the debounce
+
+    const state = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
+    expect(await persistStateToScope(scope, state, { baseRevision: tracker.take() })).toBe('stale')
+    expect(mutations).toHaveLength(0)
+
+    // Counter-factual (the old behaviour): a base sampled at FLUSH time is 4 —
+    // identical to the guard's own read — so the stale write lands silently.
+    const blind = scopeDouble({ snapshot: { ...hostSnapshot(remote), revision: 4 } })
+    expect(await persistStateToScope(blind.scope, state, { baseRevision: 4 })).toBe('written')
+    expect(blind.mutations).toHaveLength(1)
+  })
+})
+
+describe('readExplicitFlavorOff (audit F4)', () => {
+  it('is true only for a literal off — an absent value is not a choice', () => {
+    expect(readExplicitFlavorOff()).toBe(false)
+    writeFlavor('catppuccin-mocha')
+    expect(readExplicitFlavorOff()).toBe(false)
+    writeFlavor('off')
+    expect(readExplicitFlavorOff()).toBe(true)
   })
 })
 

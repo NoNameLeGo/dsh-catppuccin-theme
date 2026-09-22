@@ -170,3 +170,42 @@ export function cancelDurablePersist(): void {
   pendingTimer = undefined
   pendingWrite = undefined
 }
+
+/**
+ * Capture-once holder for the revision a debounced write is based on (audit
+ * F2, 2026-09-22).
+ *
+ * The read-side guard in {@link persistStateToScope} only means anything if
+ * `baseRevision` is the revision the LOCAL state was derived from — i.e.
+ * sampled when the change was SCHEDULED. Reading it inside the flush instead
+ * made the comparison a tautology: the flush and the guard's own
+ * `scope.getSnapshot()` run in the same synchronous block, so the two
+ * revisions are always equal and `'stale'` is unreachable. The effect was a
+ * silently lost read-side protection: with two windows open, an external edit
+ * landing inside the 300 ms debounce window was overwritten by the stale local
+ * state and the conflict banner never appeared.
+ *
+ * `capture` keeps the FIRST revision of a burst (`??=`, not assignment): a
+ * slider drag emits several changes, and the local state each of them is based
+ * on is still the one that was current when the burst started. `take` clears
+ * the slot as it reads, so the next burst starts fresh — including when the
+ * flush bails out (unusable scope), where the value must not leak forward.
+ */
+export function createBaseRevisionTracker(): {
+  /** Sample the base revision once per burst (later calls in the same burst are no-ops). */
+  capture: (read: () => number | undefined) => void
+  /** Consume the captured revision (undefined when the burst never captured one). */
+  take: () => number | undefined
+} {
+  let pending: number | undefined
+  return {
+    capture(read) {
+      if (pending === undefined) pending = read()
+    },
+    take() {
+      const value = pending
+      pending = undefined
+      return value
+    },
+  }
+}

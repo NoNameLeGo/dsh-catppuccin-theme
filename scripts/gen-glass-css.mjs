@@ -32,8 +32,12 @@ try {
   const { transform } = await import('lightningcss')
   const { code } = transform({ filename: SOURCE, code: sourceBuffer, minify: true })
   cssText = code.toString()
-} catch {
-  /* devDependency-less environment: ship the source text verbatim */
+} catch (error) {
+  // Loud on purpose (audit F9): the fallback ships the stylesheet UNMINIFIED and
+  // unprocessed, so the emitted artifact silently differs from every other
+  // build. Today that only costs bytes, but any future transform here would
+  // degrade invisibly.
+  console.warn(`[gen-glass-css] lightningcss unavailable — shipping the raw stylesheet: ${String(error)}`)
 }
 
 const lines = [

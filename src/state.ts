@@ -144,6 +144,22 @@ export function sanitizeOverrides(input: unknown): Record<string, string> {
   return out
 }
 
+/**
+ * Whether a raw overrides map carries entries {@link sanitizeOverrides} would
+ * drop — a key that is not a `--` token, or a non-string value.
+ *
+ * The settings-document schema types `overrides` as a dict of strings only, so
+ * a hand-edited document can hold such entries. The client reads them away but
+ * never wrote the cleaned map back, so every settings publish re-ran the
+ * "document wins" adoption for a difference nothing could clear (audit F7).
+ * The caller uses this to push the sanitized shape back once, so the document
+ * converges instead of drifting forever.
+ */
+export function hasUnpersistableOverrides(raw: unknown): boolean {
+  if (typeof raw !== 'object' || raw === null) return false
+  return Object.entries(raw).some(([key, value]) => typeof value !== 'string' || !key.startsWith('--'))
+}
+
 /** Clamp a finite number into [min, max]; non-finite values fall back. */
 function clampFinite(value: unknown, min: number, max: number, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)

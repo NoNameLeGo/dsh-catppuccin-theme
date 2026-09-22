@@ -13,7 +13,7 @@
  *    dsh-client-ui-slots yet, so the help text rides the native `title`
  *    attribute plus an accessible name.
  */
-import { useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FlavorChoice } from './index.ts'
 import type { ShikiStyle } from '../state.ts'
@@ -189,7 +189,13 @@ export function CatppuccinRow({
   // Unsaved editor rows: key+value inputs that only enter the override map
   // once both fields hold a value (power users type tokens, so the commit is
   // live — nothing to "save").
-  const [draftRows, setDraftRows] = useState<Array<{ key: string; value: string }>>([])
+  //
+  // `id` is a stable React key, NOT the array index (audit F5): the fields are
+  // uncontrolled, so an index key made React reuse the deleted row's DOM node
+  // for the next row after a delete — the input kept showing the removed row's
+  // text while the state held the surviving row's value.
+  const [draftRows, setDraftRows] = useState<Array<{ id: number; key: string; value: string }>>([])
+  const nextDraftId = useRef(0)
 
   // Only `--`-prefixed keys are persistable (`sanitizeOverrides` drops the
   // rest on every read — localStorage and the settings document share one
@@ -375,7 +381,7 @@ export function CatppuccinRow({
               </div>
             ))}
             {draftRows.map((row, index) => (
-              <div key={`draft-${index}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <div key={row.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
@@ -404,7 +410,10 @@ export function CatppuccinRow({
             ))}
             <button
               type="button"
-              onClick={() => { setDraftRows([...draftRows, { key: '', value: '' }]) }}
+              onClick={() => {
+                nextDraftId.current += 1
+                setDraftRows([...draftRows, { id: nextDraftId.current, key: '', value: '' }])
+              }}
               style={{ ...buttonBase, alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
             >
               + {t('row.overridesAdd')}

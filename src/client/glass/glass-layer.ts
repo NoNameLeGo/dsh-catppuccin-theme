@@ -101,6 +101,14 @@ const NUMERIC_KEYS = {
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
 
+/** The localStorage names of the numeric knobs — the reverse of
+ *  `NUMERIC_KEYS`. Used by the cross-tab `storage` handler: the event's `key`
+ *  is a localStorage name (`dsh.catppuccin.glass.blur`), so it must be matched
+ *  against the VALUES, never with `key in NUMERIC_KEYS` (that tests the object's
+ *  property names — `blur`/`frost`/`brightness` — and is false for every real
+ *  storage key, which silently killed cross-tab knob sync; audit F1). */
+const NUMERIC_STORAGE_KEYS: readonly string[] = Object.values(NUMERIC_KEYS)
+
 const MODE_KEY = 'dsh.catppuccin.glass.mode'
 
 /** Clamp a numeric knob into its sane range. */
@@ -218,7 +226,7 @@ export class GlassLayer {
         else if (event.key === GLASS_ENABLED_KEY) {
           this.enabled = readEnabled()
           this.sync()
-        } else if (event.key === MODE_KEY || event.key in NUMERIC_KEYS) {
+        } else if (event.key === MODE_KEY || NUMERIC_STORAGE_KEYS.includes(event.key)) {
           this.reloadSettings()
           if (this.enabled) this.applySettings()
           this.publish()

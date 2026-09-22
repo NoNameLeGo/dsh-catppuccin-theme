@@ -181,13 +181,17 @@ export function UpdateRow({
     setRetryRemaining(null)
   }
 
-  const runCheck = async (withChannel: UpdateChannel = channelValue): Promise<void> => {
+  // The channel is resolved at CALL time (audit F6): the default used to be the
+  // render-closure's `channelValue`, so the 30 s auto-retry — and any check
+  // fired from a stale render — queried the channel that was current when the
+  // handler was created, not the one the user has since picked.
+  const runCheck = async (withChannel?: UpdateChannel): Promise<void> => {
     cancelRetry()
     setPhase('checking')
     setCopied(false)
     let next: UpdateCheckPayload
     try {
-      next = await check(withChannel)
+      next = await check(withChannel ?? channel())
     } catch {
       next = { ok: false, code: 'network.local', error: 'network.local' }
     }

@@ -92,8 +92,16 @@ function Segmented<T extends string>(props: {
   const [focused, setFocused] = useState<T | null>(null)
   const refs = useRef(new Map<T, HTMLButtonElement>())
 
+  // The roving tab stop. `value` may match NO option (the preset group gets ''
+  // when the knobs are hand-tuned), and `option.id === value` would then leave
+  // every cell at tabIndex -1 — the group silently drops out of the tab order
+  // and keyboard users cannot reach the presets at all (audit F3). Fall back to
+  // the first cell so the group always keeps exactly one tab stop.
+  const matchesValue = options.some((option) => option.id === value)
+  const anchor = focused ?? (matchesValue ? value : options[0]?.id)
+
   const moveFocus = (direction: 1 | -1 | 'home' | 'end'): void => {
-    const current = focused ?? value
+    const current = anchor
     const index = options.findIndex((option) => option.id === current)
     let next: number
     if (direction === 'home') next = 0
@@ -140,7 +148,7 @@ function Segmented<T extends string>(props: {
           type="button"
           className={option.id === value ? css.segActive : css.seg}
           aria-pressed={option.id === value}
-          tabIndex={option.id === (focused ?? value) ? 0 : -1}
+          tabIndex={option.id === anchor ? 0 : -1}
           onFocus={() => { setFocused(option.id) }}
           onBlur={() => { setFocused((now) => (now === option.id ? null : now)) }}
           onKeyDown={onKeyDown}

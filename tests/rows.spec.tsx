@@ -15,7 +15,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CatppuccinRow, type CatppuccinRowProps } from '../src/client/CatppuccinRow.tsx'
 import { GlassRow, type GlassRowProps } from '../src/client/glass/glass-row.tsx'
-import { UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
+import { UPDATE_RETRY_AFTER_MS, UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
+import type { UpdateChannel } from '../src/update-check.ts'
 import { zh, type CatppuccinKey } from '../src/client/locales.ts'
 import type { ShikiStyle } from '../src/state.ts'
 
@@ -115,6 +116,34 @@ describe('CatppuccinRow override editor', () => {
     fireEvent.blur(screen.getByLabelText(t('row.overridesKey')))
     expect(setOverrides.mock.calls[1][0]).toEqual({})
   })
+
+  it('keeps each draft row on its own text after an earlier draft is removed (audit F5)', () => {
+    // The fields are uncontrolled and the rows used their array index as the
+    // React key, so removing the first draft made React reuse its DOM node for
+    // the surviving row — the input kept displaying the DELETED row's key.
+    const { props } = makeRow()
+    render(<CatppuccinRow {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: /自定义覆盖/ }))
+
+    const add = screen.getByRole('button', { name: `+ ${t('row.overridesAdd')}` })
+    fireEvent.click(add)
+    fireEvent.click(add)
+    expect(screen.getAllByLabelText(t('row.overridesKey'))).toHaveLength(2)
+
+    const type = (index: number, value: string): void => {
+      const input = screen.getAllByLabelText(t('row.overridesKey'))[index] as HTMLInputElement
+      fireEvent.change(input, { target: { value } })
+      fireEvent.blur(input)
+    }
+    type(0, '--dsw-static-blue-500')
+    type(1, '--dsw-static-green-500')
+
+    // Remove the FIRST draft row: the survivor's field must show ITS text.
+    fireEvent.click(screen.getAllByLabelText(t('row.overridesRemove'))[0] as HTMLButtonElement)
+    const remaining = screen.getAllByLabelText(t('row.overridesKey')) as HTMLInputElement[]
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0]?.value).toBe('--dsw-static-green-500')
+  })
 })
 
 describe('UpdateRow timestamp formatting', () => {
@@ -173,6 +202,96 @@ describe('UpdateRow timestamp formatting', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+})
+
+/** GlassRow props with a fake injected face over one fixed snapshot. */
+function makeGlassRow(state: {
+  enabled: boolean
+  mode: 'mica' | 'compat'
+  blur: number
+  frost: number
+  brightness: number
+  dark: boolean
+}) {
+  return {
+    t,
+    getState: () => state,
+    subscribe: () => () => {},
+    setEnabled: vi.fn(),
+    setMode: vi.fn(),
+    setBlur: vi.fn(),
+    setFrost: vi.fn(),
+    setBrightness: vi.fn(),
+    resetDefaults: vi.fn(),
+  } as unknown as GlassRowProps
+}
+
+/** The preset group's cells, in display order. */
+function presetCells(): HTMLButtonElement[] {
+  const group = screen.getByRole('group', { name: t('glass.presets') })
+  return [...group.querySelectorAll('button')] as HTMLButtonElement[]
+}
+
+describe('UpdateRow auto-retry (audit F6)', () => {
+  it('re-reads the CURRENT channel when the 30s retry fires', async () => {
+    // The check used the render-closure's channel, so switching the channel
+    // after a failure made the single auto-retry query the CHANNEL IT LEFT.
+    vi.useFakeTimers()
+    try {
+      let channelNow: UpdateChannel = 'latest'
+      const calls: UpdateChannel[] = []
+      const props = {
+        t,
+        check: async (channel: UpdateChannel) => {
+          calls.push(channel)
+          return { ok: false, code: 'network.upstream', error: 'timed out' }
+        },
+        autoCheck: () => false,
+        setAutoCheck: vi.fn(),
+        channel: () => channelNow,
+        setChannel: vi.fn(),
+        subscribePrefs: () => () => {},
+        lastAutoResult: () => null,
+        subscribeConflict: () => () => {},
+        conflictCount: () => 0,
+        activeLocale: () => 'en',
+        subscribeLocale: () => () => {},
+      } as unknown as UpdateRowProps
+      render(<UpdateRow {...props} />)
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: t('update.check') }))
+      })
+      expect(calls).toEqual(['latest'])
+
+      channelNow = 'beta' // the user switches while the retry is still pending
+      await act(async () => { await vi.advanceTimersByTimeAsync(UPDATE_RETRY_AFTER_MS) })
+      expect(calls).toEqual(['latest', 'beta'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('GlassRow presets tab stop (audit F3)', () => {
+  // `value` is the active preset id, or '' when the knobs are hand-tuned. The
+  // roving tabindex anchored on it, so a custom combination left EVERY cell at
+  // -1 and the group dropped out of the tab order entirely.
+  it('keeps exactly one tab stop when the knobs match no preset', () => {
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 7, frost: 33, brightness: 50, dark: true })} />)
+    const cells = presetCells()
+    expect(cells).toHaveLength(3)
+    expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
+    expect(cells[0]?.tabIndex).toBe(0) // the first cell is the fallback anchor
+  })
+
+  it('anchors on the matching preset when there is one', () => {
+    // blur 2 / frost 20 / brightness 50 === the shipped "standard" preset.
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 2, frost: 20, brightness: 50, dark: true })} />)
+    const cells = presetCells()
+    expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
+    expect(cells[1]?.tabIndex).toBe(0)
   })
 })
 
