@@ -37,7 +37,8 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的
 [Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件——一个包同时适配
-**Web GUI**（`dsh web`）、**DSH Desktop** 与 **dsh-TUI** 终端：Web / 桌面端做全界面换色与玻璃质感，
+**Web GUI**（`dsh web`）、**桌面版**（官方 Electron 壳 `apps/desktop` 与社区 DSH Desktop，
+共用 `desktop` profile）与 **dsh-TUI** 终端：Web / 桌面端做全界面换色与玻璃质感，
 TUI 端自动同步四套官方主题色板。
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
@@ -114,16 +115,23 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 装完重启 `dsh web` 即可，`dsh plugin` 会自动把它加进 profile 的 bundles。
 其他 profile 把命令里的 `web` 换成对应名字即可（如 `headless`）。
 
-**[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)**：桌面版默认激活的 profile 就叫 `desktop`，把命令里的 `web`
-换成 `desktop` 即可：
+**桌面版**：桌面端默认激活的 profile 就叫 `desktop`（`$DSH_HOME/profiles/desktop`），
+把命令里的 `web` 换成 `desktop` 即可：
 
 ```sh
 dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 ```
 
 在桌面的 **DSH 终端**里运行即可（`dsh plugin` 默认作用于当前激活的 profile，
-若在托盘里选了别的 profile 就换成那个名字），装完重启 **[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)** 生效。
+若在托盘里选了别的 profile 就换成那个名字），装完**重启桌面应用**生效。
 从仓库安装的方式同理：`dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`。
+
+> **两个桌面壳，同一个 profile**：官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+> 仓库里的 `apps/desktop` / `apps/desktop-host`（Electron，仍在开发中）与社区的
+> [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 都启动
+> `$DSH_HOME/profiles/desktop`，所以**上面的命令对两者都成立**。本插件的桌面支持以
+> **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留，
+> 官方壳则靠它注入的 `DSH_DESKTOP_NODE_EXECUTABLE` 识别（见 `src/profile-detect.ts`）。
 
 ### 方式二：从仓库安装
 

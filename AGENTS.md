@@ -47,6 +47,29 @@
 - npm 包名、插件 ID、本地路径 `link:D:\Vibe-Coding\dsh-catppuccin`（README 里的本地开发命令）一律保持原样。
 - `git remote` 的 `origin` 指向 `https://github.com/NoNameLeGo/dsh-catppuccin-theme.git`。
 
+## 上游形态与维护核心（2026-09-22 定）
+
+**维护核心 = 官方的 web + desktop。** 官方上游是 monorepo
+[`deepseek-ai/deepseek-harness`](https://github.com/deepseek-ai/deepseek-harness)：
+
+| 上游位置 | 是什么 | 与本插件的关系 |
+|---|---|---|
+| `apps/web` | Web GUI（`dsh web` / `web` profile） | **核心**：`--dsw-*` token 体系与玻璃层的适配对象 |
+| `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`，0.1.7-alpha.1，**尚未发 npm**），启动 `$DSH_HOME/profiles/desktop` | **核心**：装法与本插件支持同社区桌面壳一致（`--profile desktop`） |
+| `apps/cli` → npm `@deepseek-ai/dsh` | CLI：profile 启动 / `dsh plugin` 转发 pnpm | 安装与更新检查的宿主 |
+| （社区）`anywhere-labs/deepseek-harness-desktop` | 第三方桌面壳，**同一个 `profiles/desktop` 路径** | 兼容保留，非核心 |
+
+**桌面识别有两路信号，别只写一路**（`src/profile-detect.ts`）：
+
+- 社区壳：`ctx.get('desktopProfiles')` 服务（`src/update-check/host.ts` 探测）；
+- **官方壳：环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`**（`apps/desktop-host` 启动 profile 时注入）。
+  官方仓**没有** `desktopProfiles`（2026-09-22 全仓搜索命中 0）——只写第一路时，官方桌面版会退化成
+  纯 web 文案（升级命令 / 重启提示都按命令行给），而 profile 名其实已经是 `desktop`。
+  两路都有断言：`tests/profile-detect.spec.ts`（纯函数）+ `tests/e2e/update-check.e2e.spec.ts`（真路由，已变异验证会红）。
+
+**推论**：新增依赖上游形状的判断时，上游的 `apps/*` 是唯一事实来源——用 `gh api repos/deepseek-ai/deepseek-harness/contents/<path>`
+直接读源码（`desktopProfiles` 这类服务名就是这么做出来的对照），别按印象写。
+
 ## 下次发版 SOP
 
 发布走 GitHub Actions 的 OIDC **Trusted Publisher** 自动发 npm。正常流程**不要手动 `npm publish`**（手动只是 CI 故障时的紧急回退，见下）。

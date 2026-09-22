@@ -39,7 +39,8 @@
 
 A [Catppuccin](https://github.com/catppuccin/catppuccin) theme plugin for
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — one package that fits
-the **Web GUI** (`dsh web`), **DSH Desktop** and **dsh-TUI** alike: full recolouring plus a
+the **Web GUI** (`dsh web`), the **desktop shells** (the official Electron `apps/desktop` and the
+community DSH Desktop — both on the same `desktop` profile) and **dsh-TUI** alike: full recolouring plus a
 glass skin on Web / Desktop, and the four official theme palettes auto-synced to the TUI.
 
 It ships all four Catppuccin flavours — **Latte**, **Frappé**, **Macchiato**, **Mocha** —
@@ -122,15 +123,25 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 Restart `dsh web` after installing — `dsh plugin` adds it to the profile's bundles.
 Use the profile name of your choice in place of `web` (e.g. `headless`).
 
-**[DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop)**: the desktop build's
-active profile is named `desktop`, so run:
+**Desktop**: the desktop build's active profile is named `desktop`
+(`$DSH_HOME/profiles/desktop`), so run:
 
 ```sh
 dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 ```
 
-Run it in the DSH terminal of the desktop app (`dsh plugin` defaults to the active profile).
+Run it in the DSH terminal of the desktop app (`dsh plugin` defaults to the active profile),
+then restart the app.
 Installing from the repo works the same way: `dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`.
+
+> **Two desktop shells, one profile**: the official
+> [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) monorepo ships
+> `apps/desktop` / `apps/desktop-host` (Electron, still in development), and the community
+> [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) does the same — both boot
+> `$DSH_HOME/profiles/desktop`, so the command above works for either. This plugin's desktop support
+> targets the **official web + desktop** builds; the community shell's `desktopProfiles` service probe
+> is kept, while the official shell is recognized through the `DSH_DESKTOP_NODE_EXECUTABLE` it injects
+> (see `src/profile-detect.ts`).
 
 ### Option 2: from the repository
 

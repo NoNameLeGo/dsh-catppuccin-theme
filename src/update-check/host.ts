@@ -22,7 +22,7 @@ import {
   type UpdateEnv,
 } from '../update-check.ts'
 import { isUpdateAvailable } from '../versions.ts'
-import { detectProfile } from '../profile-detect.ts'
+import { detectProfile, isDesktopShellEnv } from '../profile-detect.ts'
 
 // Minimal structural types for the parts of node:http and the webServer
 // service this plugin touches. The host bundle resolves cordis and friends
@@ -214,10 +214,11 @@ function cacheKeyOf(channel: UpdateChannel | undefined): CacheBucket {
 }
 
 /** Answer the update-check route with the JSON contract from update-check.ts.
- *  Probes the optional `desktopProfiles` service: when it is live this Host
- *  runs inside DSH Desktop, so the copy adapts (target profile =
- *  `desktopProfiles.current`, Desktop-flavoured hints). Otherwise it is the
- *  standard dsh web/CLI route and the web copy + profile scan apply.
+ *  Recognizes BOTH desktop shells: the third-party launcher's optional
+ *  `desktopProfiles` service (target profile = `desktopProfiles.current`,
+ *  Desktop-flavoured hints) and the official Electron shell's environment
+ *  marker (`DSH_DESKTOP_NODE_EXECUTABLE`, see `isDesktopShellEnv`). Otherwise
+ *  it is the standard dsh web/CLI route and the web copy + profile scan apply.
  *
  *  The route itself is stateless about retries: item V's 30s auto-retry is
  *  scheduled by the settings row (an immediate route retry would just hang
@@ -233,7 +234,13 @@ async function handleUpdateCheck(ctx: Context, req: HttpRequestLike, res: HttpRe
   }
   const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
   const current = desktopProfiles?.current
-  const isDesktop = current?.name !== undefined && current.name !== ''
+  // Two desktop shells to recognize (2026-09-22): the third-party launcher
+  // exposes the `desktopProfiles` service, the OFFICIAL Electron shell does not
+  // and marks itself through the environment instead (`apps/desktop-host`).
+  // Missing the second one made official desktop builds fall back to the plain
+  // web copy while the probed profile name was already correct.
+  const isDesktop = isDesktopShellEnv(process.env)
+    || (current?.name !== undefined && current.name !== '')
   const result = await fetchLatestVersion({
     env: isDesktop ? 'desktop' : 'web',
     channel,

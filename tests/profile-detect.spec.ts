@@ -13,6 +13,7 @@ import {
   FALLBACK_PROFILE,
   detectProfile,
   installSourceOf,
+  isDesktopShellEnv,
   isRegistrySpec,
   profileHint,
 } from '../src/profile-detect.ts'
@@ -33,6 +34,23 @@ describe('profileHint', () => {
   it('returns undefined when no profile is given', () => {
     expect(profileHint([])).toBeUndefined()
     expect(profileHint(['--port', '3080'])).toBeUndefined()
+  })
+})
+
+describe('isDesktopShellEnv (official desktop marker)', () => {
+  it('recognizes the marker the official desktop-host injects', () => {
+    // apps/desktop-host boots the `desktop` profile with this variable set
+    // (alongside PATH); it is the only signal the official shell gives, since
+    // it does not expose the third-party launcher's `desktopProfiles` service.
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '/opt/dsh/node' })).toBe(true)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: 'C:\\Program Files\\x\\node.exe' })).toBe(true)
+  })
+
+  it('stays false for a plain web/CLI host', () => {
+    expect(isDesktopShellEnv({})).toBe(false)
+    expect(isDesktopShellEnv({ DSH_HOME: '/home/u/.dsh' })).toBe(false)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '' })).toBe(false)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '   ' })).toBe(false)
   })
 })
 

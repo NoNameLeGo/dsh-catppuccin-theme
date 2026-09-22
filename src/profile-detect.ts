@@ -22,6 +22,22 @@ import { PACKAGE_NAME } from './update-check.ts'
 /** Fallback profile name when nothing can be probed (keeps the command valid). */
 export const FALLBACK_PROFILE = 'web'
 
+/** Detect the OFFICIAL desktop shell from the environment.
+ *
+ * 官方仓（`deepseek-ai/deepseek-harness`）的 `apps/desktop-host` 启动 `desktop`
+ * profile 时，会把 `DSH_DESKTOP_NODE_EXECUTABLE` 注入该进程的环境（同一个 profile
+ * 目录 `$DSH_HOME/profiles/desktop`），这是官方 Electron 桌面版留下的唯一可靠信号。
+ * 为什么不能只靠服务探测：官方壳**不提供**第三方启动器那个 `desktopProfiles` 服务
+ * （2026-09-22 在官方仓搜 `desktopProfiles` 命中 0），于是官方桌面版下 Host 会把自己
+ * 当成普通 web —— 升级命令提示与重启提示都退化，而 profile 名其实是对的。
+ * @param env - the environment to inspect (injectable so tests need no real desktop).
+ * @returns whether this Host runs inside the official desktop shell.
+ */
+export function isDesktopShellEnv(env: Record<string, string | undefined>): boolean {
+  const marker = env.DSH_DESKTOP_NODE_EXECUTABLE
+  return typeof marker === 'string' && marker.trim() !== ''
+}
+
 /** The DSH home the running process owns — `$DSH_HOME` when set, else
  *  `~/.dsh`. Port-independent and stable across restarts, so it is the right
  *  root for the plugin's durable state file. */

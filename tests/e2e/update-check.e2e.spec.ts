@@ -195,4 +195,34 @@ describe('e2e: host plugin on a real cordis app', () => {
     expect(body.ok).toBe(false)
     expect(body.code).toBe('registry-http')
   })
+
+  // Deliberately LAST: it warms the (default) cache bucket with a verdict stamped
+  // under a far-advanced mocked clock, which would shadow the web-mode cases
+  // above if it ran earlier.
+  it('recognizes the OFFICIAL desktop shell by its env marker (2026-09-22)', async () => {
+    // The official Electron shell (deepseek-harness/apps/desktop-host) boots the
+    // `desktop` profile with DSH_DESKTOP_NODE_EXECUTABLE set and does NOT expose
+    // the third-party launcher's `desktopProfiles` service — without this branch
+    // the row falls back to the plain-web copy in official desktop builds.
+    registry.reset()
+    registry.setStatus(200)
+    const previous = process.env.DSH_DESKTOP_NODE_EXECUTABLE
+    process.env.DSH_DESKTOP_NODE_EXECUTABLE = process.execPath
+    vi.useFakeTimers()
+    try {
+      // Far past every cached entry, including ones stamped by earlier cases
+      // under their own mocked clocks (which sit in the future once the real
+      // clock is restored).
+      await vi.advanceTimersByTimeAsync(30 * 60 * 1000)
+      const { status, body } = await getJson(UPDATE_ROUTE_PATH)
+      expect(status).toBe(200)
+      expect(body.env).toBe('desktop')
+      expect(typeof body.updateCommand).toBe('string')
+      expect(typeof body.profile).toBe('string')
+    } finally {
+      vi.useRealTimers()
+      if (previous === undefined) delete process.env.DSH_DESKTOP_NODE_EXECUTABLE
+      else process.env.DSH_DESKTOP_NODE_EXECUTABLE = previous
+    }
+  })
 })
