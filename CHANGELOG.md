@@ -6,6 +6,32 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+> 本节全部来自 2026-09-22 的全量代码审计（`docs/code-audit-2026-09-22.md`）：9 条缺陷 F1~F9 同日修完，
+> 新增 15 条断言（173 用例全绿），其中 F1/F2/F3/F5/F6 逐条用变异测试验证过「改回旧写法即变红」。
+
+### 修复
+
+- **跨窗口改玻璃旋钮终于会同步（审计 F1）**：`glass-layer.ts` 的跨标签 `storage` 处理器用 `event.key in NUMERIC_KEYS` 判数字旋钮，而 `in` 查的是对象的**属性名**（`blur`/`frost`/`brightness`），事件带来的却是 localStorage 键（`dsh.catppuccin.glass.blur`）——该分支**恒为 false**：A 窗口拖模糊/磨砂/亮度滑块时，B 窗口既不重绘玻璃也不刷新设置行快照（模式键用的是 `===` 比较，一直正常，恰好掩盖了这个洞）。改用 `Object.values(NUMERIC_KEYS).includes(...)`；新增 `tests/glass-layer.spec.ts`，把 `storage` 处理器的每个分支（三个旋钮、模式、开关、`key: null` 全量重载、无关键）各走一遍。（EN: cross-tab glass-knob sync was dead — the handler matched the knob object's property names instead of the localStorage keys the event carries, so blur/frost/brightness changed in one window never reached the other)
+
+- **多窗口的陈旧写不再静默覆盖，冲突横幅也能真的出现了（审计 F2，台账 `C`/`X`）**：读侧陈旧写保护此前**恒不成立**——`client/index.ts` 是在 **flush 时**才取 `baseRevision`，而 `persistStateToScope` 内部又 `getSnapshot()` 一次，两次读取落在同一个同步块 ⇒ 版本永远相等，`'stale'` 成了死代码（后果：另一窗口在防抖窗口内提交的新选择会被本窗口的旧状态覆盖，而 `emitConflict()` 只挂在 `'stale'` 上，所以「另一窗口已更新」横幅从未真正出现过）。现在新增 `createBaseRevisionTracker()`——**调度时**捕获（`??=` 只固 burst 首版）、flush 时消费，8 处调度点收拢为一个 `queuePersist()`。`tests/client.spec.ts` 用「防抖窗口内被外部改动」的时序用例锁住，并附反事实断言（flush 时取 base 会写成 `'written'`）。（EN: the read-side staleness guard was a tautology — the base revision was sampled at flush time instead of schedule time, so an external edit inside the debounce window was silently overwritten and the conflict banner could never fire)
+
+- **另一窗口「关闭风味」现在真的会落地（审计 F4）**：`storage` 处理器只在目标不是 `off` 时切主题，而 `applyDesired` 读到 `off` 又直接 return ⇒ 另一个窗口关掉风味后，本窗口继续渲染 Catppuccin（要刷新才一致）。新增 `readExplicitFlavorOff()` 区分「从未存过」（Desktop 每次启动都是空 localStorage，此时权威是设置文档，不能当成 off）与「显式 off」，两条路径都经 issue #10 的微任务延迟回退到用户原来的内建偏好。（EN: an "off" chosen in another window now lands here too — the explicit-off check keeps Desktop's empty storage from fighting the settings document at boot）
+
+- **预设档位重新可用键盘到达（审计 F3）**：旋钮被手调成非预设组合时 `activePreset` 是空串，roving tabindex 于是把三格全设成 `-1`——整个预设组掉出 Tab 顺序，键盘用户无法应用预设。现在无匹配时锚定第一格，组内恒有 1 个 tab stop；两条断言覆盖「命中预设」与「自定义档位」。（EN: the preset group lost its tab stop whenever the knobs matched no preset — the roving tabindex anchored on an empty value, leaving every cell at -1)
+
+- **自动重试用的是当前通道（审计 F6）**：`UpdateRow` 的 `check` 默认取渲染闭包里的通道，失败后 30 s 的单次重试因此会查用户已经离开的那个通道；改为调用期解析。（EN: the single 30s auto-retry queried the render-time channel instead of the one the user had since picked）
+
+- **覆盖编辑器删掉中间一行草稿不再串行（审计 F5）**：草稿行用数组下标当 React key，而键/值输入框是非受控的——删除首行后 React 复用其 DOM 节点，输入框继续显示被删那行的文本（与状态不一致）。改为稳定 `id` 作 key。（EN: draft override rows keyed by array index made an uncontrolled input keep the deleted row's text after a delete）
+
+- **文档里的非法 override 键会被清掉，而不是每轮白跑一次（审计 F7）**：`overrides` 的 schema 只校验「字符串字典」，手改文档可能留下非 `--` 的键；客户端读时丢弃却从不写回，于是每次设置发布都会因为这份永远清不掉的差异再跑一轮「文档胜出」。新增 `hasUnpersistableOverrides()`，采用后回写一次使文档收敛。（EN: unpersistable override entries in the document are now cleaned instead of re-triggering the "document wins" adoption on every publish）
+
+### 其他
+
+- 删除仓库根残留的临时副本 `.client-043.tmp.ts`（被 `.gitignore` 覆盖，但会污染文本搜索与 `grep` 结果）。（EN: drop the leftover `.client-043.tmp.ts` scratch copy）
+- `scripts/gen-glass-css.mjs` 在缺 `lightningcss` 时的降级路径从静默改为 `console.warn`：该分支会产出**未压缩**的另一种产物。（EN: warn instead of silently shipping the unminified stylesheet when lightningcss is missing）
+
 ## [0.5.5] - 2026-09-21
 
 ### 修复

@@ -5,7 +5,7 @@
 > 2026-09-06 第二批：非视觉改进项已按 `docs/non-vision-start-prompt.md` 实施（C/X/N/A/K/R/S/T/Y/EE/L/II/KK/H/I/J/E/DD/M/U/V/W/CC/GG/HH/JJ），跟踪表见文末。
 > 2026-09-13 复核（0.5.1 之后，配合 `fix(client)` 提交 cdccb09）：新增 **TT**（覆盖编辑器值输入逐键提交）、**UU**（测试类型检查链路断链）两条**待评估**项，分析见 3.2 / 3.9 —— 当时决定不随该修复批次实施，留待下次评估。（**后续**：TT / UU 均已随 0.5.2 实施，见文末跟踪表。）
 > 2026-09-22 同步：版本基线更新为 `0.5.5`、「一、总体评估」补现状修正、预览图口径更正，并新增「七、状态同步与剩余待办影响评估」；同日维护者拍板 **`NN` ❌ 不做** ⇒ **活跃项只剩 `YY`**（等对应语言反馈）。
-> 2026-09-22 追加：全量代码审计（`docs/code-audit-2026-09-22.md`，摘要见「七」7.3）查出 **9 条缺陷**，其中 `F1`/`F2` 为 P1「承诺未生效」型；`C`/`X` 的 ✅ 已按证据改为 ⚠️。
+> 2026-09-22 追加：全量代码审计（`docs/code-audit-2026-09-22.md`，摘要见「七」7.3）查出 **9 条缺陷**（`F1`/`F2` 为 P1「承诺未生效」型），**同日已全部修复**——`C`/`X` 曾按证据改 ⚠️，修复后改回 ✅；本轮 +15 条断言（173 用例全绿），F1/F2/F3/F5/F6 经变异验证会红。
 > 评估范围：`@nonamelego/dsh-catppuccin` 插件本身（host half + client half + tui-themes half）
 > 版本基线：**`0.5.5`**（2026-09-22 同步；本行原写 `0.5.0-beta.0`——那是 2026-09-05 评估当时的树内基线。本档一律按仓库**当前实现**评估，不按已发版快照。剩余待办与「做/不做」影响评估见文末「七」）
 > 评估依据：`src/index.ts`、`src/client/index.ts`、`src/client/CatppuccinRow.tsx`、`src/client/UpdateRow.tsx`、`src/client/glass/`、`src/client/palettes.ts`、`src/tui-themes.ts`、`src/update-check.ts`、`src/state.ts`、`src/client/state-sync.ts`、`src/legacy-state.ts`、`src/settings-catppuccin.ts`、`src/client/locales.ts`、`cordis.patch.yml`、`package.json` 等的当前实现
@@ -571,8 +571,8 @@
 
 | ID | 项 | 优先级 | 状态 | 关联文件 | 关联 PR |
 |---|---|---|---|---|---|
-| C | 持久化读侧一致性（写侧已由 seam 覆盖） | P1 | ⚠️ **写侧 ✅ / 读侧 ❌ 已证伪（2026-09-22 审计 F2）**：`scope.mutate` 的 revision fencing 确实生效；但**读侧保护恒不成立**——`client/index.ts:436` 的 `baseRevision` 取自 **flush 时**（不是调度时），而 `persistStateToScope` 内部的第二次 `getSnapshot()` 与之处于同一同步块 ⇒ 版本永远相等，`'stale'` 分支是死代码 | `src/client/state-sync.ts`、`src/client/index.ts` | — |
-| X | 多 tab 读写一致性（与 C 合并实施） | P2 | ⚠️ **横幅可达性 ❌（同 F2）**：`emitConflict()` 只挂在 `outcome === 'stale'` 上，而该分支不可达 ⇒「另一窗口已更新」横幅在真实使用中不会出现；多窗口后写者仍会静默覆盖 | `src/client/state-sync.ts`、`src/client/UpdateRow.tsx`（conflict 横幅） | — |
+| C | 持久化读侧一致性（写侧已由 seam 覆盖） | P1 | ✅ **（2026-09-22 补真）**：审计曾证伪——`baseRevision` 取自 flush 时、与守卫自己的 `getSnapshot()` 同 tick ⇒ `'stale'` 不可达。现改为 `createBaseRevisionTracker()`：**调度时**捕获（`??=` 取 burst 首版）、flush 时消费；`tests/client.spec.ts` 用「防抖窗口内被外部改动」的时序用例锁住（含反事实：flush 时取 base 会写成 `written`） | `src/client/state-sync.ts`、`src/client/index.ts` | — |
+| X | 多 tab 读写一致性（与 C 合并实施） | P2 | ✅ **（2026-09-22 补真）**：冲突横幅依赖的 `'stale'` 分支此前不可达（同 C），修复后由上述时序用例覆盖；另补 `readExplicitFlavorOff()` 让另一窗口的「关闭风味」在本窗口落地（审计 F4） | `src/client/state-sync.ts`、`src/client/UpdateRow.tsx`（conflict 横幅） | — |
 | N | seam stamper 防抖 | P1 | ✅ | `src/client/glass/glass-seams.ts`（rAF 合批 + dirty 跳过；**2026-09-15 补 `disposed` 守卫**——dispose 后已排队的 observer 回调不再能重排帧） | — |
 | H | auto-check 开关 | P2 | ✅ | `src/state.ts`、`src/client/UpdateRow.tsx`（启动 + 每 6h） | — |
 | I | prerelease 选择 | P2 | ✅ | `src/state.ts`、`src/client/UpdateRow.tsx`、`src/update-check.ts`（selectNewest 三态）、`src/update-check/host.ts`（per-channel 缓存） | — |
@@ -795,13 +795,14 @@
 - **F3（P2）** 旋钮处于自定义档位时预设组 `tabIndex` 全 `-1` ⇒ 键盘不可达（`AA` 的可达性承诺只对模式组成立）。
 - **F4（P2）** 跨窗口「关闭风味」不落地（`onStorage` 忽略 `off`；`applyDesired` 读到 `off` 直接 return）。
 - **F5~F9（P3）** 草稿行下标 key / 重试用旧通道闭包 / 文档垃圾 override 键不回写 / 仓库根残留 `.client-043.tmp.ts` / `gen-glass-css.mjs` 缺依赖时静默降级。
+- **✅ 上述 F1~F9 已于同日全部修复**（+15 条断言，173 用例全绿；F1/F2/F3/F5/F6 逐条变异验证「改回旧写法即变红」），逐条修法与证据见该文档「七」。
 - **查过健康**：三个生成器重跑后 `git status` 无输出（产物零漂移）；CSS 无硬编码色相且全属性选择器；27 处 localStorage 全在 try 内；类型检查 ×2 零错、158 用例全过。
 - **共性教训**：本轮 F1/F2 都是「功能已实现 ≠ 接线正确」型缺陷，且都落在**没有事件穿过的分支**上 ⇒ 修完应补「接线测试 + 时序测试」两类。
 
 ### 7.4 结论
 
 - **`NN` 已定案 ❌ 不做**（维护者 2026-09-22 拍板，评估留档见 A′）；`YY` 保持触发条件，等对应语言的用户反馈。
-- **另开一笔（不属于待办台账）**：7.3 的代码审计列出 9 条缺陷（F1~F9），其中 `F1`/`F2` 是 P1 级「承诺未生效」型，
-  **尚未修复**——是否动手由维护者定；`F2` 已连带把本表 `C`/`X` 的 ✅ 改成 ⚠️。
+- **另开一笔（不属于待办台账）**：7.3 的代码审计列出 9 条缺陷（F1~F9），**已于同日全部修复**（含 P1 的 `F1`/`F2`）；
+  台账 `C`/`X` 的 ✅ 先被证伪、修复后按新证据改回 ✅（见上表两行）。修复细节与变异验证见 `docs/code-audit-2026-09-22.md`「七」。
 - ⇒ **台账活跃项归零**：其余 12 条建议**一律维持现状**，没有任何一条在阻塞发版或影响正确性。
 - 发版口径不变：修复走 `0.5.x`、新特性走 `0.6.0`，预发布用 `-beta.n`；tag 推送前先问维护者。

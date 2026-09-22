@@ -124,7 +124,8 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - `src/profile-detect.ts`：更新检查里「自动探测当前 profile 名」的实现（探测失败回退 `web`）。
 - CI 配置：`.github/workflows/ci.yml`（push main / PR，只读权限）——两个 job：`check`（install + typecheck + build + test）与 `boot-e2e`（**启动级 e2e**，见下一条；独立 job 是因为它要装宿主 + 下载 Chromium，且与 `check` 并行，实测 +54~73 s）；发布另有 `.github/workflows/publish.yml`（`v*` tag / 手动 dispatch，OIDC 可信发布，无 token 入库）。**普通提交只靠 ci.yml 把关**——发布链路里才跑检查的旧格局已经让两次发版失败（幽灵类型依赖、跨测试污染）。
 - **启动级 e2e**：`scripts/e2e-boot-check.cjs`（**在仓库里**，不是本机探针目录）。做法：临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>` → `dsh web --no-open --port 0`（token 在 stdout）→ 走掉宿主首次运行引导（2 步：内测声明「继续」、API Key「稍后配置」）→ 打开设置断言行/风味/玻璃开关，并采样**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 下浮动面有 rim 而 `panel` 不被描边）。本地跑法：`pnpm build` 后 `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node scripts/e2e-boot-check.cjs`。**刻意不做整图 diff**（理由与方案取舍见 `docs/plugin-improvements.md` §3.9）。已知边界：新 `DSH_HOME` 没有工作区/会话 ⇒ PP 选中行采样**会跳过并打印 skipped**（不会假绿）；改过视觉后仍应手动重出四风味预览（上一条）。
-- 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。
+- **「已实现」≠「接线正确」（2026-09-22 审计教训）**：那轮两个 P1——跨窗口旋钮不同步、读侧陈旧写保护恒不成立——都通过了类型检查与当时全部 158 条用例，因为缺陷恰好落在**没有事件穿过的分支**（`event.key in NUMERIC_KEYS` 判的是属性名）和**时序假设**（两次 `getSnapshot()` 在同一同步块）上，只读代码看不出来。改交互/持久化代码时补两类测试：**接线测试**（每个 `if`/`switch` 分支至少被一个真实事件穿过——例：`tests/glass-layer.spec.ts` 把 `storage` 处理器的每个分支各走一遍）与**时序测试**（用可注入的 revision 模拟「防抖窗口内先被外部改过」——例：`createBaseRevisionTracker` 的用例）。修 bug 时**默认用变异测试证明新断言会红**（改回旧写法跑一遍），完整清单见 `docs/code-audit-2026-09-22.md`。
+- 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。**`rm` 也被 shim 拦**：删文件用 `node -e "require('node:fs').unlinkSync('x')"`。
 
 ## 与报告人协作（issue / 评论 / 关闭）
 

@@ -5,6 +5,9 @@
 > 对可疑点写**临时复现用例**（跑完即删，未入库）取硬证据。
 > 结论：**4 个真 bug（2 个是"承诺未生效"型假账）+ 5 个次要问题**；架构、错误处理纪律与
 > 生成物一致性经查良好。修复建议见文末「六」。
+>
+> **✅ 同日已全部修复**（F1~F9），记录见文末「七」：新增/改写 **15 条断言**（173 用例全绿），
+> 其中 F1/F2/F3/F5/F6 用**变异测试**逐个验证过"改回旧写法即变红"。
 
 ---
 
@@ -153,6 +156,32 @@ Catppuccin 行会把 Mocha 高亮（`current()` 读的是运行时 preference）
    「⚠️ 写侧 fencing 生效；**读侧保护 2026-09-22 审计证伪（F2）**」——正是本仓库自己定的规矩：状态列必须写可复核证据。
 3. **F4**：取决于你是否真会开两个窗口改设置；修法一句话，建议顺手补上。
 4. **F5 / F7 / F8 / F9**：低优先，可与其他改动合并，或先记入台账「待评估」。
+
+---
+
+## 七、修复记录（2026-09-22 同日）
+
+| # | 修法 | 位置 | 回归测试 | 变异验证 |
+|---|---|---|---|---|
+| **F1** | 新增 `NUMERIC_STORAGE_KEYS = Object.values(NUMERIC_KEYS)`，`storage` 处理器改用它 `includes(event.key)` | `glass-layer.ts` | 新增 `tests/glass-layer.spec.ts`（5 例：三个旋钮各走一遍 + 模式/开关分支 + `key: null` 全量重载 + 无关键不重发） | ✅ 修复前该断言实测红（`expected 2 to be 24`） |
+| **F2** | `state-sync.ts` 新增 `createBaseRevisionTracker()`（`capture` 取 burst 首版、`take` 读后即清）；`index.ts` 把 8 处 `scheduleDurablePersist(persistLocal)` 收拢为 `queuePersist()`，**调度时**捕获 base、flush 时消费 | `state-sync.ts`、`client/index.ts` | `tests/client.spec.ts` 3 例：burst 只固首版、scope 未就绪时不留残值、**「防抖窗口内被外部改动」→ `'stale'` 且零写入**（并附反事实：flush 时取 base 会写成 `'written'`） | ✅ 修复前 `'written'`（复现用例）；反事实断言常驻测试 |
+| **F3** | `Segmented` 增加 `matchesValue`/`anchor` 计算：无匹配时锚到第一格，保证组内恒有 1 个 tab stop | `glass-row.tsx` | `tests/rows.spec.tsx` 2 例（自定义档位 / 命中预设） | ✅ 变异回旧写法 → `expected [] to have a length of 1 but got +0` |
+| **F4** | 新增导出 `readExplicitFlavorOff()`（区分「没存过」与「显式 off」）；`applyDesired` 在 `off` 分支经 `scheduleRestore(readRestoredPreference())` 回退（复用 issue #10 的微任务延迟），`onStorage` 补 `off` 分支 | `client/index.ts` | `tests/client.spec.ts` 1 例（谓词三态）；**接线本身仍靠阅读**（需要完整 `apply()` 语境，见下） | — |
+| **F5** | 草稿行加稳定 `id`（`useRef` 计数器）并用作 React key | `CatppuccinRow.tsx` | `tests/rows.spec.tsx` 1 例：两行草稿、删首行、断言存活行的输入框文本 | ✅ 变异回下标 key → `expected '--dsw-static-blue-500' to be '--dsw-static-green-500'` |
+| **F6** | `runCheck` 的通道默认值改为调用期解析（`withChannel ?? channel()`） | `UpdateRow.tsx` | `tests/rows.spec.tsx` 1 例：失败后切通道、推进 30 s，断言重试用新通道 | ✅ 变异回 `channelValue` → `expected ['latest','latest'] to deeply equal ['latest','beta']` |
+| **F7** | `state.ts` 新增 `hasUnpersistableOverrides()`；`applyScopeSnapshot` 在采用前若发现文档含不可持久化 override，`queuePersist()` 回写一次使其收敛 | `state.ts`、`client/index.ts` | `tests/state.spec.ts` 2 例（含「与 `sanitizeOverrides` 一致」的互证） | — |
+| **F8** | 删除仓库根残留的 `.client-043.tmp.ts` | 仓库根 | —（文件已不在） | — |
+| **F9** | 缺 `lightningcss` 的降级路径从静默改为 `console.warn` 并说明后果 | `scripts/gen-glass-css.mjs` | — | — |
+
+验证：`tsc -p tsconfig.json` / `-p tsconfig.vitest.json` **各 0 错**；vitest **15 文件 / 173 用例全过**（修复前 158）。
+
+**仍未覆盖的一处（诚实标注）**：F4 的两条接线分支（`applyDesired` 的 off-回退、`onStorage` 的 off-分支）**没有自动化测试**——
+它们需要构造完整的 `apply()` 语境（slots / locale / theme / settingsScope 四个假服务），成本高于收益；
+目前只有 `readExplicitFlavorOff()` 这一纯函数被测试锁住。将来若要做宿主级验证，`scripts/e2e-boot-check.cjs` 是更合适的挂点。
+
+**CHANGELOG**：本轮修复详见 `CHANGELOG.md` 的 `## [Unreleased]`；四个风味预览图未受影响（无视觉改动），无需重出。
+
+---
 
 **共性教训（值得写进 AGENTS.md「本机测量资产」旁边的惯例区）**：
 「功能已实现」不等于「接线正确」。本轮 F1（把对象键名当 localStorage 键）与 F2（两次同步读被打扮成版本比对）
