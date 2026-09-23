@@ -291,6 +291,46 @@ export function writeShikiStyle(value: ShikiStyle): void {
   }
 }
 
+/**
+ * Does this host ship the menu blur that makes a translucent menu surface work?
+ *
+ * `--dsw-specific-menu` only became translucent together with the blur: upstream
+ * 0.1.7-alpha.1 changed it from `var(--dsw-alias-bg-layer-3)` to a literal
+ * 58%/50% neutral AND introduced `--dsw-menu-backdrop-filter: blur(40px)
+ * saturate(150%)` in the same release (checked against the 0.1.6-alpha.1 tag,
+ * which still has the opaque ladder step and no blur token). On an older host —
+ * `latest` is still the 0.1.5 line — the same fill would be *plain*
+ * transparency: the transcript would show through the menu with nothing to
+ * soften it, and the token also paints panels that carry text (queue dock, todo
+ * panel, goal bar, job list, stat dialog, …).
+ *
+ * Read through <body>'s computed style, where ui-theme declares both tokens.
+ * `--dsw-mask-blur` is probed first as a sanity check: it exists in every host
+ * we support, so an empty read means the theme stylesheet is not in the cascade
+ * yet (or the environment exposes no computed styles). Answering "false" then
+ * is the safe side — the opaque fill is correct for every host that predates
+ * the blur.
+ */
+export function hostHasMenuBlur(): boolean {
+  if (typeof getComputedStyle !== 'function') return false
+  const body = document.body
+  if (body === null) return false
+  const styles = getComputedStyle(body)
+  if (styles.getPropertyValue('--dsw-mask-blur').trim() === '') return false
+  return styles.getPropertyValue('--dsw-menu-backdrop-filter').trim() !== ''
+}
+
+/**
+ * Token patch for `--dsw-specific-menu`: the flavour's translucent fill stands
+ * where the host declares the matching blur (the value lives in palettes.ts),
+ * and the opaque pre-0.1.7 ladder step is injected everywhere else. Applied
+ * BEFORE the user overrides, so an explicit `--dsw-specific-menu` in the
+ * overrides editor still wins.
+ */
+export function menuSurfaceFor(hostHasBlur: boolean): Record<string, string> {
+  return hostHasBlur ? {} : { '--dsw-specific-menu': 'var(--dsw-alias-bg-layer-3)' }
+}
+
 /** Built-in preferences the Appearance row can explicitly pick. */
 const BUILTIN_PREFERENCES = ['light', 'dark', 'system'] as const
 type BuiltinPreference = (typeof BUILTIN_PREFERENCES)[number]
@@ -368,7 +408,15 @@ export function apply(ctx: ClientContext): void {
     const disposer = theme.register({
       id: flavor.themeId,
       colorScheme: flavor.colorScheme,
-      tokens: { ...flavor.tokens, ...shiki, ...readOverrides() } as ThemeTokens,
+      tokens: {
+        ...flavor.tokens,
+        ...shiki,
+        // Host-shape patch (0.1.7 vs the 0.1.5 latest line): keep the menu
+        // surface readable on hosts without the menu blur. Below the user
+        // overrides on purpose — see menuSurfaceFor().
+        ...menuSurfaceFor(hostHasMenuBlur()),
+        ...readOverrides(),
+      } as ThemeTokens,
     })
     themeDisposers.set(flavor.themeId, disposer)
   }

@@ -13,6 +13,8 @@ import {
   builtinPickWins,
   flavorFromThemeId,
   flavorInfo,
+  hostHasMenuBlur,
+  menuSurfaceFor,
   overridesSnapshot,
   readExplicitFlavorOff,
   readFlavor,
@@ -352,5 +354,60 @@ describe('scheduleDurablePersist debounce', () => {
     cancelDurablePersist()
     await vi.advanceTimersByTimeAsync(1000)
     expect(writes).toHaveLength(0)
+  })
+})
+
+describe('host menu blur probe (0.1.7 vs the 0.1.5 latest line)', () => {
+  // `--dsw-specific-menu` only became translucent in the release that also
+  // introduced `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)`
+  // (0.1.7-alpha.1 — the 0.1.6-alpha.1 tag still carries the opaque ladder step
+  // and no blur token). On a host without the blur the generated 58%/50% fill
+  // would be plain transparency over the transcript, so registration injects
+  // the opaque ladder step there — never the literal upstream grey.
+  function stubComputedStyle(map: Record<string, string>): void {
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: (name: string) => map[name] ?? '',
+    } as CSSStyleDeclaration)
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('keeps the flavour translucent fill when the host declares the menu blur', () => {
+    stubComputedStyle({
+      '--dsw-mask-blur': 'blur(2px)',
+      '--dsw-menu-backdrop-filter': 'blur(40px) saturate(150%)',
+    })
+    expect(hostHasMenuBlur()).toBe(true)
+    // {} means "leave palettes.ts alone" — the translucent Catppuccin fill.
+    expect(menuSurfaceFor(true)).toEqual({})
+  })
+
+  it('falls back to the opaque ladder step on hosts without it', () => {
+    stubComputedStyle({ '--dsw-mask-blur': 'blur(2px)' })
+    expect(hostHasMenuBlur()).toBe(false)
+    expect(menuSurfaceFor(false)).toEqual({
+      '--dsw-specific-menu': 'var(--dsw-alias-bg-layer-3)',
+    })
+  })
+
+  it('distrusts a host whose theme stylesheet is not in the cascade', () => {
+    // The sanity probe (`--dsw-mask-blur` exists in every supported host) fails,
+    // so the safe answer wins even though the blur token happens to read back.
+    stubComputedStyle({ '--dsw-menu-backdrop-filter': 'blur(40px) saturate(150%)' })
+    expect(hostHasMenuBlur()).toBe(false)
+  })
+
+  it('is inert before a body exists', () => {
+    // The DOM types say body is always an element, but it is genuinely null
+    // while the document is still parsing — hence the cast.
+    vi.spyOn(document, 'body', 'get').mockReturnValue(null as unknown as HTMLElement)
+    expect(hostHasMenuBlur()).toBe(false)
+  })
+
+  it('is inert without computed styles at all', () => {
+    vi.stubGlobal('getComputedStyle', undefined)
+    expect(hostHasMenuBlur()).toBe(false)
   })
 })

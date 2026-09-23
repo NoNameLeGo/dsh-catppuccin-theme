@@ -7,6 +7,21 @@
  *   - ../../.cache/dsh-ref/dsw-tokens.json          (parsed official design-platform.css)
  *   - ../../.cache/dsh-ref/catppuccin-palette.json  (official Catppuccin palette v1.8.0)
  *
+ * Both live outside the repo and are NOT tracked, so they go missing whenever
+ * the cache is cleaned. Refresh them against the upstream tag you are adapting
+ * to (see AGENTS.md "上游形态与维护核心" for how to pick one):
+ *
+ *   curl -sL -o ref/design-platform.css \
+ *     https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/<tag>/packages/client/ui-theme/src/styles/design-platform.css
+ *   node scripts/parse-dsh-tokens.cjs ref/design-platform.css ref/dsw-tokens.json
+ *   curl -sL -o ref/ctp-palette.mjs \
+ *     https://unpkg.com/@catppuccin/palette@1.8.0/esm/palette.js   # `export default {...}`
+ *   node -e "import('.../ctp-palette.mjs').then(m => require('fs').writeFileSync('ref/catppuccin-palette.json', JSON.stringify(m.default, null, 2)))"
+ *
+ * Note the palette no longer lives at catppuccin/catppuccin's repo root
+ * (palette.json is gone as of the 2.0.0 repo rework) — the npm package's
+ * esm/palette.js is the same v1.8.0 data.
+ *
  * Strategy: every --dsw-static-*, --dsw-alias-*, --dsw-specific-* token the
  * official theme stylesheet declares is remapped to a Catppuccin colour for
  * each of the four flavours (Latte / Frappé / Macchiato / Mocha).
@@ -119,6 +134,39 @@ function blueStep(flavor, plan, step) {
   return pct === 100 ? ctp(flavor, col) : mix(flavor, col, pct, surface ?? 'base')
 }
 
+/**
+ * Upstream ships alpha-suffixed statics since 0.1.7 (`--dsw-static-green-500-a08`
+ * / `-a12`, consumed by `--dsw-alias-code-diff-added` / `-deleted`): the suffix
+ * means "this step, at N% alpha", not a ladder step. Without splitting it off
+ * the step falls through to the family's 100% default, so every diff tint would
+ * render as a fully opaque block instead of a pale wash.
+ */
+function splitAlpha(base) {
+  const m = base.match(/^(.*)-a(\d{2})$/)
+  return m ? { step: m[1], alpha: Number(m[2]) } : { step: base, alpha: null }
+}
+
+/**
+ * Fold one flat `color-mix(in srgb, #a p%, #b)` into its sRGB hex — the same
+ * arithmetic the browser performs, kept in the generator so an alpha token
+ * stays a *single* mix (`#hex N%, transparent`) instead of nesting a mix inside
+ * a mix. Nested values are equivalent but opaque to readers and to the
+ * `color-mix` matchers in tests/palettes.spec.ts.
+ */
+function flattenMix(value) {
+  const m = value.match(/^color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, (#[0-9a-f]{6})\)$/)
+  if (m === null) return value
+  const ch = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const p = Number(m[2]) / 100
+  const [ca, cb] = [ch(m[1]), ch(m[3])]
+  return `#${ca.map((c, i) => Math.round(c * p + cb[i] * (1 - p)).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** Re-express a resolved colour at upstream's own alpha percentage. */
+function withAlpha(value, pct) {
+  return `color-mix(in srgb, ${flattenMix(value)} ${pct}%, transparent)`
+}
+
 /** Semantic status families. */
 const greenPlan = { '100': ['green', 18], '400': ['green', 80], '500': ['green', 100], '900': ['green', 30] }
 const redPlan = { '50': ['red', 10], '100': ['red', 20], '400': ['red', 70], '500': ['red', 100], '600': ['red', 100], '900': ['red', 34] }
@@ -151,7 +199,7 @@ function staticTokens(flavor) {
   const bluePlan = dark ? blueDarkPlan : blueLightPlan
   const out = {}
   for (const [name, value] of Object.entries(official.light_static)) {
-    const base = name.replace(/^dsw-static-/, '')
+    const { step: base, alpha } = splitAlpha(name.replace(/^dsw-static-/, ''))
     let hex
     if (base.startsWith('neutral-bluish-')) {
       const step = base.slice('neutral-bluish-'.length)
@@ -178,7 +226,7 @@ function staticTokens(flavor) {
     } else {
       hex = ctp(flavor, 'text')
     }
-    out[name] = hex
+    out[name] = alpha === null ? hex : withAlpha(hex, alpha)
   }
   // The brand-blue "900" step is a readable *label* colour sitting on a light
   // tinted surface (the hero "预览版" badge via --dsw-alias-label-primary-bluish).
@@ -228,21 +276,46 @@ const darkLabelReadabilityOverrides = {
   'dsw-alias-label-tertiary': 'var(--dsw-static-neutral-bluish-200)',
   'dsw-alias-label-caption': 'var(--dsw-static-neutral-bluish-300)',
   'dsw-alias-label-dimmed': 'var(--dsw-static-neutral-bluish-400)',
+  // 0.1.7 added `--dsw-alias-link` (markdown links are painted with it), and
+  // upstream's dark value is the bright deepseek-400 rgb(122,170,255) —
+  // 7.83:1 on the dark page. Our dark blue ladder's 400 step is a 66% mix
+  // toward the page, which lands 3.94:1 (Frappé) / 4.38 (Macchiato) / 4.79
+  // (Mocha): under AA for body text. Link text is read, not decoration, so
+  // the same full-accent step the state-business pair uses is the right
+  // ladder rung here too — no hue change (rule 1 / rule 3).
+  'dsw-alias-link': 'var(--dsw-static-deepseek-500)',
+}
+
+/**
+ * Light-flavour alias overrides (same shape as the dark table).
+ *
+ * The document-preview pair added in 0.1.7 is a DARK surface with a LIGHT
+ * label: `bg-document-preview -> bluish-750` (upstream light rgb(67,69,74))
+ * and `label-document-preview -> bluish-200` (upstream light rgb(225,229,238))
+ * — 9.27:1 on its own surface. Latte reads the ladder light-end-first, so
+ * bluish-200 lands on overlay0 (#9ca0b0) and the pair collapses to 3.07:1,
+ * below AA for the preview text (PDF body / text preview). Point the label at
+ * the ladder's lightest step instead: same family, no hue invention, and the
+ * step is semantically "near-white" exactly as upstream's value is.
+ */
+const lightLabelReadabilityOverrides = {
+  'dsw-alias-label-document-preview': 'var(--dsw-static-neutral-bluish-00)',
 }
 
 /** Alias tokens: keep official values (var() refs resolve through our static overrides). */
 function aliasTokens(flavor) {
   const dark = catppuccin[flavor].dark
   const table = dark ? official.dark_alias : official.light_alias
+  const overrides = dark ? darkLabelReadabilityOverrides : lightLabelReadabilityOverrides
   const out = {}
   for (const [name, value] of Object.entries(table)) {
     // Hard-coded brand colour pin remapped to the Catppuccin brand blue;
-    // everything else keeps its official value, except the dark label
-    // readability overrides above.
+    // everything else keeps its official value, except the readability
+    // overrides above.
     if (name === 'dsw-alias-brand-primary-new-colorprimary-new-color') {
       out[name] = ctp(flavor, 'blue')
-    } else if (dark && darkLabelReadabilityOverrides[name]) {
-      out[name] = darkLabelReadabilityOverrides[name]
+    } else if (overrides[name] !== undefined) {
+      out[name] = overrides[name]
     } else {
       out[name] = value
     }
@@ -250,11 +323,35 @@ function aliasTokens(flavor) {
   return out
 }
 
+/**
+ * `dsw-specific-menu` is the one specific token upstream stopped deriving from
+ * the ladder. As of 0.1.7 it hard-codes a translucent neutral
+ * (light `rgba(248, 249, 250, 0.58)` / dark `rgba(48, 49, 54, 0.5)`) so menus
+ * can ride the new `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)`
+ * (ui-theme/styles/gradient-shadow-text.css; macOS gets the same hues at 94%
+ * via web/base.css). Keeping that literal would drop the Catppuccin hue from
+ * every menu and popover surface — 10+ consumers paint
+ * `background: var(--dsw-specific-menu)` (MenuView, PopupSelectView, QueueDock,
+ * ContextMeter, TodoPanel, GoalBar, JobListAction, ModelSelect, dockkit, …).
+ * Re-point the token at the ladder step the alias named before the change
+ * (`bg-layer-3`) while keeping upstream's OWN alpha, so the translucency — and
+ * the blur that only makes sense with it — stays intact.
+ */
+const specificOverrides = {
+  'dsw-specific-menu': {
+    light: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 58%, transparent)',
+    dark: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 50%, transparent)',
+  },
+}
+
 function specificTokens(flavor) {
   const dark = catppuccin[flavor].dark
   const table = dark ? official.dark_specific : official.light_specific
   const out = {}
-  for (const [name, value] of Object.entries(table)) out[name] = value
+  for (const [name, value] of Object.entries(table)) {
+    const override = specificOverrides[name]
+    out[name] = override === undefined ? value : dark ? override.dark : override.light
+  }
   return out
 }
 

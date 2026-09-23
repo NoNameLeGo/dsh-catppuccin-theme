@@ -62,6 +62,59 @@ function resolveColor(tokens: Record<string, string>, name: string, depth = 0): 
 
 const DARK_FLAVORS = CATPPUCCIN_FLAVORS.filter((f) => f.colorScheme === 'dark')
 
+/** Surfaces the weak-label and link assertions measure against. */
+const MENU = '--dsw-specific-menu'
+const PAGE = '--dsw-alias-bg-base'
+
+/** Resolve a var(--…) chain (any family) or a plain hex to a hex colour. */
+function resolveHex(tokens: Record<string, string>, ref: string, depth = 0): string {
+  if (depth > 4) throw new Error(`circular or too deep alias chain for ${ref}`)
+  const m = ref.match(/^var\(--([a-z0-9-]+)\)$/)
+  if (m !== null) {
+    const next = tokens[`--${m[1]}`]
+    if (next === undefined) throw new Error(`missing token --${m[1]} referenced by ${ref}`)
+    return resolveHex(tokens, next, depth + 1)
+  }
+  if (/^#[0-9a-fA-F]{6}$/.test(ref)) return ref
+  throw new Error(`cannot resolve ${ref} — expected a var() chain ending in a hex`)
+}
+
+/** Resolve an alias through its chain ({var -> var}* -> hex static). */
+function resolveAliasHex(tokens: Record<string, string>, name: string): string {
+  const ref = tokens[name]
+  if (ref === undefined) throw new Error(`missing token ${name}`)
+  return resolveHex(tokens, ref)
+}
+
+/** Composite `fg` at `alpha` over an opaque `bg` (src-over, sRGB). */
+function over(fg: string, alpha: number, bg: string): string {
+  const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  const [f, b] = [channels(fg), channels(bg)]
+  return `#${f
+    .map((c, i) => Math.round(c * alpha + b[i] * (1 - alpha)).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/** The `color-mix(in srgb, <fill> N%, transparent)` shape (translucent surfaces). */
+const ALPHA_MIX = /^color-mix\(in srgb, (var\(--[a-z0-9-]+\)|#[0-9a-fA-F]{6}) (\d+)%, transparent\)$/
+
+/**
+ * Resolve a *surface* token to the colour a user actually sees. Menus became
+ * translucent upstream in 0.1.7 — `--dsw-specific-menu` is now
+ * `color-mix(in srgb, var(--dsw-alias-bg-layer-3) P%, transparent)` (see
+ * `specificOverrides` in generate-palettes.mjs) and rides the host's own
+ * `--dsw-menu-backdrop-filter`, so its effective colour is the fill
+ * composited over the page. Opaque surfaces resolve as before.
+ */
+function resolveSurface(tokens: Record<string, string>, name: string): string {
+  const value = tokens[name]
+  if (value === undefined) throw new Error(`missing token ${name}`)
+  const alphaMix = value.match(ALPHA_MIX)
+  if (alphaMix === null) return resolveAliasHex(tokens, name)
+  const fill = resolveHex(tokens, alphaMix[1])
+  return over(fill, Number(alphaMix[2]) / 100, resolveAliasHex(tokens, PAGE))
+}
+
 describe('Catppuccin palettes', () => {
   it('covers all four flavours', () => {
     expect(CATPPUCCIN_FLAVORS.map((f) => f.themeId)).toEqual([
@@ -121,41 +174,6 @@ describe('Catppuccin palettes', () => {
 })
 
 describe('weak label readability (issues #7, #12)', () => {
-  // Backgrounds the weak label aliases land on, resolved through their
-  // official var() chains: menus/cards (specific-menu -> bg-layer-3 ->
-  // bluish-800) and the page base (bg-base -> bluish-950).
-  const MENU = '--dsw-specific-menu'
-  const PAGE = '--dsw-alias-bg-base'
-
-  /** Resolve a var(--dsw-static-neutral-bluish-N) ref (or plain hex) to hex. */
-  function resolveHex(tokens: Record<string, string>, ref: string): string {
-    const m = ref.match(/^var\(--dsw-static-neutral-bluish-(\d+)\)$/)
-    if (m) {
-      const hex = tokens[`--dsw-static-neutral-bluish-${m[1]}`]
-      if (!hex) throw new Error(`missing bluish-${m[1]} referenced by ${ref}`)
-      return hex
-    }
-    if (/^#[0-9a-fA-F]{6}$/.test(ref)) return ref
-    throw new Error(`cannot resolve ${ref} — only bluish statics and hex are supported`)
-  }
-
-  /** Resolve an alias through its chain ({var -> var}* -> hex static). */
-  function resolveAlias(tokens: Record<string, string>, name: string, depth = 0): string {
-    const ref = tokens[name]
-    if (!ref) throw new Error(`missing token ${name}`)
-    if (depth > 4) throw new Error(`circular or too deep alias chain for ${name}`)
-    const m = ref.match(/^var\(--([a-z-0-9]+)\)$/)
-    if (m) {
-      const next = resolveAlias(tokens, `--${m[1]}`, depth + 1)
-      return resolveHex(tokens, next.startsWith('#') ? next : ref) // next is already hex
-    }
-    return resolveHex(tokens, ref)
-  }
-
-  function resolveAliasHex(tokens: Record<string, string>, name: string): string {
-    return resolveAlias(tokens, name)
-  }
-
   it('label aliases resolve to bluish statics (not literal colours or other families)', () => {
     for (const f of DARK_FLAVORS) {
       for (const token of [
@@ -175,7 +193,7 @@ describe('weak label readability (issues #7, #12)', () => {
 
   it('dark label hierarchy stays monotonic on the menu surface (issue #7)', () => {
     for (const f of DARK_FLAVORS) {
-      const menu = resolveAliasHex(f.tokens, MENU)
+      const menu = resolveSurface(f.tokens, MENU)
       const levels = [
         resolveAliasHex(f.tokens, '--dsw-alias-label-primary'),
         resolveAliasHex(f.tokens, '--dsw-alias-label-primary-dimmed'),
@@ -233,7 +251,7 @@ describe('weak label readability (issues #7, #12)', () => {
       '--dsw-alias-label-caption': { menu: 3.2, page: 3.2 },
       '--dsw-alias-label-dimmed': { menu: 2.1, page: 2.1 },
     }
-    const menu = resolveAliasHex(latte.tokens, MENU)
+    const menu = resolveSurface(latte.tokens, MENU)
     const page = resolveAliasHex(latte.tokens, PAGE)
     const ladder = [
       '--dsw-alias-label-primary',
@@ -269,7 +287,7 @@ describe('weak label readability (issues #7, #12)', () => {
       '--dsw-alias-label-dimmed': { menu: 2.0, page: 3.0 },
     }
     for (const f of DARK_FLAVORS) {
-      const menu = resolveAliasHex(f.tokens, MENU)
+      const menu = resolveSurface(f.tokens, MENU)
       const page = resolveAliasHex(f.tokens, PAGE)
       for (const [token, { menu: menuFloor, page: pageFloor }] of Object.entries(floors)) {
         const text = resolveAliasHex(f.tokens, token)
@@ -295,7 +313,6 @@ describe('dark blue tint readability (issue #11)', () => {
   // badge — so the pair has to clear AA on its own.
   const TINT = '--dsw-alias-state-business-tertiary'
   const LABEL = '--dsw-alias-state-business-primary'
-  const PAGE = '--dsw-alias-bg-base'
 
   it('paints the tint near the deepest surface, not mid-tone', () => {
     for (const f of DARK_FLAVORS) {
@@ -524,5 +541,128 @@ describe('shiki syntax highlighting tokens', () => {
       const comments = new Set([styles.default['--shiki-token-comment'], styles['italic-comments']['--shiki-token-comment']])
       expect(comments.size, `${flavorId} variant must differ from the default`).toBe(2)
     }
+  })
+})
+
+describe('upstream 0.1.7 token additions (compat audit 2026-09-23)', () => {
+  // The 0.1.7 refresh added nine tokens (static 73 -> 77, alias 79 -> 84). They
+  // are the reason the cached token snapshot had to be rebuilt: without them the
+  // new surfaces fall back to the stock palette — or, for the alpha-suffixed
+  // statics, to an opaque block where upstream wants an 8/12% wash. See
+  // generate-palettes.mjs (splitAlpha / withAlpha / specificOverrides and the
+  // link + document-preview readability entries).
+  const ADDED = [
+    '--dsw-static-green-500-a08',
+    '--dsw-static-green-500-a12',
+    '--dsw-static-red-400-a12',
+    '--dsw-static-red-600-a08',
+    '--dsw-alias-bg-document-preview',
+    '--dsw-alias-label-document-preview',
+    '--dsw-alias-link',
+    '--dsw-alias-code-diff-added',
+    '--dsw-alias-code-diff-deleted',
+    '--dsw-alias-state-idle-primary',
+  ]
+  const LATTE = CATPPUCCIN_FLAVORS.find((f) => f.colorScheme === 'light')!
+
+  it('every flavour covers every added token', () => {
+    for (const f of CATPPUCCIN_FLAVORS) {
+      for (const token of ADDED) expect(f.tokens[token], `${f.themeId} ${token}`).toBeTruthy()
+    }
+  })
+
+  it('alpha statics keep upstream alpha instead of collapsing to a solid block', () => {
+    // `-a08` / `-a12` mean "this step at N% alpha", not a ladder step. Before
+    // the fix the step fell through to the family default, so every diff tint
+    // painted fully opaque.
+    const alphaByToken: Record<string, number> = {
+      '--dsw-static-green-500-a08': 8,
+      '--dsw-static-green-500-a12': 12,
+      '--dsw-static-red-400-a12': 12,
+      '--dsw-static-red-600-a08': 8,
+    }
+    for (const f of CATPPUCCIN_FLAVORS) {
+      for (const [token, pct] of Object.entries(alphaByToken)) {
+        const m = f.tokens[token].match(ALPHA_MIX)
+        expect(m, `${f.themeId} ${token} = ${f.tokens[token]}`).not.toBeNull()
+        expect(Number(m![2]), `${f.themeId} ${token} alpha`).toBe(pct)
+        // The fill resolves to a Catppuccin colour through the family plan.
+        expect(resolveHex(f.tokens, m![1]), `${f.themeId} ${token} fill`).toMatch(/^#[0-9a-f]{6}$/)
+      }
+      // The diff surfaces consume the alpha statics (light/dark differ upstream).
+      expect(f.tokens['--dsw-alias-code-diff-added']).toBe(
+        f.colorScheme === 'dark'
+          ? 'var(--dsw-static-green-500-a12)'
+          : 'var(--dsw-static-green-500-a08)',
+      )
+      expect(f.tokens['--dsw-alias-code-diff-deleted']).toBe(
+        f.colorScheme === 'dark'
+          ? 'var(--dsw-static-red-400-a12)'
+          : 'var(--dsw-static-red-600-a08)',
+      )
+    }
+  })
+
+  it('menu keeps the Catppuccin hue at upstream translucency', () => {
+    // Upstream 0.1.7 hard-codes rgba(248,249,250,.58) / rgba(48,49,54,.5) here
+    // so menus can ride --dsw-menu-backdrop-filter. Keeping the literal would
+    // drop the flavour from every menu and popover (10+ consumers).
+    for (const f of CATPPUCCIN_FLAVORS) {
+      const m = f.tokens[MENU].match(ALPHA_MIX)
+      expect(m, `${f.themeId} ${MENU} = ${f.tokens[MENU]}`).not.toBeNull()
+      expect(m![1], `${f.themeId} ${MENU} fill`).toBe('var(--dsw-alias-bg-layer-3)')
+      expect(Number(m![2]), `${f.themeId} ${MENU} alpha`).toBe(f.colorScheme === 'dark' ? 50 : 58)
+    }
+  })
+
+  it('the opaque pre-0.1.7 fallback resolves to the flavour surface, not a grey', () => {
+    // `menuSurfaceFor(false)` (src/client/index.ts) injects exactly this on
+    // hosts without the menu blur — the pre-0.1.7 alias value, which has to land
+    // on the flavour's own surface rather than upstream's grey.
+    const FALLBACK = 'var(--dsw-alias-bg-layer-3)'
+    const expected: Record<string, string> = {
+      'catppuccin-latte': '#eff1f5', // light layer-3 -> bluish-00 -> base
+      'catppuccin-frappe': '#414559', // dark layer-3 -> bluish-800 -> surface0
+      'catppuccin-macchiato': '#363a4f',
+      'catppuccin-mocha': '#313244',
+    }
+    for (const f of CATPPUCCIN_FLAVORS) {
+      expect(resolveHex(f.tokens, FALLBACK), `${f.themeId} layer-3`).toBe(expected[f.themeId])
+    }
+  })
+
+  it('link text clears AA on the page in every flavour', () => {
+    // Measured 2026-09-23: ours 4.34 (Latte — upstream's own pair measures
+    // 4.23, so the faithful step is the better of the two) / 6.51 (Frappé) /
+    // 7.77 (Macchiato) / 8.91 (Mocha, upstream 7.83).
+    for (const f of CATPPUCCIN_FLAVORS) {
+      const link = resolveHex(f.tokens, f.tokens['--dsw-alias-link'])
+      expect(
+        contrast(link, resolveAliasHex(f.tokens, PAGE)),
+        `${f.themeId} ${f.tokens['--dsw-alias-link']}`,
+      ).toBeGreaterThanOrEqual(f.colorScheme === 'light' ? 4.2 : 4.5)
+      // Dark flavours ride the full accent step (our 66% 400 step would land at
+      // 3.94–4.79:1); Latte keeps the official 500 and is left alone.
+      expect(f.tokens['--dsw-alias-link']).toBe('var(--dsw-static-deepseek-500)')
+    }
+  })
+
+  it('document-preview label reads on its own preview surface', () => {
+    // Preview surfaces are dark in BOTH schemes (light maps bluish-750 to the
+    // text colour), so the label has to clear AA against them, not the page.
+    // Measured 2026-09-23: Latte 7.06:1 (upstream's own pair 9.27), dark
+    // 4.45 / 4.90 / 5.07:1.
+    for (const f of CATPPUCCIN_FLAVORS) {
+      const bg = resolveAliasHex(f.tokens, '--dsw-alias-bg-document-preview')
+      const label = resolveAliasHex(f.tokens, '--dsw-alias-label-document-preview')
+      expect(contrast(label, bg), `${f.themeId} preview label`).toBeGreaterThanOrEqual(
+        f.colorScheme === 'light' ? 6.5 : 4.4,
+      )
+    }
+    // Latte deviates from the official bluish-200 step on purpose: it reads the
+    // ladder light-end-first, which landed the label on overlay0 (3.07:1).
+    expect(LATTE.tokens['--dsw-alias-label-document-preview']).toBe(
+      'var(--dsw-static-neutral-bluish-00)',
+    )
   })
 })

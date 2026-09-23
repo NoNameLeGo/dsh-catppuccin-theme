@@ -14,7 +14,39 @@
 > 本批已随 **`0.5.6-beta.0`** 发到 npm 的 `beta` 渠道（`dsh plugin --profile <name> add @nonamelego/dsh-catppuccin@beta`）；
 > `latest` 仍是 `0.5.5`。正式版发布时本节整节成为 `## [0.5.6]`。
 
+> **2026-09-23 追加：上游 0.1.7 适配复核（含跨版本兼容）。** 按 `AGENTS.md`「上游形态与维护核心」核对，官方 token 表自
+> 0.1.6 / 0.1.7 起**新增 9 个 token**（static 73→77、alias 79→84，取值变更只有 2 处），其中两个会直接把配色改坏（带 alpha
+> 的静态色被抹成实心、菜单底色退成官方灰），另有一处 DOM 钩子自 0.1.5-rc.2 起就指错了元素。核对用的上游快照为
+> `dsh-v0.1.7-alpha.2`（master，2026-09-22），并逐项对 **0.1.5-rc.2 / rc.3 / 0.1.6-alpha.1 / 0.1.7-alpha.2** 四个 tag 复核
+> （`register()` 契约、DOM 钩子、token 差异）。生成物重出，**新增 15 条断言（5 条经变异验证会红），191 用例全绿**。
+> **未做真机复核**——本机 profile 的依赖树不完整（`@deepseek-ai/dsh-sandbox-local` 解析失败），起不来服务。
+> 本批（连同 `0.5.6-beta.0` 之后的官方桌面壳识别、CI 树冻结）随 **`0.5.6-beta.1`** 发到 npm 的 `beta` 渠道；
+> `latest` 仍是 `0.5.5`。
+
 ### 修复
+
+- **菜单底色的半透明只在「宿主真会模糊它」时启用（跨版本兼容）**：`--dsw-specific-menu` 从 `var(--dsw-alias-bg-layer-3)` 变成
+  58%/50% 半透明，是**和** `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)` 同一次改动引入的（0.1.7-alpha.1；0.1.6-alpha.1
+  仍是不透明阶梯步、也没有该 blur token）。`latest` 线（0.1.5-rc.2 / rc.3）上没有那个 blur，同一份 58% 填充就只是**纯透明**——
+  聊天内容会直接透过菜单，而该 token 还画着带文字的面板（队列 dock、待办、目标条、任务列表、统计弹窗…）。因此注册主题时
+  探测宿主是否声明了该 blur（读 `<body>` 计算样式；先用 `--dsw-mask-blur` 做机制自检，读不到就保守按「无 blur」处理），
+  据此决定注入半透明填充还是不透明的 `bg-layer-3`；该补丁位于用户覆盖项**之下**，显式 override 仍然最高优先。5 条断言覆盖
+  四种宿主形态（有/无 blur、样式表未入级联、无 body、无计算样式），并已用变异验证（永远返回 `{}` 即红）。（EN: the translucent
+  menu fill only stands where the host actually blurs it — upstream introduced the fill and `--dsw-menu-backdrop-filter` in the
+  same 0.1.7-alpha.1 release, so on the 0.1.5 latest line the same value would be plain transparency over the transcript; the
+  theme registration now probes the host and falls back to the opaque ladder step, below user overrides）
+
+- **官方 0.1.7 新增的带 alpha 静态色不再被抹成实心**：`--dsw-static-green-500-a08` / `-a12` 与 `--dsw-static-red-400-a12` / `--dsw-static-red-600-a08` 是「这一步 8%/12% 透明度」，不是阶梯步号——旧生成器把它们当未知步号落进家族默认档（100%），于是 `--dsw-alias-code-diff-added` / `-deleted` 这对 diff 底纹会渲染成不透明色块。新增 `splitAlpha()`（剥离后缀）与 `withAlpha()`（还原上游 alpha），并用 `flattenMix()` 把 `red-400` 这类先混色再上 alpha 的值算成单个 hex，产物保持 `color-mix(in srgb, #hex N%, transparent)` 一种形式。配套 5 条断言：4 个 token × 4 风味的 alpha 数值、fill 必须解析到 hex、以及两个 diff 别名的引用关系；已用变异验证（`withAlpha` 退回直返原值即红）。（EN: the alpha-suffixed statics added in 0.1.7 are "this step at N%", not ladder steps — the old table fell through to the family default and painted both code-diff surfaces fully opaque; the suffix is now split off and re-applied, and pre-mixed fills are flattened so the value stays a single `color-mix`）
+
+- **菜单与浮层底色重新跟住 Catppuccin**：官方 0.1.7 把 `--dsw-specific-menu` 从 `var(--dsw-alias-bg-layer-3)` 改成字面半透明灰（浅 `rgba(248,249,250,.58)` / 深 `rgba(48,49,54,.5)`，配新 token `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)`，macOS 走 94%）。生成器对 specific 层是「原样保留」⇒ 10 余个消费方（MenuView、PopupSelectView、QueueDock、ContextMeter、TodoPanel、GoalBar、JobListAction、ModelSelect、dockkit…）会一起退成官方灰。改为**保留上游的 alpha、把色相放回 `bg-layer-3`**。实测顺带发现收益：暗色三风味的菜单叠在更深的页面底色上，弱标签对比度反而**上升**（Frappé 的 tertiary 3.48→4.41、caption 2.80→3.54、dimmed 2.20→2.79），Latte 因页面与菜单同色而不变；三处依赖「菜单色」的既有断言随之改为按半透明合成后再算对比度（新增 `resolveSurface()` / `over()`）。（EN: upstream stopped deriving `--dsw-specific-menu` from the ladder and hard-codes a translucent neutral for its own backdrop-filter; keeping the literal would drop the flavour from every menu and popover, so the token keeps upstream's alpha but is re-pointed at `bg-layer-3` — and the translucent menu actually lifts dark weak-label contrast, so the menu-based assertions now composite before measuring）
+
+- **新增的 `--dsw-alias-link` 在暗色下达到 AA**：官方暗色 `link` 用亮蓝 deepseek-400 `rgb(122,170,255)`（对页面 7.83:1），而我们的暗色蓝梯 400 步是 66% 混向页面，实测只有 3.94（Frappé）/ 4.38（Macchiato）/ 4.79（Mocha）——正文链接低于 AA。改为指向满档 accent（与 issue #11 的 `state-business-primary` 同款做法：不换色相、只换档位），实测 6.51 / 7.77 / 8.91:1。Latte 保持官方 500 步不动：我们 4.34:1 本就高于官方自己的 4.23:1，没有可偏离的证据。（EN: `--dsw-alias-link` is new in 0.1.7 and upstream's dark value is a bright blue (7.83:1); our dark blue ladder's 400 step is a 66% mix that leaves link text under AA, so the token now reads the full accent step — Latte keeps the official step because ours already beats upstream's own ratio）
+
+- **文档 / PDF 预览的浅色标签不再糊在深底上**：0.1.7 新增的 `bg-document-preview`（浅→bluish-750、深→bluish-950）与 `label-document-preview`（浅→bluish-200、深→bluish-300）是「深底 + 浅字」组合，官方浅色自己实测 9.27:1；Latte 的阶梯按浅端读底，bluish-200 落在 overlay0，这对只剩 3.07:1。新增 Latte 专属 override 指向阶梯最浅步（`bluish-00`），实测 7.06:1，并把「暗色标签表」重构成「按方案分表」（新增 `lightLabelReadabilityOverrides`）。暗色维持 4.45~5.07:1 不动（已贴近 AA）。（EN: upstream's document-preview pair is a dark surface with a light label (9.27:1 on its own pair); Latte reads the ladder light-end-first, which collapsed it to 3.07:1, so the light label now points at the ladder's lightest step）
+
+- **右侧栏的玻璃钩子改指面板本体（统计行经复核：原本是对的）**：详情栏接缝原写 `[class*="detailsCol"] [class*="root"]`，但该列在 **0.1.5-rc.2 已改名 `rightbarCol`**（`ui-layout/AppFrame.module.css`）；而右侧栏**面板自己**（`.session` / `.panel`）没有 `root` 类——带 `root` 的是它托管的内容视图（ui-sidebar-files / browser / terminal），文档预览视图连 `root` 都没有。⇒ 这个接缝此前命中的是**当时打开的那个内容视图**，或干脆什么也不命中，而不是样式表真正想透明化的那个面板。改为命中稳定属性 `data-sidebar-right-panel`（`SidebarRight.tsx`），旧写法保留作 0.1.2-rc.1 布局的兜底。统计行的接缝经复核**本来是正确的**（`StatsPills` 的根正是 `<div class="…root…" data-composer-stats>`，0.1.5-rc.2 与 0.1.7 一致），顺手补一个按位置的 `> *` 兜底——今天它与类名分支指向同一个元素、stamp 幂等，只是免得上游某天改掉那个类名就静默失效。新增 4 条 jsdom 断言（新属性命中 / 旧列兜底 / 真实 root 形态 / 无 root 形态），其中 2 条已用变异验证（改回旧选择器即红）。**注**：无真机复核，且右侧栏透明化的对象从「内容视图」变成了「面板本身」，观感必然有变化，需要视觉确认。（EN: the right-panel seam keyed off `detailsCol`, renamed to `rightbarCol` back in 0.1.5-rc.2, and off a `root` class the *panel* never had — the `root`-classed elements are the tab views it hosts, so the stamp used to land on whichever view was open (or nowhere, for the document preview); it now hooks the panel's own `data-sidebar-right-panel`. The stats seam turned out to be correct already — StatsPills' root is a `root`-classed div in both hosts — so it only gained a position-based `> *` fallback. Visuals still need a real-machine check）
+
+> 以下条目来自 2026-09-22 的全量代码审计（F1~F9）批次，已随 `0.5.6-beta.0` 发布。
 
 - **官方桌面版（Electron）也能被识别成 desktop（2026-09-22）**：官方上游 monorepo 已经带上 `apps/desktop` / `apps/desktop-host`（Electron 壳，启动 `$DSH_HOME/profiles/desktop`），但它**不提供**社区桌面包那个 `desktopProfiles` 服务（在官方仓搜该名字命中 0），只注入环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`；而 `src/update-check/host.ts` 原先只探测服务 ⇒ 在官方桌面版里更新行会退化成纯 web 文案（升级命令提示与重启提示都按命令行给，尽管探测到的 profile 名已经是 `desktop`）。新增 `isDesktopShellEnv()` 作为第二路信号，`tests/profile-detect.spec.ts` 与 `tests/e2e/update-check.e2e.spec.ts` 各有断言（后者已用变异测试验证：去掉该分支即红）。维护核心同时明确为**官方 web + desktop**，社区桌面壳保持兼容（见 `AGENTS.md`「上游形态与维护核心」）。（EN: the official Electron desktop shell is now recognized too — it boots the same `desktop` profile but marks itself only through the `DSH_DESKTOP_NODE_EXECUTABLE` env var, since the official repo has no `desktopProfiles` service, so the update row used to fall back to plain-web copy there）
 
@@ -33,6 +65,8 @@
 - **文档里的非法 override 键会被清掉，而不是每轮白跑一次（审计 F7）**：`overrides` 的 schema 只校验「字符串字典」，手改文档可能留下非 `--` 的键；客户端读时丢弃却从不写回，于是每次设置发布都会因为这份永远清不掉的差异再跑一轮「文档胜出」。新增 `hasUnpersistableOverrides()`，采用后回写一次使文档收敛。（EN: unpersistable override entries in the document are now cleaned instead of re-triggering the "document wins" adoption on every publish）
 
 ### 其他
+
+- **重建仓库外快照，并把解析脚本入库（2026-09-23）**：本轮发现 `.cache/dsh-ref/`（`dsw-tokens.json` / `catppuccin-palette.json`）已被清掉，生成器因此跑不起来；同时官方 Catppuccin 色板**已不在 `catppuccin/catppuccin` 仓库根**（`palette.json` 随 2.0 的仓库改造消失，旧地址返回 404）。新增 `scripts/parse-dsh-tokens.cjs`（把 `design-platform.css` 解析成 `light_static` / `dark_alias` / … 六段快照）并写入仓库，生成器头部补上两条刷新命令与新色板来源（`@catppuccin/palette@1.8.0` 的 `esm/palette.js`，与 v1.8.0 同源同数据）。顺带确认仓库快照此前还落后于 `0.1.5-rc.2`（缺 `--dsw-alias-link`、`markdown-inline-code` 的取值停在旧版），本轮已对齐到 `0.1.7-alpha.2`。（EN: the out-of-repo token/palette snapshots had been wiped — and the official palette no longer lives at catppuccin/catppuccin's repo root (404) — so the parser is now vendored as scripts/parse-dsh-tokens.cjs and the refresh commands are documented in the generator header; the snapshot was also still behind 0.1.5-rc.2 and is now aligned to 0.1.7-alpha.2）
 
 - 删除仓库根残留的临时副本 `.client-043.tmp.ts`（被 `.gitignore` 覆盖，但会污染文本搜索与 `grep` 结果）。（EN: drop the leftover `.client-043.tmp.ts` scratch copy）
 - `scripts/gen-glass-css.mjs` 在缺 `lightningcss` 时的降级路径从静默改为 `console.warn`：该分支会产出**未压缩**的另一种产物。（EN: warn instead of silently shipping the unminified stylesheet when lightningcss is missing）

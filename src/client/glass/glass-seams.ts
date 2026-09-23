@@ -33,14 +33,29 @@ const SEAMS: readonly Seam[] = [
   { attribute: 'data-dsh-glass-surface', selector: 'button[class*="newSession"]' },
   // Trajectory view (the composer-overlay view).
   { attribute: 'data-dsh-glass-trajectory', selector: '[data-conversation-composer-overlay]' },
-  // Details panel (topmost `root` under the details column).
-  { attribute: 'data-dsh-glass-details', selector: '[class*="detailsCol"] [class*="root"]', first: true },
+  // Right panel (会话右侧栏 / 详情栏). The column was renamed upstream —
+  // `detailsCol` through 0.1.2-rc.1, `rightbarCol` from 0.1.5-rc.2 on
+  // (ui-layout/src/client/AppFrame.module.css) — and the old `[class*="root"]`
+  // descendant had no stable target: ui-sidebar-right ships `.session` /
+  // `.panel`, while the tab views it hosts DO carry a `root` class
+  // (ui-sidebar-files / browser / terminal), so the stamp landed on whichever
+  // content view happened to be open — and on none of them for the document
+  // preview. The panel itself carries the stable `data-sidebar-right-panel`
+  // attribute (SidebarRight.tsx), which is what the stylesheet actually wants
+  // (it makes the panel background transparent so the ground shows through).
+  { attribute: 'data-dsh-glass-details', selector: '[class*="rightbarCol"] [data-sidebar-right-panel], [class*="detailsCol"] [class*="root"]', first: true },
   // Composer bar root: the composer card's direct parent.
   { attribute: 'data-dsh-glass-inputbar', selector: ':has(> [data-composer-card])' },
-  // Composer attach "+" button.
+  // Composer attach "+" button (ui-conversation InputBar.tsx -> css.add).
   { attribute: 'data-dsh-glass-add', selector: '[data-composer-card] [class*="add"]' },
-  // Session stats line under the composer (composer.dock slot).
-  { attribute: 'data-dsh-glass-stats', selector: '[data-slot="conversation.composer.dock"] [class*="root"]' },
+  // Session stats line under the composer (composer.dock slot). The slot renders
+  // the entry with no wrapper of its own, so StatsPills' own root is both the
+  // slot's direct child and a `root`-classed div (`<div className={css.root}
+  // data-composer-stats>` in ui-chat/src/client/chat/StatsPills.tsx, present in
+  // 0.1.5-rc.2 and 0.1.7 alike). Picking the row by position (`> *`) keeps
+  // working if that class name ever changes; both parts resolve to the same
+  // element today, and stamping is idempotent.
+  { attribute: 'data-dsh-glass-stats', selector: '[data-slot="conversation.composer.dock"] > *, [data-slot="conversation.composer.dock"] [class*="root"]' },
   // Settings dialog: a fixed overlay portalled inside the sidebar column
   // (the wrapper around the dialog panel in dsh-client-ui-settings-general).
   // Its rows/pickers paint themselves with the opaque raised-surface tokens,
