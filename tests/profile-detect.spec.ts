@@ -14,6 +14,7 @@ import {
   detectProfile,
   installSourceOf,
   isDesktopShellEnv,
+  isElectronRuntime,
   isRegistrySpec,
   profileHint,
 } from '../src/profile-detect.ts'
@@ -37,20 +38,49 @@ describe('profileHint', () => {
   })
 })
 
-describe('isDesktopShellEnv (official desktop marker)', () => {
-  it('recognizes the marker the official desktop-host injects', () => {
-    // apps/desktop-host boots the `desktop` profile with this variable set
-    // (alongside PATH); it is the only signal the official shell gives, since
-    // it does not expose the third-party launcher's `desktopProfiles` service.
-    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '/opt/dsh/node' })).toBe(true)
-    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: 'C:\\Program Files\\x\\node.exe' })).toBe(true)
+describe('isElectronRuntime', () => {
+  it('is true under Electron, Electron-as-node included', () => {
+    // Measured on this machine 2026-09-24: Electron 37.10.3 launched with
+    // ELECTRON_RUN_AS_NODE=1 still reports process.versions.electron.
+    expect(isElectronRuntime({ electron: '37.10.3', node: '22.21.1' })).toBe(true)
+  })
+
+  it('is false on plain Node.js', () => {
+    expect(isElectronRuntime({})).toBe(false)
+    expect(isElectronRuntime({ node: '22.22.2' })).toBe(false)
+    expect(isElectronRuntime({ electron: '' })).toBe(false)
+    expect(isElectronRuntime({ electron: '   ' })).toBe(false)
+  })
+})
+
+describe('isDesktopShellEnv (both desktop signals)', () => {
+  it("recognizes the community launcher's env marker", () => {
+    // anywhere-labs/dsh-desktop — and its dsh-desktop-next rewrite — puts this
+    // in the profile process's environment.
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '/opt/dsh/node' }, {})).toBe(true)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: 'C:\\Program Files\\x\\node.exe' }, {})).toBe(true)
+  })
+
+  it('recognizes the official shell through the Electron runtime', () => {
+    // The official shell (apps/desktop + apps/desktop-host) sets NO variable:
+    // upstream injects DSH_DESKTOP_NODE_EXECUTABLE into package-install children
+    // only (host-process.ts boots the host with `bin === undefined`). What it
+    // does leave behind is Electron-as-node as the Host runtime.
+    expect(isDesktopShellEnv({}, { electron: '37.10.3' })).toBe(true)
+    expect(isDesktopShellEnv({ DSH_HOME: '/home/u/.dsh', PATH: '/usr/bin' }, { electron: '37.10.3' })).toBe(true)
   })
 
   it('stays false for a plain web/CLI host', () => {
+    expect(isDesktopShellEnv({}, {})).toBe(false)
+    expect(isDesktopShellEnv({ DSH_HOME: '/home/u/.dsh' }, { node: '22.22.2' })).toBe(false)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '' }, {})).toBe(false)
+    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '   ' }, {})).toBe(false)
+    expect(isDesktopShellEnv({}, { electron: '' })).toBe(false)
+  })
+
+  it('falls back to the real process environment when nothing is injected', () => {
+    // vitest runs on plain Node.js: no launcher marker, no Electron runtime.
     expect(isDesktopShellEnv({})).toBe(false)
-    expect(isDesktopShellEnv({ DSH_HOME: '/home/u/.dsh' })).toBe(false)
-    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '' })).toBe(false)
-    expect(isDesktopShellEnv({ DSH_DESKTOP_NODE_EXECUTABLE: '   ' })).toBe(false)
   })
 })
 

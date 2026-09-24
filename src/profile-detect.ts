@@ -22,30 +22,51 @@ import { PACKAGE_NAME } from './update-check.ts'
 /** Fallback profile name when nothing can be probed (keeps the command valid). */
 export const FALLBACK_PROFILE = 'web'
 
-/** Detect a desktop shell from the environment.
+/** Whether this process runs inside Electron (Node mode included).
  *
- * 官方仓（`deepseek-ai/deepseek-harness`）的 `apps/desktop-host` 启动 `desktop`
- * profile（同一个 profile 目录 `$DSH_HOME/profiles/desktop`）时，其 Electron 宿主进程
- * （`apps/desktop-host`，`private: true`、未发 npm）**不提供**第三方启动器那个
- * `desktopProfiles` 服务（2026-09-22 在官方仓搜该名字命中 0）——当初因此把
- * `DSH_DESKTOP_NODE_EXECUTABLE` 当作官方壳的识别信号。
- *
- * ⚠️ **已知局限（2026-09-24 取证，见 `AGENTS.md`「桌面识别」）：该信号对官方壳不成立。**
- * 上游架构说明原话是「`DSH_DESKTOP_NODE_EXECUTABLE` **仅为包安装注入**」
- * （`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`），
- * 代码印证：`apps/desktop/src/host-process.ts` 以 `desktopNodeEnvironment(this.node, undefined, …)`
- * 起 host，`bin === undefined` 时不设该变量；`apps/desktop-host/src/index.ts` 只在
- * `runProfile({ packageManager: { env: { … } } })` 里给它。于是**官方桌面壳的 profile 进程里
- * 根本没有它** ⇒ 本判据在官方桌面版下恒为 false，更新行退化成纯 web 文案（profile 名仍然对：
- * `detectProfile` 扫 `profiles/` 目录即可命中 `desktop`）。待定的替代信号是
- * Electron-as-node 下 `process.versions.electron` 有值（本机实测 `37.10.3`，纯 node 为 `undefined`）。
- * 对**社区壳**（含其 `dsh-desktop-next` 重写版，它确实会设该变量）本判据依然有效。
- * @param env - the environment to inspect (injectable so tests need no real desktop).
- * @returns whether this environment carries the desktop package-install marker.
+ * Electron-as-node（`ELECTRON_RUN_AS_NODE=1`）**仍然**填 `process.versions.electron`
+ * —— 2026-09-24 本机实测：Electron 37.10.3 下为 `'37.10.3'`，纯 node 下为 `undefined`。
+ * 官方桌面壳的 Host 正是由 Electron 以 node 模式 spawn 的（`apps/desktop/src/host-process.ts`
+ * 用 Electron 可执行文件 + `ELECTRON_RUN_AS_NODE=1`），所以这是它在 profile 进程里留下的**唯一**痕迹。
+ * @param versions - `process.versions` to inspect (injectable so tests need no real Electron).
+ * @returns whether the runtime is Electron rather than a plain Node.js.
  */
-export function isDesktopShellEnv(env: Record<string, string | undefined>): boolean {
+export function isElectronRuntime(
+  versions: Record<string, string | undefined> = process.versions,
+): boolean {
+  const electron = versions.electron
+  return typeof electron === 'string' && electron.trim() !== ''
+}
+
+/**
+ * Detect a DSH desktop shell — two independent signals, either one is enough:
+ *
+ * 1. **社区壳**（`anywhere-labs/dsh-desktop`，含其 `dsh-desktop-next` 重写版）在 profile
+ *    进程的环境里放 `DSH_DESKTOP_NODE_EXECUTABLE`（它的包安装/内部启动器约定）。
+ * 2. **官方壳**（`deepseek-ai/deepseek-harness` 的 `apps/desktop` + `apps/desktop-host`，
+ *    `private: true`、未发 npm）**什么都不设**：⚠️ 2026-09-24 取证推翻 2026-09-22 的假设——
+ *    上游架构说明原话是「`DSH_DESKTOP_NODE_EXECUTABLE` **仅为包安装注入**」
+ *    （`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`），
+ *    代码印证：`host-process.ts` 以 `desktopNodeEnvironment(this.node, undefined, …)` 起 host，
+ *    `bin === undefined` 时不设它；`apps/desktop-host/src/index.ts` 只在
+ *    `runProfile({ packageManager: { env } })` 里给它。于是官方壳在 profile 进程里靠**运行时**识别：
+ *    Host 是 Electron-as-node，故 `process.versions.electron` 有值（见 `isElectronRuntime`）。
+ *
+ * 官方仓**没有** `desktopProfiles` 服务（2026-09-22 全仓搜索命中 0），所以那路服务探测只覆盖社区壳；
+ * 两路都不命中时回落纯 web 文案——**profile 名不受影响**（`detectProfile` 扫 `profiles/` 目录命中 `desktop`），
+ * 持久化也不受影响（走 `configForms` seam，与壳无关）。
+ * 代价权衡：在「用 Electron 壳跑 dsh web」这类少见组合下会误判成桌面，而误判只影响提示文案措辞。
+ * @param env - the environment to inspect (injectable so tests need no real desktop).
+ * @param versions - `process.versions` to inspect (injectable for the same reason).
+ * @returns whether this process looks like a DSH desktop shell.
+ */
+export function isDesktopShellEnv(
+  env: Record<string, string | undefined>,
+  versions: Record<string, string | undefined> = process.versions,
+): boolean {
   const marker = env.DSH_DESKTOP_NODE_EXECUTABLE
-  return typeof marker === 'string' && marker.trim() !== ''
+  if (typeof marker === 'string' && marker.trim() !== '') return true
+  return isElectronRuntime(versions)
 }
 
 /** The DSH home the running process owns — `$DSH_HOME` when set, else

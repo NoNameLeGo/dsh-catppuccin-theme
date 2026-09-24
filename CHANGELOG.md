@@ -8,6 +8,21 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **官方桌面版现在能被正确识别（`process.versions.electron`）**：上一节把识别信号改成了「官方壳注入的
+  `DSH_DESKTOP_NODE_EXECUTABLE`」，但 2026-09-24 取证发现官方壳**根本不注入它**（上游说明：
+  「**`DSH_DESKTOP_NODE_EXECUTABLE` 仅为包安装注入**」），于是官方桌面版会退化成纯 web 文案。
+  现在 `isDesktopShellEnv()` 认**两路信号**：社区壳的环境标记，或 Electron-as-node 运行时
+  （`process.versions.electron`，实测 Electron 37.10.3 有值、纯 node 为 `undefined`）——
+  官方壳的 Host 正是 Electron 以 node 模式 spawn 的。`tests/profile-detect.spec.ts` 新增 5 条断言，
+  `tests/e2e/update-check.e2e.spec.ts` 新增一条走 Electron 分支的真路由用例，**两条路径都做了变异验证**
+  （拆掉 Electron 分支分别变红；e2e 那条起初推进 30 分钟会命中上一条写入的未来时间戳缓存而**假绿**，
+  改成 60 分钟后才真正验证到）。**只影响提示文案与 profile 探测的 `env` 字段**，持久化与 profile 名不受影响。
+  （EN: the official desktop shell does not expose the env marker either, so it is now recognized through
+  the Electron-as-node runtime; both branches are mutation-verified, and the e2e case needed a longer clock
+  advance to stop passing off the previous case's cached verdict）
+
 ### 其他
 
 - **更正「官方桌面壳靠 `DSH_DESKTOP_NODE_EXECUTABLE` 识别」这条假设（2026-09-24 取证）**：上游架构说明的原话是

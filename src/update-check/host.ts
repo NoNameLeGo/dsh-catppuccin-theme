@@ -234,11 +234,15 @@ async function handleUpdateCheck(ctx: Context, req: HttpRequestLike, res: HttpRe
   }
   const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
   const current = desktopProfiles?.current
-  // Two desktop shells to recognize (2026-09-22): the third-party launcher
-  // exposes the `desktopProfiles` service, the OFFICIAL Electron shell does not
-  // and marks itself through the environment instead (`apps/desktop-host`).
-  // Missing the second one made official desktop builds fall back to the plain
-  // web copy while the probed profile name was already correct.
+  // Three desktop signals, any one of them is enough (2026-09-24):
+  //  - the third-party launcher's `desktopProfiles` service;
+  //  - its `DSH_DESKTOP_NODE_EXECUTABLE` env marker (the `dsh-desktop-next`
+  //    rewrite sets that one too);
+  //  - the OFFICIAL Electron shell, which sets NEITHER — upstream injects that
+  //    variable into package-install children only, so its profile process is
+  //    recognized through the Electron runtime instead. Missing this last one
+  //    made official desktop builds fall back to the plain web copy while the
+  //    probed profile name was already correct.
   const isDesktop = isDesktopShellEnv(process.env)
     || (current?.name !== undefined && current.name !== '')
   const result = await fetchLatestVersion({

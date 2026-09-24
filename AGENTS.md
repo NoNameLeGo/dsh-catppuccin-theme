@@ -10,8 +10,12 @@
 
 | 文件 | 作用 |
 |---|---|
-| `../../.cache/dsh-ref/dsw-tokens.json` | 官方 design-platform.css 解析出的 `--dsw-*` token 全表——**要全覆盖，不许漏 token** |
-| `../../.cache/dsh-ref/catppuccin-palette.json` | 官方 Catppuccin 色板 v1.8.0——**默认取色来源**（官方取值在 DSH 下确实不成立时按规则 1 的例外流程偏离） |
+| `<缓存>/.cache/dsh-ref/dsw-tokens.json` | 官方 design-platform.css 解析出的 `--dsw-*` token 全表——**要全覆盖，不许漏 token** |
+| `<缓存>/.cache/dsh-ref/catppuccin-palette.json` | 官方 Catppuccin 色板 v1.8.0——**默认取色来源**（官方取值在 DSH 下确实不成立时按规则 1 的例外流程偏离） |
+
+> 路径基准：脚本里写的是 `join(__dirname, '..', '..', '.cache', 'dsh-ref')`（**相对 `scripts/`，往上两级**），
+> 本机实测 = `D:\Vibe-Coding\.cache\dsh-ref\`（2026-09-24 校验：目录存在，含 `dsw-tokens.json`、
+> `catppuccin-palette.json` 与各 tag 的 `design-platform-*.css`）。换机器时改成自己的缓存盘即可。
 | 产物 `src/client/palettes.ts` | 生成物；同源产物还有 `themes/`（`pnpm gen:themes`）与 shiki token 表 |
 
 > **两层「官方」不要混淆**：(a) **Catppuccin 源色板** —— 取色来源；(b) **DSH 官方 token 的取值与语义** —— 被适配对象。改 (b) 是本插件存在的理由（例如整族重映射 `brand-primary` 到风味蓝），不需要理由；改 (a) 才需要证据（规则 1）。
@@ -203,9 +207,9 @@ node "$V" --profile web --no-open --port 19411                   # 前台跑，t
 - 落盘位置（0.1.7 新 seam）＝ `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里该条目的 `config:`
   ——改一个旋钮后 `grep -A13 'id: dsh-catppuccin'` 就能确认写通。
 
-- **配置真源**（版本相关，issue #15 起）：**≤ 0.1.6-alpha.2** 是 `~/.dsh/settings.yaml` 的 `catppuccin:` 段（插件 `installSection` 注册的命名空间）；**≥ 0.1.7-alpha.1** 改成 profile patch `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里 `dsh-catppuccin` 条目的 `config:`，即插件 volatile `Config` 表单，Client 用 `ctx.configForms.get('dsh-catppuccin')` 读写——表单 ns **就是 profile 条目 id**，与 `cordis.patch.yml` 的 insert id 是硬契约（`CATPPUCCIN_ENTRY_ID`，有断言钉住）。两套 seam 由 `src/client/state-sync.ts` 的通道适配层同时支持，**任何一侧都不能写进硬依赖 `inject`**（写进去会在另一侧永久 pending，这就是 #15 的现象）。`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（本轮它还写着 `brightness: 50`，真值 100）——引用旧文件会把玻璃参数写错。方案与实测判定见 `docs/issue-15-settings-seam-0.1.7.md`。
+- **配置真源**（版本相关，issue #15 起）：**≤ 0.1.6-alpha.2** 是 `~/.dsh/settings.yaml` 的 `catppuccin:` 段（插件 `installSection` 注册的命名空间）；**≥ 0.1.7-alpha.1** 改成 profile patch `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里 `dsh-catppuccin` 条目的 `config:`，即插件 volatile `Config` 表单，Client 用 `ctx.configForms.get('dsh-catppuccin')` 读写——表单 ns **就是 profile 条目 id**，与 `cordis.patch.yml` 的 insert id 是硬契约（`CATPPUCCIN_ENTRY_ID`，有断言钉住）。两套 seam 由 `src/client/state-sync.ts` 的通道适配层同时支持，**任何一侧都不能写进硬依赖 `inject`**（写进去会在另一侧永久 pending，这就是 #15 的现象）。`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（2026-09-24 复核：该文件与 `settings.yaml.imported` 的 `glass.brightness` **都是 `50`**，与 `DEFAULT_GLASS.brightness` 一致——早先记的「真值 100」自 9-21 起已不成立；引用旧文件仍会误导，因为它不含 `updateChannel` / `shikiStyle` 等后加字段）——引用旧文件会把玻璃参数写错。方案与实测判定见 `docs/issue-15-settings-seam-0.1.7.md`。
 - **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（**token 在 `dsh web` 的 stdout**——`%TEMP%\dsh-web.log` 会过期，引用它会让浏览器/探针打开一个 401 空白页；`dsh web` 默认会弹浏览器，加 `--no-open`）。
-- **探针目录**（**未入库**，`D:\Vibe-Coding\.cache\glass-blur-probes\`）：`area.cjs`（面积账：4px 栅格取**可见面积并集** + compat 选择器模拟）、`uniform.cjs`（判定「填充变了」还是「文字重栅格化」）、`diag2.cjs`（稳定性 / 合成栈 / 注入是否生效）、`bubble.cjs`、`real.cjs`、`probe12.cjs`、`probe-ground.cjs`、`gpuverify.cjs`（负结果）。
+- **探针目录**（**未入库**；原在 `D:\Vibe-Coding\.cache\glass-blur-probes\`，**2026-09-24 复核：已随缓存清理丢失**，需要再做测量时按下列用途重建）：`area.cjs`（面积账：4px 栅格取**可见面积并集** + compat 选择器模拟）、`uniform.cjs`（判定「填充变了」还是「文字重栅格化」）、`diag2.cjs`（稳定性 / 合成栈 / 注入是否生效）、`bubble.cjs`、`real.cjs`、`probe12.cjs`、`probe-ground.cjs`、`gpuverify.cjs`（负结果）。入库的同类证据只剩 `.debug/compat-probe.mjs`（交叉版本 seam 探针，8 组判定）与 `.debug/probe-017.cjs`（真机 0.1.7 探针）。
 - **跑法**：`NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node <x>.cjs <token>`——必须 `.cjs` / `require`（`NODE_PATH` 只对 CJS 生效），Chromium 显式给 `executablePath = %LOCALAPPDATA%\ms-playwright\chromium-1228\chrome-win64\chrome.exe`。
 - **三条硬要求**：① **噪声底线先收敛**（轮询到两张连续截图完全一致再测；首轮 UNSTABLE 时的数字不可引用，本轮首轮 2.79% 就这么来的）；② **A/B 双向显式注入**并核对 `getComputedStyle` 实际值（本机装的可能还是旧版，只注入一侧等于测空气）；③ **控制项必须 DIFFERS**（把地面换成高对比条纹，差异必须巨大），否则全零的 A/B 什么都没证明。
 - **已知无效方向，别再花时间**：**「占用率」不能靠 trace 的时间自证**——headful + CDP trace（`devtools.timeline,cc,gpu`）在 6s 滚动负载下 blur 开/关的 composite 时间差落在噪声里（3178 vs 3254 ms，同配置漂移 50 ms），负载已把合成管线压满；报告人测的占用率在本机不可复现。（另：`Tracing.start` 后必须 `Tracing.end`，否则 `tracingComplete` 不触发、下一次 start 会报 "already been started"。）

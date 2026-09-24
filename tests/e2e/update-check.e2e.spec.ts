@@ -226,6 +226,36 @@ describe('e2e: host plugin on a real cordis app', () => {
       else process.env.DSH_DESKTOP_NODE_EXECUTABLE = previous
     }
   })
+
+  // Same cache-warming caveat as the case above — keep both last.
+  it('recognizes the OFFICIAL desktop shell through the Electron runtime (2026-09-24)', async () => {
+    // The official shell injects DSH_DESKTOP_NODE_EXECUTABLE into package-install
+    // children ONLY, so its profile process carries no marker at all; Electron-as-node
+    // is the signal that survives. `process.versions.electron` is a writable extra
+    // property on plain Node (verified 2026-09-24), which is how it is faked here.
+    registry.reset()
+    registry.setStatus(200)
+    const hadOwn = Object.prototype.hasOwnProperty.call(process.versions, 'electron')
+    const previous = process.versions.electron
+    process.versions.electron = '37.10.3'
+    vi.useFakeTimers()
+    try {
+      // 60 minutes, NOT the 30 used above: that case stamped its own cache entry
+      // 30 minutes into the future (mocked clocks), so advancing the same amount
+      // would land exactly on it and silently serve ITS verdict — this assertion
+      // then passes even with the Electron branch ripped out (measured).
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      const { status, body } = await getJson(UPDATE_ROUTE_PATH)
+      expect(status).toBe(200)
+      expect(body.env).toBe('desktop')
+      expect(typeof body.updateCommand).toBe('string')
+      expect(typeof body.profile).toBe('string')
+    } finally {
+      vi.useRealTimers()
+      if (hadOwn) process.versions.electron = previous
+      else Reflect.deleteProperty(process.versions, 'electron')
+    }
+  })
 })
 
 /**
