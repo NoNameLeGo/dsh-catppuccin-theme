@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+> 本节（2026-09-24 下半场）随 **`0.5.7-beta.0`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.6`）：
+> 官方桌面壳识别改用 Electron 运行时，外加一批文档 / 仓库卫生修正（提交 `bbba077`、`4b3fa59`）。
+
 ### 修复
 
 - **官方桌面版现在能被正确识别（`process.versions.electron`）**：上一节把识别信号改成了「官方壳注入的
@@ -449,7 +452,7 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7-beta.0...HEAD
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6
 [0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
 [0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
