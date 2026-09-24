@@ -13,7 +13,7 @@
 | 验证 | `pnpm typecheck && pnpm typecheck:tests && pnpm build && pnpm test` 全过；产物核对：`lib/client.js` 的 `inject` 只剩 `['slots','locale','theme']`，两条软注入 `inject(["configForms"])` / `inject(["settingsScope"])` 都在；`lib/index.js` 仍从宿主解析 `@deepseek-ai/schemastery`（守卫有效），导出 `Config` |
 | 依赖 | `@deepseek-ai/*` devDeps 整条升到 `0.1.7-rc.1`、`cordis ~4.0.4`、`schemastery ~3.18.4`；整份源码在这一版类型下**零改动通过** typecheck（无上游漂移） |
 | 实施中修正 | 第一版 `volatileFields()` 只给 `glass.*` 标了 volatile，顶层 5 个标量漏了——被 `tests/settings-seam.spec.ts` 的「每个叶子都必须 volatile」当场抓住（这正是那条断言的价值） |
-| **未做（明确缺口）** | §5.4 的 **P2 迁移**（把 `settings.yaml.imported` 里我们那个被拒的 `catppuccin:` 段捞回来）。原因：那是 YAML，而本插件的 host 半区是零依赖产物（不打包任何 YAML 解析器），读它需要一个我们不愿引入的运行时依赖。**影响**：0.5.x → 0.1.7 升级时，Web 端仍能从 localStorage 补回偏好（端口稳定），**DSH Desktop 端会静默丢一次偏好**（每次启动随机端口 ⇒ localStorage 本来就空）。要修就得单独决策依赖，或改由上游把 section 名映射到条目 id |
+| **未做（明确缺口）** | §5.4 的 **P2 迁移**（把 `settings.yaml.imported` 里我们那个被拒的 `catppuccin:` 段捞回来）。原因：那是 YAML，而本插件的 host 半区是零依赖产物（不打包任何 YAML 解析器），读它需要一个我们不愿引入的运行时依赖。**影响面（2026-09-24 更正）**：两个桌面壳都用**固定端口**（官方壳 `--port 19387`；`anywhere-labs/dsh-desktop` 默认 `43120`，仅冲突时顺序 +1），所以 localStorage 的 origin 跨重启是稳定的 ⇒ 正常升级路径下客户端会把 localStorage 里的选择推回新文档、偏好**不会丢**。真正会丢的只有一种情形：偏好**只存在于旧的持久存储里、而当前浏览器的 localStorage 里没有**（例如在浏览器 A 里配过、之后第一次在浏览器 B / 桌面端打开，或站点数据被清过）——那时无源可推，回落到默认值。要修同样得先决策 YAML 依赖，或由上游把 section 名映射到条目 id |
 | **未做（需授权）** | 真机复核（要升 CLI + 修 `web` profile，会往 C 盘下载）；GitHub Actions 的打 tag 发布 |
 
 ---
@@ -327,7 +327,7 @@ export type WriteOutcome = 'accepted' | 'refused' | 'failed'
 
 ### 6.2 `user` 缺省是 `{}` 而非 `undefined`（**只针对新通道**）
 
-原因见 §3.4。新通道上沿用 `user === undefined` 的后果：老用户（只有 localStorage）升级后偏好再也推不进新文档，Desktop 每次重启（随机端口 ⇒ localStorage 清空）都会回到默认。
+原因见 §3.4。新通道上沿用 `user === undefined` 的后果：偏好只在 localStorage 里的老用户升级后，那一次选择再也推不进新文档——之后换浏览器 / 清站点数据 / 换端口就回落到默认。**旧通道不要跟着改**：实测旧 `describe()` 在没有该文档段时给 `undefined`、有段就给对象（含空对象 `{}`），现行判据在那里是准确的；统一改成 `hasUserLayer` 只会在"文档里是空段"这一边缘情形下多触发一次写入。让两个通道各带自己的判据（§4.2 第 3 条）。
 
 **旧通道不要跟着改**：实测旧 `describe()` 在没有该文档段时给 `undefined`、有段就给对象（含空对象 `{}`），现行判据在那里是准确的；统一改成 `hasUserLayer` 只会在"文档里是空段"这一边缘情形下多触发一次写入。让两个通道各带自己的判据（§4.2 第 3 条）。
 

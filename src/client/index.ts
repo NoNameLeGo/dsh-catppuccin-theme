@@ -17,13 +17,11 @@
  *    `src/index.ts`) — the source of truth, bound here through
  *    `createDurableScope`, which adapts whichever seam the host serves
  *    (`ctx.settingsScope` up to 0.1.6-alpha.2, `ctx.configForms` from
- *    0.1.7-alpha.1 — see `src/client/state-sync.ts`). It exists because DSH
- *    Desktop launches `@deepseek-ai/dsh` with `--port 0` (a fresh random
- *    loopback port every launch) and localStorage is scoped per origin
- *    including the port, so a localStorage-only choice is silently emptied on
- *    every Desktop restart; the durable store lives under the DSH home and
- *    survives that. The pre-0.5.0 Host file + `/catppuccin/state` route are
- *    gone — the Host migrates the old file into the store once.
+ *    0.1.7-alpha.1 — see `src/client/state-sync.ts`). It exists because
+ *    localStorage is per-browser and per-origin while the DSH home is the
+ *    machine-wide truth (full rationale in `src/state.ts`). The pre-0.5.0
+ *    Host file + `/catppuccin/state` route are gone — the Host migrates the
+ *    old file into the store once.
  * At boot the plugin fast-applies localStorage, then hydrates from the scope
  * snapshot once it resolves and mirrors it back into localStorage; if the
  * document holds nothing while this browser session already chose something,
@@ -149,11 +147,13 @@ export function readFlavor(): FlavorChoice {
 /** Whether localStorage carries an EXPLICIT `off` flavour choice.
  *
  * `readFlavor()` maps both "no value" and "off" to `off`, and the two are not
- * the same thing: DSH Desktop boots the GUI on a fresh random loopback port, so
- * its localStorage starts empty on every launch and the settings document —
- * which may legitimately hold a flavour — is what should win. Only a literal
- * `off` in storage proves the user (or another window) actually turned the
- * flavour off, which is the case the cross-tab restore must act on (audit F4). */
+ * the same thing: an absent value only means THIS browser/origin never chose
+ * (a first visit, cleared site data, or a second Desktop instance that landed
+ * on the next free loopback port), while the durable store — which may
+ * legitimately hold a flavour picked elsewhere — is machine-wide. Only a
+ * literal `off` in storage proves the user (or another window) actually turned
+ * the flavour off, which is the case the cross-tab restore must act on
+ * (audit F4). */
 export function readExplicitFlavorOff(): boolean {
   try {
     return localStorage.getItem(FLAVOR_STORAGE_KEY) === 'off'
@@ -544,9 +544,9 @@ export function apply(ctx: ClientContext): void {
   // Restore the persisted choice and defend it against the built-in
   // Appearance scope's `adopt()`. Two stores feed the desired flavour:
   // localStorage (the in-browser cache — instant at boot and the cross-tab
-  // `storage` bus) and the settings document (the source of truth —
-  // required by DSH Desktop, which boots on a fresh random loopback port every
-  // launch so localStorage there always starts empty).
+  // `storage` bus) and the durable store (the source of truth — required
+  // because localStorage is per-browser and per-origin while the DSH home is
+  // machine-wide; see `src/state.ts`).
   //
   // The re-assert is not a fixed boot window. The built-in ThemeRuntime's
   // `adopt()` re-applies the settings-document preference on every settings
@@ -619,11 +619,11 @@ export function apply(ctx: ClientContext): void {
         // a Catppuccin flavour (another window or the settings document turned
         // it off). Hand the user back their built-in preference, exactly like
         // the row's own `select('off')` path. Gated on an EXPLICIT 'off' in
-        // localStorage (audit F4): Desktop boots on an empty storage (fresh
-        // random port), where the absence of a value is NOT a choice and the
-        // settings document — which may legitimately restore a flavour — is
-        // authoritative. Without that gate we would fight the document at every
-        // Desktop boot.
+        // localStorage (audit F4): an empty storage may just mean this
+        // browser/origin never chose, so the absence of a value is NOT a choice
+        // and the durable store — which may legitimately restore a flavour — is
+        // authoritative. Without that gate we would fight the document on every
+        // boot of a fresh origin.
         const preference = theme.getTheme().preference
         if (readExplicitFlavorOff() && flavorFromThemeId(preference) !== 'off') {
           scheduleRestore(readRestoredPreference())

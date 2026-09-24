@@ -57,7 +57,22 @@
 | `apps/web` | Web GUI（`dsh web` / `web` profile） | **核心**：`--dsw-*` token 体系与玻璃层的适配对象 |
 | `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`，0.1.7-alpha.1，**尚未发 npm**），启动 `$DSH_HOME/profiles/desktop` | **核心**：装法与本插件支持同社区桌面壳一致（`--profile desktop`） |
 | `apps/cli` → npm `@deepseek-ai/dsh` | CLI：profile 启动 / `dsh plugin` 转发 pnpm | 安装与更新检查的宿主 |
-| （社区）`anywhere-labs/deepseek-harness-desktop` | 第三方桌面壳，**同一个 `profiles/desktop` 路径** | 兼容保留，非核心 |
+| （社区）`anywhere-labs/dsh-desktop`（原名 `deepseek-harness-desktop`） | 第三方桌面壳，**同一个 `profiles/desktop` 路径**；`dsh-desktop-next/` 是它的重写版 | 兼容保留，非核心 |
+
+**两个桌面壳都不是「另一个 DSH」**（2026-09-24 核对，别按印象写）：
+
+|  | 官方壳（`apps/desktop-host`） | 社区壳（`anywhere-labs/dsh-desktop`） |
+|---|---|---|
+| 自带的 DSH 版本 | 与官方 monorepo 同步（0.1.7-alpha.1 起才有这个 app，**未发 npm**） | 无自带版本，启动**用户自己装的** `@deepseek-ai/dsh` |
+| Web 端口 | 固定 `--port 19387`（`src/index.ts` 写死） | 默认 `43120`（`DESKTOP_DEFAULT_WEB_PORT`），仅绑定冲突时顺序 +1（≤32 次）；2026-08-21 起「prefer a stable loopback port」 |
+| 识别信号 | 环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`（无 `desktopProfiles`） | `desktopProfiles` 服务；**`dsh-desktop-next` 重写版同时也会设 `DSH_DESKTOP_NODE_EXECUTABLE`** |
+
+⇒ 结论：**settings seam 的适配与「哪个壳」无关**，只取决于该壳启动的那份 DSH 提供哪个服务（官方壳 = 0.1.7 线 → `configForms`；
+社区壳跟随用户所装版本）。两路识别信号则同时覆盖两个壳，且官方壳那条路在 `dsh-desktop-next` 上也成立。
+
+**⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
+「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」（多浏览器、清站点数据、第二个实例落到 43121 这类
+情形），不是「每次启动都空」。这条错误叙述在注释/README 里存活了三个版本，2026-09-24 更正。
 
 **桌面识别有两路信号，别只写一路**（`src/profile-detect.ts`）：
 

@@ -5,9 +5,8 @@
  * DSH home (`catppuccin-state.json`), served to the Client through the
  * `/catppuccin/state` route. 0.5.0 migrates persistence to the official
  * settings seam (`ctx.settings` Host-side, and whichever Client transport the
- * host serves — see `src/client/state-sync.ts`), which is durable
- * across DSH Desktop's per-launch random loopback ports just like the file
- * was. The legacy file is READ-ONLY here: 0.5.0 migrates its content into
+ * host serves — see `src/client/state-sync.ts`), which is durable across
+ * browsers and origins just like the file was (it lives in the DSH home). The legacy file is READ-ONLY here: 0.5.0 migrates its content into
  * the settings document once and keeps the file on disk as a rollback copy
  * (an affected user can restore their old state by hand from it).
  *

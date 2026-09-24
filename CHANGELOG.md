@@ -34,6 +34,15 @@
 > **新增 23 条断言（215 用例全绿）**；8 条跨版本判定（含软注入永不出现、3.18.2 下守卫成立、旧宿主不会多出表单）
 > 用一次性探针实测过，0.1.7 侧的表单投影用 0.1.7-rc.1 的 `volatileForm`/`isVolatilePath` 原逻辑对跑验证。
 > **未做真机复核**——本机 CLI 仍是 `0.1.5-rc.2`，且 `web` profile 依赖树不完整。详见 `docs/issue-15-settings-seam-0.1.7.md`。
+>
+> 同日顺带更正一处沿用了三个版本的错误叙述：注释与 README 一直写着「DSH Desktop 每次启动用随机回环端口 ⇒
+> localStorage 本来就空」，实测**两个桌面壳都早已是固定端口**（官方壳 `apps/desktop-host` 传 `--port 19387`；
+> `anywhere-labs/dsh-desktop` 默认 `43120`，仅绑定冲突时顺序 +1，且 2026-08-21 就提交了 "prefer a stable loopback
+> port"）。持久存储的设计理由因此改写为「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」——
+> **代码与行为一字未改**，只改叙述。另记一处已知缺口：0.1.7 会一次性把 `settings.yaml` 按同名条目导入后改名
+> `.imported`，我们旧的 `catppuccin:` 段匹配不到条目、被拒；捞回它要读 YAML 而 host 半区是零依赖产物，本次未做，
+> 影响面仅限于「偏好只在旧持久存储里、当前浏览器 localStorage 里没有」这一种情形（固定端口的 origin 是稳定的，
+> 正常升级会把 localStorage 的选择推回新文档）。
 
 ### 修复
 

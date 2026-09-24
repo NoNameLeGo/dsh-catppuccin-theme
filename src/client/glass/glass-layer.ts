@@ -19,12 +19,11 @@
  * profile entry form, see `src/state.ts` — the Host declares it, the Client
  * binds whichever seam the host serves through `src/client/state-sync.ts` and
  * hydrates via `applyRemote` / `getRemoteState`):
- * required because DSH Desktop boots the GUI on a fresh random loopback port
- * every launch, and localStorage (scoped per origin including the port) always
- * starts empty there, while a file in the DSH home does not. On profiles
- * without a usable settings transport the layer simply keeps working from
- * localStorage alone. The enable flag and knobs themselves stay client-only
- * visual preferences shared with the plugin alone, needing no host
+ * required because localStorage is per-browser and per-origin, while the DSH
+ * home is the machine-wide truth (see the rationale in `src/state.ts`). On
+ * profiles without a usable settings transport the layer simply keeps working
+ * from localStorage alone. The enable flag and knobs themselves stay
+ * client-only visual preferences shared with the plugin alone, needing no host
  * configuration.
  */
 import type { Context } from '@deepseek-ai/cordis'

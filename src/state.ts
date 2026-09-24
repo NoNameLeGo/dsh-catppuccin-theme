@@ -1,15 +1,26 @@
 /**
  * Durable Catppuccin state — the shared contract between the two halves.
  *
- * Why this exists: DSH Desktop launches `@deepseek-ai/dsh` with `--port 0`
- * (a fresh random loopback port every launch), and localStorage is scoped per
- * origin including the port. So a flavour/glass choice persisted only in
- * localStorage is silently lost on every Desktop restart — the GUI boots on a
- * brand-new origin where the storage is empty.
+ * Why this exists: localStorage is scoped per origin, so it is the wrong place
+ * for the ONLY copy of a preference. It is per-browser (two browsers on one
+ * machine disagree), per-loopback-port (a second Desktop instance that lands
+ * on the next free port gets a different origin — the official shell pins
+ * `19387` and `anywhere-labs/dsh-desktop` starts at `43120` and increments on
+ * a bind collision, both observed 2026-09-24), and it disappears whenever the
+ * user clears site data. The durable copy lives in the official settings seam
+ * under the DSH home, which is the machine-wide truth every browser and every
+ * profile entry reads.
+ *
+ * (Historical note, corrected 2026-09-24: the 0.5.0 rationale claimed DSH
+ * Desktop launched the profile with `--port 0`, "a fresh random port every
+ * launch". That was already untrue when 0.5.0 shipped — the community shell
+ * pinned a stable port on 2026-08-21, and the official shell passes an
+ * explicit `--port 19387`. The design is unchanged and still justified by the
+ * reasons above, but do not repeat the port-per-launch claim.)
  *
  * Since 0.5.0 the DURABLE copy lives in the official settings seam, which
  * persists under the DSH home exactly like the legacy
- * `$DSH_HOME/catppuccin-state.json` did — port-independent, so it survives
+ * `$DSH_HOME/catppuccin-state.json` did — origin-independent, so it survives
  * the Desktop's per-launch port churn. The legacy file is kept as a
  * read-only migration source (`src/legacy-state.ts`) and rolled into the
  * settings document once (`src/index.ts`). Browser localStorage remains the
