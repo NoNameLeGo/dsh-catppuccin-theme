@@ -41,6 +41,34 @@
   `DSH_DESKTOP_NODE_EXECUTABLE` into package-install children only — so the desktop probe is a no-op there;
   comments and docs now say so, behaviour unchanged）
 
+> **2026-09-24 追加：补齐 DSH STORE 的兼容性声明（`AI-Scarlett/DSH-Store` issue #1106）。** 以下变更在
+> `0.5.7-beta.0` 之后，**尚未发版**。
+
+### 其他
+
+- **`package.json` 补上 `dsh.compatibility`（issue #1106 的第一条整改项）**：此前 manifest 里没有任何兼容声明，
+  DSH STORE 的自动策略因此把条目判成 `blocked`（原因之一「DSH compatibility is not explicitly declared」）。
+  现在显式声明 `dsh: ">=0.1.5-rc.1"`、逐版本 `dshReleases`（`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2`、
+  `0.1.7-rc.1` 均为 `compatible`）与 `dshOperations`（`0.1.7-rc.1` 的 `install`/`start` 记为 `passed`，
+  依据是 2026-09-24 的真机验证；`uninstall`/`rollback` 如实留 `unknown`）。声明值用**对方自己的判定代码**对跑校验过：
+  `inferredCompatibility` 不再为 `null`、`sourceDeclaredCompatibility` 归一化不抛错，
+  且当前官方窗口 `{0.1.7-alpha.1, 0.1.7-alpha.2, 0.1.7-rc.1}`（target `0.1.7-rc.1`）内三条全部命中。
+  **注意这里不能用 `peerDependencies` 声明 DSH 兼容**：上游 `dsh-app-boot` 的 `evaluatePluginCompatibility`
+  会据此判定并**跳过整个 bundle**（`>=0.1.5` 对 `0.1.5-rc.3` 为假），`dsh.compatibility` 才是 store 专有、上游不解析的字段。
+  （EN: declare DSH compatibility in `dsh.compatibility` — never via a `@deepseek-ai/dsh` peer range, which makes
+  upstream skip the whole bundle; the declaration was validated with the store's own resolution code）
+- **README 增加「兼容性、权限与失败边界」小节（中英双语）**：如实披露文件读写边界（`$DSH_HOME/profiles/` 只读、
+  `~/.dsh-tui/themes/` 只写、一次性读旧状态文件）、唯一的外部服务（`registry.npmjs.org` 的更新检查，无遥测）、
+  无命令 / 无凭据、以及失败边界（更新检查失败不阻塞启动）与唯一的安装期脚本 `prepare`。
+  这是 DSH STORE 上架契约要求、也是用户安装前该看到的信息。
+  （EN: a new "Compatibility, permissions and failure bounds" section in both READMEs）
+- **记录（未做）：DSH STORE 的自动批准门禁对本插件结构性不可达** —— 它要求运行时代码里 files / network /
+  commands / credentials 信号全为零且无生命周期脚本，而本插件的 profile 探测（读 `$DSH_HOME`）、TUI 主题同步
+  （写 `~/.dsh-tui/themes`）与更新检查（fetch npm registry）都是核心功能。条目保持 `blocked`（商城不提供安装按钮，
+  但保留 GitHub 手动安装入口）是预期状态；若要真正上架需提交构建产物并走人工 PR 申请 `user-reviewed`。
+  取证脚本与对方策略代码副本在 `.debug/dsh-store/`（不入库）。
+  （EN: automatic store approval stays out of reach by design; the entry remains `blocked` with a manual-install entry）
+
 ## [0.5.6] - 2026-09-24
 
 > 本节节内各批都先在 npm 的 `beta` 渠道发过一轮（`0.5.6-beta.0` → `beta.2`），本版本起整节进 `latest`。

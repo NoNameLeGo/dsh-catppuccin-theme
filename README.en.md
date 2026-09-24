@@ -25,6 +25,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Glassmorphism](#glassmorphism)
+- [Compatibility, permissions and failure bounds](#compatibility-permissions-and-failure-bounds)
 - [Development](#development)
 - [🙋 FAQ](#-faq)
 - [💝 Credits](#-credits)
@@ -263,6 +264,39 @@ What this plugin does:
   mixes white/black straight into it;
 - **One-click toggle**: off restores the stock UI exactly; uninstalling the plugin leaves
   nothing behind.
+
+## Compatibility, permissions and failure bounds
+
+### Compatibility
+
+| Item | Declaration |
+|---|---|
+| DSH | `>=0.1.5-rc.1` (both settings seams: the legacy channel on ≤ `0.1.6-alpha.2` and `configForms` on ≥ `0.1.7-alpha.1`) |
+| Node.js | `>=20` |
+| Profile | `web` (the official Electron shell and community DSH Desktop both run the same web UI) |
+| Verified exact version | `0.1.7-rc.1`: installed, started, had a setting persisted to disk and restored across a restart in a real profile (evidence: §0.1 of [`docs/issue-15-settings-seam-0.1.7.md`](docs/issue-15-settings-seam-0.1.7.md)); `0.1.5-rc.3`, `0.1.7-alpha.1` and `0.1.7-alpha.2` are declared as the same seam |
+
+The machine-readable form of the above is `dsh.compatibility` (`dsh` / `dshReleases` /
+`dshOperations`) in `package.json`.
+
+### Permissions and external access
+
+| Category | Purpose | Bound |
+|---|---|---|
+| File reads | Identify the active profile and install source (directory names under `$DSH_HOME/profiles/`); one-off read of the legacy state file `~/.dsh/catppuccin-state.json` for migration | Read-only. `DSH_HOME` comes from `process.env.DSH_HOME`, defaulting to `~/.dsh` |
+| File writes | Sync the four TUI theme JSONs into `~/.dsh-tui/themes/` (dsh-TUI reads themes only from there; no registration API) | That one directory only; a strict no-op when `~/.dsh-tui` does not exist. Settings themselves are written by DSH's settings service, through its official services |
+| Network | The "check for updates" row reads npm registry metadata for `@nonamelego/dsh-catppuccin`; the page then fetches the result from this plugin's own host route | `registry.npmjs.org` and the same-origin plugin route only. **No telemetry, no reporting.** Offline, the row errors and nothing else is affected |
+| Commands | None | No subprocesses, no shell |
+| Credentials | None | No tokens, keys or passwords; only `DSH_HOME` and desktop-shell marker environment variables are read |
+
+### Failure bounds
+
+- A failed update check (offline, registry error, rate limit) affects only that settings
+  row — it never blocks startup, themes or glass;
+- If theme registration fails, DSH's own themes keep working;
+- The only install-time script is `prepare` (used locally to build `lib/`). The repository's
+  `scripts/` (screenshots, E2E, changelog generation) are **not published** to npm
+  (`files` excludes them) and never run on install.
 
 ## Development
 

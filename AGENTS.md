@@ -95,6 +95,34 @@
 **推论**：新增依赖上游形状的判断时，上游的 `apps/*` 是唯一事实来源——用 `gh api repos/deepseek-ai/deepseek-harness/contents/<path>`
 直接读源码（`desktopProfiles` 这类服务名就是这么做出来的对照），别按印象写。
 
+## DSH STORE 上架状态与契约（2026-09-24 核实，issue #1106）
+
+商城（[`AI-Scarlett/DSH-Store`](https://github.com/AI-Scarlett/DSH-Store)）里我们的条目 `id = dsh-catppuccin` 是
+**`status: blocked` + `updatePolicy: external-only`**：商城不提供安装按钮，但**保留 GitHub 手动安装入口和风险原因**，
+已有用户仍可 `dsh plugin add`。每 8 小时自动复检一次，会跟随默认分支的新 Commit 自动刷新版本与元数据。
+
+- **自动批准（`source-verified`）对本插件结构性不可达**，别再去试。`registry/automation-policy.json` 的
+  `automaticApproval` 要求：无 `preinstall/install/postinstall/prepare`、无 `dependencies`、显式 `files`、
+  声明 DSH 与 Node 兼容，**且**运行时代码里 `files/network/commands/credentials/protectedDsh/nativeOrExecutableArtifacts`
+  信号**全为零**。扫描面 = 仓库里除 `node_modules|vendor|test|tests|docs|examples|fixtures|benchmarks|coverage|.github`
+  之外的所有 `.ts/.tsx/.js/.mjs/.cjs/.json/.yml/.sh/.py`（**`scripts/` 也算运行时源码**；`*.map` 不算）。
+  ⇒ 我们读 `$DSH_HOME`、写 `~/.dsh-tui/themes/`、fetch npm registry，**必然红灯**。
+- **兼容窗口的算法**（`src/dsh-release-policy.mjs`+`dsh-release-policy.js`）：取 dist-tag 里**除 `next` 外**的最高
+  支持版本作 target（当前 = `alpha` 的 `0.1.7-alpha.2` 决定了序列），再取 ≤ target 的最高三版
+  ⇒ 当前窗口 `{0.1.7-alpha.1, 0.1.7-alpha.2, 0.1.7-rc.1}`（target 显示为 `0.1.7-rc.1`）。**窗口内 ≥1 条 `compatible` 即可**；
+  `approved` 条目三者全非 `compatible` 会转 `unlisted`。
+- **声明写在 `package.json` 的 `dsh.compatibility`**（`dsh` 范围字符串 + `dshReleases` 逐版本 + `dshOperations` 逐版本
+  `install/start/uninstall/rollback`，值 `passed|failed|unknown`）。这是 **store 专有**字段：上游
+  `@deepseek-ai/dsh-package-manifest` 的 `DshManifest` 里没有 `compatibility`，上游也不解析它。
+  ⚠️ **绝不能用 `peerDependencies` 里的 `@deepseek-ai/dsh` 范围声明兼容**：上游 `dsh-app-boot` 的
+  `evaluatePluginCompatibility` 会据此判定，不满足就**跳过整个 bundle**（`>=0.1.5` 对 `0.1.5-rc.3` 为假）。
+- 复现工具：`.debug/dsh-store/`（对方策略源码副本 + `probe-exact.mjs` 逐文件跑信号 + `probe-window.mjs` 算窗口 +
+  `verify-manifest.mjs` 用对方函数校验本仓库 manifest）。**不入库**。
+- 顺带发现：商城条目名/分类是错的（「用量统计看板（DSH Catppuccin）」/ `experimental`，应为 themes），
+  他们的本地化把 stats line 误读成了用量看板。
+- 若要真正上架：提交 `lib/` 构建产物（去掉 `prepare`）+ 去 DSH-Store 提 PR 申请 `user-reviewed`（人工通道），
+  并接受对方「高权限项目可能仍需保持 guarded」的判定。
+
 ## 下次发版 SOP
 
 发布走 GitHub Actions 的 OIDC **Trusted Publisher** 自动发 npm。正常流程**不要手动 `npm publish`**（手动只是 CI 故障时的紧急回退，见下）。

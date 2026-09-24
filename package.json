@@ -43,6 +43,26 @@
         "@deepseek-ai/dsh-api-remotes"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dsh": ">=0.1.5-rc.1",
+      "dshReleases": {
+        "0.1.5-rc.3": "compatible",
+        "0.1.7-alpha.1": "compatible",
+        "0.1.7-alpha.2": "compatible",
+        "0.1.7-rc.1": "compatible"
+      },
+      "dshOperations": {
+        "0.1.7-rc.1": {
+          "install": "passed",
+          "start": "passed",
+          "uninstall": "unknown",
+          "rollback": "unknown"
+        }
+      },
+      "profiles": [
+        "web"
+      ]
     }
   },
   "files": [

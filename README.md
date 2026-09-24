@@ -23,6 +23,7 @@
 - [安装](#安装)
 - [使用](#使用)
 - [玻璃拟态（Glassmorphism）](#玻璃拟态glassmorphism)
+- [兼容性、权限与失败边界](#兼容性权限与失败边界)
 - [开发](#开发)
 - [🙋 常见问题](#常见问题)
 - [💝 致谢](#致谢)
@@ -239,6 +240,35 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - **配色自动跟随主题**：Latte 是浅色玻璃、Mocha 是深色玻璃，切换主题即时
   变色；页面底色取当前主题纯色，背景亮度旋钮直接往纯色里调和白/黑；
 - **一键开关**：关闭即完全还原原生界面，插件卸载不留任何残留。
+
+## 兼容性、权限与失败边界
+
+### 兼容范围
+
+| 项 | 声明 |
+|---|---|
+| DSH | `>=0.1.5-rc.1`（同时适配两套 settings seam：≤ `0.1.6-alpha.2` 的旧通道与 ≥ `0.1.7-alpha.1` 的 `configForms`） |
+| Node.js | `>=20` |
+| Profile | `web`（官方 Electron 壳与社区 DSH Desktop 同样启动 `web`/`desktop` 的 web 界面，共用本插件） |
+| 已验证的具体版本 | `0.1.7-rc.1`：在真实 profile 上完成安装、启动、改设置落盘与重启恢复（证据见 [`docs/issue-15-settings-seam-0.1.7.md`](docs/issue-15-settings-seam-0.1.7.md) 的 §0.1）；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
+
+以上也是 `package.json` 里 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）的机器可读版本。
+
+### 权限与外部访问
+
+| 类别 | 用途 | 边界 |
+|---|---|---|
+| 文件读 | 识别当前 profile 与安装来源（`$DSH_HOME/profiles/` 下的目录名）；一次性读取旧状态文件 `~/.dsh/catppuccin-state.json` 做迁移 | 只读；`DSH_HOME` 取自 `process.env.DSH_HOME`，缺省 `~/.dsh` |
+| 文件写 | 把四套 TUI 主题 JSON 同步到 `~/.dsh-tui/themes/`（dsh-TUI 只从该目录读主题，无注册 API） | 只写这一个目录；`~/.dsh-tui` 不存在时是严格 no-op。设置本身由 DSH 的 settings 服务写入，插件只经官方服务读写 |
+| 网络 | 「检查更新」读取 npm registry 上 `@nonamelego/dsh-catppuccin` 的元数据；页面侧再向本插件的宿主路由取一次结果 | 只访问 `registry.npmjs.org` 与同源插件路由；**无遥测、无上报**；离线时该行报错、不影响使用 |
+| 命令 | 无 | 不执行任何子进程 / shell |
+| 凭据 | 无 | 不读取任何 token、key、密码；仅读 `DSH_HOME` 与桌面壳标记类环境变量 |
+
+### 失败边界
+
+- 更新检查失败（离线、registry 异常、限流）只影响设置页那一行，**不阻塞启动**，也不影响主题与玻璃；
+- 主题注册失败时 DSH 自身主题照常可用；
+- 安装期只执行 `prepare`（本地用它构建 `lib/`）。仓库里的 `scripts/`（截图、E2E、changelog 生成）**不随 npm 包发布**（`files` 不含 `scripts`），也不会在安装时执行。
 
 ## 开发
 
