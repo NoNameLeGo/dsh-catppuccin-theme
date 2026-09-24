@@ -292,12 +292,14 @@ pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppucci
   A: 官方外观行只列出内置的浅色/深色/跟随系统偏好。四个主题在它正下方的
   **Catppuccin** 行里。
 - Q: **_"我的主题选择是怎么记住的？"_**
-  A: 选择持久保存在 DSH 的官方 settings 文档（`catppuccin` namespace，存于
-  DSH home 下，同一台机器的 DSH 共享这份偏好），浏览器 localStorage 作为
-  即时缓存与多标签页同步。因此普通 `dsh web`、`dsh web --port` 自定义端口，
-  以及 **DSH Desktop**（每次启动用随机回环端口）都能跨重启自动恢复；玻璃质感
-  开关与各旋钮同样持久保存。0.5.0 起旧版 `catppuccin-state.json` 会在首次
-  启动时一次性迁移进 settings 文档（文件保留作回退）。
+  A: 选择持久保存在 DSH 的官方设置里（同一台机器的 DSH 共享这份偏好），浏览器
+  localStorage 作为即时缓存与多标签页同步。落点随 DSH 版本而异：**0.1.6 及更早**
+  存于 DSH home 下的官方 settings 文档（`catppuccin` 命名空间）；**0.1.7 起**上游
+  改为「插件配置表单」，落点是当前 profile 的 patch 文件里本插件的 `config:` 段
+  （本插件两套都支持，按宿主实际提供的服务自动选择）。因此普通 `dsh web`、
+  `dsh web --port` 自定义端口，以及 **DSH Desktop**（每次启动用随机回环端口）
+  都能跨重启自动恢复；玻璃质感开关与各旋钮同样持久保存。0.5.0 起旧版
+  `catppuccin-state.json` 会在首次启动时一次性迁移进官方设置（文件保留作回退）。
 - Q: **_"怎么知道这个插件有没有新版本？"_**
   A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
   发现新版会给出可复制的升级命令；也可以随时手动执行

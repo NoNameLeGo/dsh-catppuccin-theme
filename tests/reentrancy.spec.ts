@@ -102,6 +102,31 @@ function makeSettingsScope() {
   return { scope, service: { bind: () => scope } }
 }
 
+/** configForms double (issue #15's seam): the shape `get(entryId)` returns. */
+function makeConfigForms() {
+  const mutations: unknown[][] = []
+  const snap = {
+    status: 'ready' as const,
+    mode: 'host' as const,
+    // The new seam's "no user layer yet" is an EMPTY OBJECT (the profile
+    // patch's `override`), so the boot push below has to fire.
+    user: {},
+    value: undefined,
+    revision: 2,
+    writable: true,
+    base: undefined,
+  }
+  const subs = new Set<() => void>()
+  const form = {
+    getSnapshot: () => snap,
+    subscribe: (f: () => void) => { subs.add(f); return () => subs.delete(f) },
+    set: async () => true,
+    unset: async () => true,
+    mutate: async (ops: unknown[]) => { mutations.push(ops); return true },
+  }
+  return { form, mutations, service: { get: () => form } }
+}
+
 describe('issue #10: flavour restore must not re-enter the theme/change dispatch', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
@@ -166,5 +191,64 @@ describe('issue #10: flavour restore must not re-enter the theme/change dispatch
 
     expect(theme.getTheme().preference).toBe('dark')
     expect(applied[applied.length - 1]).toBe('dark')
+  })
+})
+
+describe('issue #15: the client boots on either settings seam', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  const mount = (provide: (ctx: Context) => void) => {
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    provide(ctx)
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
+    apply(ctx)
+    return { ctx, theme }
+  }
+
+  it('restores and persists the flavour through configForms (0.1.7+)', async () => {
+    const forms = makeConfigForms()
+    const { theme } = mount((ctx) => { ctx.provide('configForms', forms.service as never) })
+    await new Promise((r) => setTimeout(r, 400)) // boot restore + debounced push
+
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+    // The durable push went through the new channel, at the whole-section
+    // granularity the adapter uses (one atomic mutation per burst).
+    expect(forms.mutations).toHaveLength(1)
+    const ops = forms.mutations[0] as { op: string; path: string[] }[]
+    expect(ops.map((op) => op.path.join('.'))).toContain('flavor')
+  })
+
+  it('still restores the flavour on the legacy settingsScope seam', async () => {
+    const sss = makeSettingsScope()
+    const { theme } = mount((ctx) => { ctx.provide('settingsScope', sss.service as never) })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+  })
+
+  it('hydrates when the settings service only appears after apply', async () => {
+    // The durable transport must never gate activation: the plugin boots from
+    // localStorage and adopts the service whenever it lands.
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
+    apply(ctx)
+
+    const forms = makeConfigForms()
+    ctx.provide('configForms', forms.service as never)
+    await new Promise((r) => setTimeout(r, 400))
+
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+    // The late bind notified the plugin, so the boot push ran after all.
+    expect(forms.mutations).toHaveLength(1)
   })
 })

@@ -23,7 +23,45 @@
 > 本批（连同 `0.5.6-beta.0` 之后的官方桌面壳识别、CI 树冻结）随 **`0.5.6-beta.1`** 发到 npm 的 `beta` 渠道；
 > `latest` 仍是 `0.5.5`。
 
+> **2026-09-24 追加：DSH 0.1.7 换掉 settings seam 的适配（issue #15）。** 上游 `0.1.7-alpha.1` 删掉了客户端的
+> `settingsScope` 服务与 Host 的 `settings.installSection`，改成「插件声明带 `.volatile()` 的 `Config`，设置服务按
+> **profile 条目 id** 投影成表单，客户端用 `ctx.configForms.get(id)` 读写」。本插件把旧服务写进了**硬依赖 `inject`**，
+> 于是 0.1.7 上整条插件永久 `pending`（主题、四条设置行、更新检查全不加载）；Host 侧的 `installSection` 调用同时失效。
+> 因为 `latest`（`0.1.5-rc.3`）仍是旧 seam 且在售，本次改为**双通道**：两个服务各走一次**可选注入**，谁在就用谁，
+> 三处语义差异（「还没有用户层」的判据、写栅栏、拒绝信号）全部收敛在通道内部，调用方看不到；`settings.general.item`
+> 槽位与全部 UI 不动。跨版本的关键守卫是 `.volatile()` 的 `typeof` 检测——该方法是 schemastery **3.18.3** 才有的，
+> 而 0.1.5/0.1.6 宿主锁 `3.18.2`，无条件调用会在**模块求值期**抛错（把「不激活」升级成「加载失败」）。
+> **新增 23 条断言（215 用例全绿）**；8 条跨版本判定（含软注入永不出现、3.18.2 下守卫成立、旧宿主不会多出表单）
+> 用一次性探针实测过，0.1.7 侧的表单投影用 0.1.7-rc.1 的 `volatileForm`/`isVolatilePath` 原逻辑对跑验证。
+> **未做真机复核**——本机 CLI 仍是 `0.1.5-rc.2`，且 `web` profile 依赖树不完整。详见 `docs/issue-15-settings-seam-0.1.7.md`。
+
 ### 修复
+
+- **DSH 0.1.7 上插件不再永久 pending（issue #15）**：客户端 `inject` 从 `['slots','locale','theme','settingsScope']` 改为
+  `['slots','locale','theme']`，两套设置服务（`configForms` / `settingsScope`）各走一次可选注入，由 `src/client/state-sync.ts`
+  的 `DurableScope` 适配层绑定「宿主要在的那一个」。副作用是**注入时机提前**（不再等设置服务）：本地缓存先渲染、设置服务
+  到达时再补一次 hydration，这正是原有的 boot 语义。3 条断言钉住「任一 seam 都不在硬依赖里」「两条软注入都在」
+  「服务晚于 apply 出现时仍能补水」。（EN: the client no longer hard-depends on either settings service — the plugin used to
+  wait forever on `settingsScope`, which 0.1.7-alpha.1 removed; both seams are now bound optionally behind one adapter）
+
+- **Host 半区同时支持两套设置服务**：新增 `Config`（volatile 字段表，由 `cordis.patch.yml` 条目 id 寻址）供 0.1.7 投影表单；
+  `installSection` 分支保留并加 `typeof` 守卫，旧宿主行为逐字节不变（注册、`catppuccin` 命名空间、落点、迁移栅栏策略都未动）。
+  一次性迁移搬到 `src/migrate-legacy.ts`：新通道下**必须延迟 + 重试**——`ctx.inject(['settings'])` 在服务已就绪时会同步回调，
+  那一刻本条目的 fiber 还没 ACTIVE，`describe()` 看不到自己，迁移会被静默跳过。表单默认值与 `defaultSettingsSection()`
+  逐字段一致（客户端把「等于默认」当作「尚无用户选择」），并有断言防止漂移。（EN: one field table feeds both schemas; the
+  migration is deferred on the new seam because the entry is not addressable until its own fiber is ACTIVE）
+
+- **`.volatile()` 做了能力检测（跨版本兼容）**：`.volatile()` 仅存在于 schemastery 3.18.3+，而 0.1.5/0.1.6 宿主锁 3.18.2，
+  且本插件的 lib 产物把 `@deepseek-ai/schemastery` 保持外置（用宿主那一份）——无条件调用会在模块求值期抛
+  `TypeError: ...volatile is not a function`，把「插件不激活」升级成「插件加载失败」。`maybeVolatile()` 在无该能力时返回原节点，
+  于是旧宿主上条目不含 volatile 元信息、不产生任何表单（等价于 0.1.7 之前的现状），新宿主上才是可编辑表单。
+  3 条断言覆盖守卫的两个分支、Config 每个叶子都带 volatile、以及旧 schema 一个都不带。（EN: `.volatile()` is
+  feature-detected because the old hosts load this module with schemastery 3.18.2, where the method does not exist — calling it
+  unconditionally would turn "plugin pending" into "plugin failed to load"）
+
+- **`.volatile()` 加上「两个 schema 不复用节点」的约束**：`.volatile()` 是原地改 `meta` 并返回 this，旧命名空间 schema 与新
+  volatile `Config` 因此各自从字段工厂取一套全新节点。（EN: the two schemas never share node instances, since `.volatile()`
+  mutates the node in place）
 
 - **菜单底色的半透明只在「宿主真会模糊它」时启用（跨版本兼容）**：`--dsw-specific-menu` 从 `var(--dsw-alias-bg-layer-3)` 变成
   58%/50% 半透明，是**和** `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)` 同一次改动引入的（0.1.7-alpha.1；0.1.6-alpha.1

@@ -31,8 +31,9 @@ import {
   isScopeUsable,
   persistStateToScope,
   scheduleDurablePersist,
-  type SettingsScope,
-  type SettingsScopeSnapshot,
+  type DurableScope,
+  type DurableSnapshot,
+  type WriteOutcome,
 } from '../src/client/state-sync.ts'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { STATE_VERSION, defaultSettingsSection, defaultState, settingsSectionFromState } from '../src/state.ts'
@@ -146,8 +147,8 @@ describe('overridesSnapshot stability', () => {
   })
 })
 
-/** Build a settings-scope snapshot fixture (host-mode, resolved). */
-function hostSnapshot(value: CatppuccinSettingsSection, user?: unknown): SettingsScopeSnapshot<CatppuccinSettingsSection> {
+/** Build a settings snapshot fixture (host-mode, resolved). */
+function hostSnapshot(value: CatppuccinSettingsSection, user?: unknown): DurableSnapshot<CatppuccinSettingsSection> {
   return {
     status: 'ready',
     value,
@@ -159,24 +160,26 @@ function hostSnapshot(value: CatppuccinSettingsSection, user?: unknown): Setting
   }
 }
 
-/** Minimal scope double recording mutations. */
+/** Minimal scope double recording writes. The channel differences the real
+ *  adapter hides (user-layer predicate, write fence) are irrelevant here: this
+ *  double stands in for the bound channel itself. */
 function scopeDouble(options: {
-  snapshot?: SettingsScopeSnapshot<CatppuccinSettingsSection>
-  mutate?: () => Promise<void>
-} = {}): { scope: SettingsScope<CatppuccinSettingsSection>; mutations: unknown[][] } {
+  snapshot?: DurableSnapshot<CatppuccinSettingsSection>
+  write?: () => Promise<WriteOutcome>
+} = {}): { scope: DurableScope<CatppuccinSettingsSection>; mutations: unknown[][] } {
   const mutations: unknown[][] = []
   return {
     mutations,
     scope: {
+      kind: 'configForms',
       getSnapshot() { return options.snapshot ?? hostSnapshot(defaultSettingsSection()) },
       subscribe() { return () => {} },
-      set() { return Promise.resolve() },
-      unset() { return Promise.resolve() },
-      mutate(ops: readonly SettingsPathOpView[]) {
+      hasUserLayer: (snapshot) => snapshot.user !== undefined,
+      write(ops: readonly SettingsPathOpView[]) {
         mutations.push(ops as never)
-        return options.mutate !== undefined ? options.mutate() : Promise.resolve()
+        return options.write !== undefined ? options.write() : Promise.resolve('accepted' as const)
       },
-    } as unknown as SettingsScope<CatppuccinSettingsSection>,
+    },
   }
 }
 
@@ -223,13 +226,24 @@ describe('persistStateToScope', () => {
     expect(byPath['shikiStyle']).toBe('default')
   })
 
-  it('reports error when the write rejects', async () => {
+  it('reports error when the write fails at the transport layer', async () => {
     const local = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
-    const flaky = {
-      getSnapshot() { return hostSnapshot(defaultSettingsSection()) },
-      mutate() { return Promise.reject(new Error('conflict')) },
-    } as unknown as SettingsScope<CatppuccinSettingsSection>
+    const flaky = scopeDouble({
+      snapshot: hostSnapshot(defaultSettingsSection()),
+      write: () => Promise.resolve('failed'),
+    }).scope
     expect(await persistStateToScope(flaky, local)).toBe('error')
+  })
+
+  it('reports stale when the channel reports a refused write (item C/X)', async () => {
+    // Only the 0.1.7+ channel can report this: the legacy controller resolves
+    // a refused write silently, which is why the read-side guard exists.
+    const local = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
+    const scope = scopeDouble({
+      snapshot: hostSnapshot(defaultSettingsSection()),
+      write: () => Promise.resolve('refused'),
+    }).scope
+    expect(await persistStateToScope(scope, local)).toBe('stale')
   })
 
   it('is a noop when the local state already equals the document', async () => {
@@ -274,11 +288,10 @@ describe('persistStateToScope', () => {
   })
 
   it('reports error for a not-ready or memory-mode snapshot', async () => {
-    const flaky = {
-      getSnapshot() { return { ...hostSnapshot(defaultSettingsSection()), status: 'loading' as const } },
-      mutate() { return Promise.resolve() },
-    } as unknown as SettingsScope<CatppuccinSettingsSection>
-    expect(await persistStateToScope(flaky, defaultState())).toBe('error')
+    const scope = scopeDouble({
+      snapshot: { ...hostSnapshot(defaultSettingsSection()), status: 'loading' },
+    }).scope
+    expect(await persistStateToScope(scope, defaultState())).toBe('error')
   })
 })
 

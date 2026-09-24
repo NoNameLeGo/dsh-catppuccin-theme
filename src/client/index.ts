@@ -13,15 +13,17 @@
  *  - localStorage keys (`dsh.catppuccin.*`) — the in-browser cache: instant
  *    restore at boot, the cross-tab `storage` event bus, and the fallback
  *    when the settings transport is unavailable;
- *  - the official settings document (namespace `catppuccin`, registered by
- *    the Host half in `src/index.ts`) — the source of truth, bound here
- *    through `ctx.settingsScope`. It exists because DSH Desktop launches
- *    `@deepseek-ai/dsh` with `--port 0` (a fresh random loopback port every
- *    launch) and localStorage is scoped per origin including the port, so a
- *    localStorage-only choice is silently emptied on every Desktop restart;
- *    the settings document lives under the DSH home and survives that. The
- *    pre-0.5.0 Host file + `/catppuccin/state` route are gone — the Host
- *    migrates the old file into the document once.
+ *  - the official settings seam (registered/declared by the Host half in
+ *    `src/index.ts`) — the source of truth, bound here through
+ *    `createDurableScope`, which adapts whichever seam the host serves
+ *    (`ctx.settingsScope` up to 0.1.6-alpha.2, `ctx.configForms` from
+ *    0.1.7-alpha.1 — see `src/client/state-sync.ts`). It exists because DSH
+ *    Desktop launches `@deepseek-ai/dsh` with `--port 0` (a fresh random
+ *    loopback port every launch) and localStorage is scoped per origin
+ *    including the port, so a localStorage-only choice is silently emptied on
+ *    every Desktop restart; the durable store lives under the DSH home and
+ *    survives that. The pre-0.5.0 Host file + `/catppuccin/state` route are
+ *    gone — the Host migrates the old file into the store once.
  * At boot the plugin fast-applies localStorage, then hydrates from the scope
  * snapshot once it resolves and mirrors it back into localStorage; if the
  * document holds nothing while this browser session already chose something,
@@ -42,7 +44,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // dsh-client-runtime package is gone).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the settings-surface SlotMap merge (settings.general.item)
-// and the settingsScope Context merge.
+// and, on 0.1.7+, the configForms Context merge the durable scope binds.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
@@ -70,7 +72,7 @@ import {
   type UpdateChannel,
 } from '../state.ts'
 import {
-  bindCatppuccinScope,
+  createDurableScope,
   cancelDurablePersist,
   createBaseRevisionTracker,
   durableStateFromSnapshot,
@@ -357,9 +359,14 @@ export function builtinPickWins(
   return preference === livePick
 }
 
-/** Required services: slots + locale (settings rows), theme (register +
- *  switch), and the settings scope (durable persistence). */
-export const inject = ['slots', 'locale', 'theme', 'settingsScope']
+/** Required services: slots + locale (settings rows) and theme (register +
+ *  switch). The durable settings transport is NOT a hard dependency: which
+ *  service provides it depends on the host version (issue #15 — 0.1.7-alpha.1
+ *  replaced `settingsScope` with `configForms`), so `createDurableScope`
+ *  binds whichever one appears through its own optional injections. Listing
+ *  either name here would leave the plugin permanently pending on the other
+ *  half of the installed base. */
+export const inject = ['slots', 'locale', 'theme']
 
 /**
  * Register the Catppuccin dictionaries, the flavour themes (lazy — item JJ:
@@ -438,10 +445,13 @@ export function apply(ctx: ClientContext): void {
   // persisted glass state onto the layer.
   const glass = new GlassLayer(ctx)
 
-  // The official settings scope for the Catppuccin namespace (registered by
-  // the Host half). The document is the source of truth; the scope derives
-  // from the shared mirror on this fiber and never blocks on the transport.
-  const scope = bindCatppuccinScope(ctx)
+  // The official settings transport for the Catppuccin durable state. Which
+  // seam it is depends on the host version (0.1.7-alpha.1 replaced the
+  // `settingsScope` namespace binding with the `configForms` entry form), so
+  // the facade picks whichever service the host provides and never blocks
+  // this fiber on it. The document is the source of truth; the scope derives
+  // from the shared mirror and never blocks on the transport.
+  const scope = createDurableScope(ctx)
 
   // The current durable snapshot: flavour from the localStorage cache (the
   // authoritative write target of the settings row) plus the glass layer's
@@ -677,7 +687,10 @@ export function apply(ctx: ClientContext): void {
       const state = durableStateFromSnapshot(snapshot)
       if (state === null) return // loading / memory / absent — localStorage-only
       const local = buildLocalState()
-      if (snapshot.user === undefined) {
+      // The channel owns the "does the document hold a user layer yet?" test:
+      // the new form's `user` is an empty object until someone writes, while
+      // the legacy document omits it entirely.
+      if (!scope.hasUserLayer(snapshot)) {
         // No user layer in the document yet: this session's localStorage
         // choice is newer than the shipped defaults the document resolves
         // to, so push it into the document (the upgrade path for a

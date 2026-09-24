@@ -7,8 +7,7 @@
  * localStorage is silently lost on every Desktop restart — the GUI boots on a
  * brand-new origin where the storage is empty.
  *
- * Since 0.5.0 the DURABLE copy lives in the official settings seam
- * (`ctx.settings` Host-side / `ctx.settingsScope` Client-side), which
+ * Since 0.5.0 the DURABLE copy lives in the official settings seam, which
  * persists under the DSH home exactly like the legacy
  * `$DSH_HOME/catppuccin-state.json` did — port-independent, so it survives
  * the Desktop's per-launch port churn. The legacy file is kept as a
@@ -17,6 +16,13 @@
  * in-browser cache and cross-tab sync bus, and the Client's fallback when the
  * settings transport is unavailable. This module is dependency-free so both
  * bundles inline it (like `update-check.ts`).
+ *
+ * The seam itself is version-dependent (issue #15): DSH <= 0.1.6-alpha.2
+ * serves a Client `ctx.settingsScope` bound to a namespace the plugin
+ * registers itself (`CATPPUCCIN_SETTINGS_NS`), while >= 0.1.7-alpha.1 serves
+ * `ctx.configForms` projecting the plugin's volatile `Config` form, keyed by
+ * the PROFILE ENTRY ID (`CATPPUCCIN_ENTRY_ID`). Both are addressed from this
+ * one contract (see `src/client/state-sync.ts`).
  */
 export const STATE_VERSION = 1
 
@@ -27,13 +33,45 @@ export type UpdateChannel = 'latest' | 'beta'
 /** Shiki syntax-highlighting style variants (see `src/client/shiki-tokens.ts`). */
 export type ShikiStyle = 'default' | 'italic-comments'
 
-/** Settings namespace both halves address: Host registers it, Client binds
- *  it through `ctx.settingsScope` (see `src/settings-catppuccin.ts`). */
+/** Legacy settings namespace (DSH <= 0.1.6-alpha.2): the Host registers it
+ *  through `settings.installSection`, the Client binds it through
+ *  `ctx.settingsScope` (see `src/settings-catppuccin.ts`). */
 export const CATPPUCCIN_SETTINGS_NS = 'catppuccin'
+
+/**
+ * Profile entry id carrying the plugin (DSH >= 0.1.7-alpha.1): the settings
+ * service projects our volatile `Config` into a form named by the ACTIVE
+ * PROFILE ENTRY's id, so this constant is the new seam's namespace.
+ *
+ * It is a CONTRACT with `cordis.patch.yml`: the `insert` row whose `name` is
+ * `@nonamelego/dsh-catppuccin` must keep `id: dsh-catppuccin`, because the
+ * Client can only address the form by that id (asserted by
+ * `tests/settings-seam.spec.ts`). A user who renames the entry loses the new
+ * seam and degrades to localStorage-only — the legacy seam is unaffected,
+ * since that namespace is registered by the plugin itself.
+ */
+export const CATPPUCCIN_ENTRY_ID = 'dsh-catppuccin'
 
 /** State file name under the DSH home (kept next to the Desktop-managed
  *  `cordis.patch.yml` so it survives the Desktop's per-launch port churn). */
 export const STATE_FILENAME = 'catppuccin-state.json'
+
+/**
+ * Whether a raw settings view carries a user layer at all.
+ *
+ * The two seams answer this differently and the difference is load-bearing
+ * (issue #15): the NEW form's `user` is the profile patch's `override`, which
+ * `configEditor.configuration()` defaults to `{}` — so "absent" arrives as an
+ * EMPTY OBJECT, and `!== undefined` would be true forever. The LEGACY
+ * document omits the field entirely when the document holds no such section,
+ * so the old `!== undefined` test stays correct there. Callers must use the
+ * predicate their channel defines (see `src/client/state-sync.ts`).
+ * @param user - a snapshot's raw user layer.
+ * @returns whether it holds at least one entry.
+ */
+export function hasUserLayerSection(user: unknown): boolean {
+  return typeof user === 'object' && user !== null && !Array.isArray(user) && Object.keys(user).length > 0
+}
 
 /** The four registered Catppuccin theme ids. MUST stay in sync with the
  *  `themeId` of `CATPPUCCIN_FLAVORS` in `src/client/palettes.ts` — guarded by

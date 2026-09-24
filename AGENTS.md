@@ -160,7 +160,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 
 ## 本机测量资产（真页 A/B 与面积账）
 
-- **配置真源**：`~/.dsh/settings.yaml` 的 `catppuccin:` 段是玻璃/主题设置的**唯一真源**；`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（本轮它还写着 `brightness: 50`，真值 100）——引用旧文件会把玻璃参数写错。
+- **配置真源**（版本相关，issue #15 起）：**≤ 0.1.6-alpha.2** 是 `~/.dsh/settings.yaml` 的 `catppuccin:` 段（插件 `installSection` 注册的命名空间）；**≥ 0.1.7-alpha.1** 改成 profile patch `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里 `dsh-catppuccin` 条目的 `config:`，即插件 volatile `Config` 表单，Client 用 `ctx.configForms.get('dsh-catppuccin')` 读写——表单 ns **就是 profile 条目 id**，与 `cordis.patch.yml` 的 insert id 是硬契约（`CATPPUCCIN_ENTRY_ID`，有断言钉住）。两套 seam 由 `src/client/state-sync.ts` 的通道适配层同时支持，**任何一侧都不能写进硬依赖 `inject`**（写进去会在另一侧永久 pending，这就是 #15 的现象）。`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（本轮它还写着 `brightness: 50`，真值 100）——引用旧文件会把玻璃参数写错。方案与实测判定见 `docs/issue-15-settings-seam-0.1.7.md`。
 - **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（**token 在 `dsh web` 的 stdout**——`%TEMP%\dsh-web.log` 会过期，引用它会让浏览器/探针打开一个 401 空白页；`dsh web` 默认会弹浏览器，加 `--no-open`）。
 - **探针目录**（**未入库**，`D:\Vibe-Coding\.cache\glass-blur-probes\`）：`area.cjs`（面积账：4px 栅格取**可见面积并集** + compat 选择器模拟）、`uniform.cjs`（判定「填充变了」还是「文字重栅格化」）、`diag2.cjs`（稳定性 / 合成栈 / 注入是否生效）、`bubble.cjs`、`real.cjs`、`probe12.cjs`、`probe-ground.cjs`、`gpuverify.cjs`（负结果）。
 - **跑法**：`NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node <x>.cjs <token>`——必须 `.cjs` / `require`（`NODE_PATH` 只对 CJS 生效），Chromium 显式给 `executablePath = %LOCALAPPDATA%\ms-playwright\chromium-1228\chrome-win64\chrome.exe`。

@@ -15,9 +15,10 @@
  *
  * The enable flag and every knob persist in localStorage — the in-browser
  * cache and cross-tab sync bus. The DURABLE copy of the same state lives in
- * the official settings document under the DSH home (namespace `catppuccin`,
- * see `src/state.ts` — the Host registers it, the Client binds it through
- * `ctx.settingsScope` and hydrates via `applyRemote` / `getRemoteState`):
+ * the official settings store under the DSH home (namespace `catppuccin` / the
+ * profile entry form, see `src/state.ts` — the Host declares it, the Client
+ * binds whichever seam the host serves through `src/client/state-sync.ts` and
+ * hydrates via `applyRemote` / `getRemoteState`):
  * required because DSH Desktop boots the GUI on a fresh random loopback port
  * every launch, and localStorage (scoped per origin including the port) always
  * starts empty there, while a file in the DSH home does not. On profiles
