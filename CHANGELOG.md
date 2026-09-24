@@ -6,6 +6,23 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 其他
+
+- **更正「官方桌面壳靠 `DSH_DESKTOP_NODE_EXECUTABLE` 识别」这条假设（2026-09-24 取证）**：上游架构说明的原话是
+  「`DSH_DESKTOP_NODE_EXECUTABLE` **仅为包安装注入**」（`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`），
+  代码印证：`apps/desktop/src/host-process.ts` 以 `desktopNodeEnvironment(this.node, undefined, …)` 起 host，
+  `bin === undefined` 时**不设**该变量；`apps/desktop-host/src/index.ts` 只在 `runProfile({ packageManager: { env } })` 里给它。
+  ⇒ 官方 Electron 桌面版（`apps/desktop` + `apps/desktop-host`，`private: true`、**未发 npm**）的 **profile 进程里没有它**，
+  `isDesktopShellEnv()` 在官方壳下恒为 false、更新行会退化成纯 web 文案。**profile 名与设置读写不受影响**
+  （前者靠扫 `profiles/` 目录命中 `desktop`，后者走 0.1.7 的 `configForms` seam，与壳无关）。
+  已实测的替代信号：Electron 以 node 模式运行时 `process.versions.electron` 有值（本机实测 `37.10.3`），纯 node 下为 `undefined`。
+  本轮**只改注释与文档**（`src/profile-detect.ts`、`AGENTS.md`、`README.md` / `README.en.md`），运行行为未动。
+  （EN: the official desktop shell does not mark its profile process at all — upstream injects
+  `DSH_DESKTOP_NODE_EXECUTABLE` into package-install children only — so the desktop probe is a no-op there;
+  comments and docs now say so, behaviour unchanged）
+
 ## [0.5.6] - 2026-09-24
 
 > 本节节内各批都先在 npm 的 `beta` 渠道发过一轮（`0.5.6-beta.0` → `beta.2`），本版本起整节进 `latest`。

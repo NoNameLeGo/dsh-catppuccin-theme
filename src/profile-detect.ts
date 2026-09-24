@@ -22,16 +22,26 @@ import { PACKAGE_NAME } from './update-check.ts'
 /** Fallback profile name when nothing can be probed (keeps the command valid). */
 export const FALLBACK_PROFILE = 'web'
 
-/** Detect the OFFICIAL desktop shell from the environment.
+/** Detect a desktop shell from the environment.
  *
  * 官方仓（`deepseek-ai/deepseek-harness`）的 `apps/desktop-host` 启动 `desktop`
- * profile 时，会把 `DSH_DESKTOP_NODE_EXECUTABLE` 注入该进程的环境（同一个 profile
- * 目录 `$DSH_HOME/profiles/desktop`），这是官方 Electron 桌面版留下的唯一可靠信号。
- * 为什么不能只靠服务探测：官方壳**不提供**第三方启动器那个 `desktopProfiles` 服务
- * （2026-09-22 在官方仓搜 `desktopProfiles` 命中 0），于是官方桌面版下 Host 会把自己
- * 当成普通 web —— 升级命令提示与重启提示都退化，而 profile 名其实是对的。
+ * profile（同一个 profile 目录 `$DSH_HOME/profiles/desktop`）时，其 Electron 宿主进程
+ * （`apps/desktop-host`，`private: true`、未发 npm）**不提供**第三方启动器那个
+ * `desktopProfiles` 服务（2026-09-22 在官方仓搜该名字命中 0）——当初因此把
+ * `DSH_DESKTOP_NODE_EXECUTABLE` 当作官方壳的识别信号。
+ *
+ * ⚠️ **已知局限（2026-09-24 取证，见 `AGENTS.md`「桌面识别」）：该信号对官方壳不成立。**
+ * 上游架构说明原话是「`DSH_DESKTOP_NODE_EXECUTABLE` **仅为包安装注入**」
+ * （`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`），
+ * 代码印证：`apps/desktop/src/host-process.ts` 以 `desktopNodeEnvironment(this.node, undefined, …)`
+ * 起 host，`bin === undefined` 时不设该变量；`apps/desktop-host/src/index.ts` 只在
+ * `runProfile({ packageManager: { env: { … } } })` 里给它。于是**官方桌面壳的 profile 进程里
+ * 根本没有它** ⇒ 本判据在官方桌面版下恒为 false，更新行退化成纯 web 文案（profile 名仍然对：
+ * `detectProfile` 扫 `profiles/` 目录即可命中 `desktop`）。待定的替代信号是
+ * Electron-as-node 下 `process.versions.electron` 有值（本机实测 `37.10.3`，纯 node 为 `undefined`）。
+ * 对**社区壳**（含其 `dsh-desktop-next` 重写版，它确实会设该变量）本判据依然有效。
  * @param env - the environment to inspect (injectable so tests need no real desktop).
- * @returns whether this Host runs inside the official desktop shell.
+ * @returns whether this environment carries the desktop package-install marker.
  */
 export function isDesktopShellEnv(env: Record<string, string | undefined>): boolean {
   const marker = env.DSH_DESKTOP_NODE_EXECUTABLE

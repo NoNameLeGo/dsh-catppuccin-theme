@@ -65,7 +65,7 @@
 |---|---|---|
 | 自带的 DSH 版本 | 与官方 monorepo 同步（0.1.7-alpha.1 起才有这个 app，**未发 npm**） | 无自带版本，启动**用户自己装的** `@deepseek-ai/dsh` |
 | Web 端口 | 固定 `--port 19387`（`src/index.ts` 写死） | 默认 `43120`（`DESKTOP_DEFAULT_WEB_PORT`），仅绑定冲突时顺序 +1（≤32 次）；2026-08-21 起「prefer a stable loopback port」 |
-| 识别信号 | 环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`（无 `desktopProfiles`） | `desktopProfiles` 服务；**`dsh-desktop-next` 重写版同时也会设 `DSH_DESKTOP_NODE_EXECUTABLE`** |
+| 识别信号 | ⚠️ **profile 进程里没有专用信号**（2026-09-24 证伪，见下）：`DSH_DESKTOP_NODE_EXECUTABLE` 只注入给包安装子进程；可用替代信号 `process.versions.electron` | `desktopProfiles` 服务；**`dsh-desktop-next` 重写版同时也会设 `DSH_DESKTOP_NODE_EXECUTABLE`** |
 
 ⇒ 结论：**settings seam 的适配与「哪个壳」无关**，只取决于该壳启动的那份 DSH 提供哪个服务（官方壳 = 0.1.7 线 → `configForms`；
 社区壳跟随用户所装版本）。两路识别信号则同时覆盖两个壳，且官方壳那条路在 `dsh-desktop-next` 上也成立。
@@ -74,13 +74,19 @@
 「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」（多浏览器、清站点数据、第二个实例落到 43121 这类
 情形），不是「每次启动都空」。这条错误叙述在注释/README 里存活了三个版本，2026-09-24 更正。
 
-**桌面识别有两路信号，别只写一路**（`src/profile-detect.ts`）：
+**桌面识别：社区壳那一路有效，官方壳那一路 2026-09-24 被证伪**（`src/profile-detect.ts`）：
 
-- 社区壳：`ctx.get('desktopProfiles')` 服务（`src/update-check/host.ts` 探测）；
-- **官方壳：环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`**（`apps/desktop-host` 启动 profile 时注入）。
-  官方仓**没有** `desktopProfiles`（2026-09-22 全仓搜索命中 0）——只写第一路时，官方桌面版会退化成
-  纯 web 文案（升级命令 / 重启提示都按命令行给），而 profile 名其实已经是 `desktop`。
-  两路都有断言：`tests/profile-detect.spec.ts`（纯函数）+ `tests/e2e/update-check.e2e.spec.ts`（真路由，已变异验证会红）。
+- 社区壳：`ctx.get('desktopProfiles')` 服务（`src/update-check/host.ts` 探测）——**仍然有效**；
+- ~~官方壳：环境变量 `DSH_DESKTOP_NODE_EXECUTABLE`~~ **❌ 不成立**。上游架构说明原话：「Host 继承调用者的 PATH，
+  不加入 Desktop 私有的 `bin` 目录，因此 PTC 和 agent shell 不会通过该目录解析内部启动器。**`DSH_DESKTOP_NODE_EXECUTABLE`
+  仅为包安装注入。**」（`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`）。
+  代码印证：`apps/desktop/src/host-process.ts` 用 `desktopNodeEnvironment(this.node, undefined, …)` 起 host，
+  而 `bin === undefined` 时**不设**该变量（`apps/desktop/src/node-environment.ts`）；`apps/desktop-host/src/index.ts`
+  只在 `runProfile({ packageManager: { env: { … } } })` 里给它——那是**包安装子进程**的环境，不是 profile 进程的。
+  ⇒ **官方桌面壳下 `isDesktopShellEnv()` 恒为 false**（更新行退化成纯 web 文案；profile 名仍对，靠扫 `profiles/` 目录命中 `desktop`）。
+  **已实测的替代信号**：Electron 以 node 模式跑时 `process.versions.electron` 有值（本机实测 `37.10.3`），纯 node 下是 `undefined`。
+  现有两路断言锁的是**旧假设**，改判据时要一并改：`tests/profile-detect.spec.ts`（纯函数）+
+  `tests/e2e/update-check.e2e.spec.ts`（真路由，曾变异验证会红）。
 
 **推论**：新增依赖上游形状的判断时，上游的 `apps/*` 是唯一事实来源——用 `gh api repos/deepseek-ai/deepseek-harness/contents/<path>`
 直接读源码（`desktopProfiles` 这类服务名就是这么做出来的对照），别按印象写。

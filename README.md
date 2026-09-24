@@ -130,8 +130,9 @@ dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 > 仓库里的 `apps/desktop` / `apps/desktop-host`（Electron，仍在开发中）与社区的
 > [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 都启动
 > `$DSH_HOME/profiles/desktop`，所以**上面的命令对两者都成立**。本插件的桌面支持以
-> **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留，
-> 官方壳则靠它注入的 `DSH_DESKTOP_NODE_EXECUTABLE` 识别（见 `src/profile-detect.ts`）。
+> **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留。
+> 但官方壳的 profile 进程**没有**可用的专用环境标记（它的 `DSH_DESKTOP_NODE_EXECUTABLE` 只注入给
+> 包安装子进程），所以官方桌面版目前会被当成 web 来给升级提示；不影响 profile 名与设置的读写。
 
 ### 方式二：从仓库安装
 

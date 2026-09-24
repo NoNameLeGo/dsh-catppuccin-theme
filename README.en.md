@@ -140,8 +140,10 @@ Installing from the repo works the same way: `dsh plugin --profile desktop add h
 > [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) does the same — both boot
 > `$DSH_HOME/profiles/desktop`, so the command above works for either. This plugin's desktop support
 > targets the **official web + desktop** builds; the community shell's `desktopProfiles` service probe
-> is kept, while the official shell is recognized through the `DSH_DESKTOP_NODE_EXECUTABLE` it injects
-> (see `src/profile-detect.ts`).
+> is kept. The official shell's profile process carries **no** dedicated env marker (its
+> `DSH_DESKTOP_NODE_EXECUTABLE` is injected only into its package-install children), so the official
+> desktop build is currently treated as plain web for upgrade copy; the profile name and the settings
+> round-trip are unaffected (see the comment in `src/profile-detect.ts`).
 
 ### Option 2: from the repository
 
