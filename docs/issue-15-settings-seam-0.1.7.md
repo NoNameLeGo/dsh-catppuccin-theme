@@ -13,7 +13,7 @@
 | 验证 | `pnpm typecheck && pnpm typecheck:tests && pnpm build && pnpm test` 全过；产物核对：`lib/client.js` 的 `inject` 只剩 `['slots','locale','theme']`，两条软注入 `inject(["configForms"])` / `inject(["settingsScope"])` 都在；`lib/index.js` 仍从宿主解析 `@deepseek-ai/schemastery`（守卫有效），导出 `Config` |
 | 依赖 | `@deepseek-ai/*` devDeps 整条升到 `0.1.7-rc.1`、`cordis ~4.0.4`、`schemastery ~3.18.4`；整份源码在这一版类型下**零改动通过** typecheck（无上游漂移） |
 | 实施中修正 | 第一版 `volatileFields()` 只给 `glass.*` 标了 volatile，顶层 5 个标量漏了——被 `tests/settings-seam.spec.ts` 的「每个叶子都必须 volatile」当场抓住（这正是那条断言的价值） |
-| **未做（明确缺口）** | §5.4 的 **P2 迁移**（把 `settings.yaml.imported` 里我们那个被拒的 `catppuccin:` 段捞回来）。原因：那是 YAML，而本插件的 host 半区是零依赖产物（不打包任何 YAML 解析器），读它需要一个我们不愿引入的运行时依赖。**影响面（2026-09-24 更正）**：两个桌面壳都用**固定端口**（官方壳 `--port 19387`；`anywhere-labs/dsh-desktop` 默认 `43120`，仅冲突时顺序 +1），所以 localStorage 的 origin 跨重启是稳定的 ⇒ 正常升级路径下客户端会把 localStorage 里的选择推回新文档、偏好**不会丢**。真正会丢的只有一种情形：偏好**只存在于旧的持久存储里、而当前浏览器的 localStorage 里没有**（例如在浏览器 A 里配过、之后第一次在浏览器 B / 桌面端打开，或站点数据被清过）——那时无源可推，回落到默认值。要修同样得先决策 YAML 依赖，或由上游把 section 名映射到条目 id |
+| **不做（已决策：转为待观察）** | §5.4 的 **P2 迁移**（把 `settings.yaml.imported` 里我们那个被拒的 `catppuccin:` 段捞回来）。原因：那是 YAML，而本插件的 host 半区是零依赖产物（不打包任何 YAML 解析器），读它需要一个我们不愿引入的运行时依赖。**issue #15 正文从未提到这一点**（只提了 `settingsScope`/`installSection`/`configForms`），所以维护者 2026-09-24 决定：**先记录在案，等真有用户报这个现象再评估**。**影响面（2026-09-24 更正）**：两个桌面壳都用**固定端口**（官方壳 `--port 19387`；`anywhere-labs/dsh-desktop` 默认 `43120`，仅冲突时顺序 +1），所以 localStorage 的 origin 跨重启是稳定的 ⇒ 正常升级路径下客户端会把 localStorage 里的选择推回新文档、偏好**不会丢**。真正会丢的只有一种情形：偏好**只存在于旧的持久存储里、而当前浏览器的 localStorage 里没有**（例如在浏览器 A 里配过、之后第一次在浏览器 B / 桌面端打开，或站点数据被清过）——那时无源可推，回落到默认值。要修同样得先决策 YAML 依赖，或由上游把 section 名映射到条目 id |
 | **未做（需授权）** | 真机复核（要升 CLI + 修 `web` profile，会往 C 盘下载）；GitHub Actions 的打 tag 发布 |
 
 ---

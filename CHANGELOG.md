@@ -34,6 +34,7 @@
 > **新增 23 条断言（215 用例全绿）**；8 条跨版本判定（含软注入永不出现、3.18.2 下守卫成立、旧宿主不会多出表单）
 > 用一次性探针实测过，0.1.7 侧的表单投影用 0.1.7-rc.1 的 `volatileForm`/`isVolatilePath` 原逻辑对跑验证。
 > **未做真机复核**——本机 CLI 仍是 `0.1.5-rc.2`，且 `web` profile 依赖树不完整。详见 `docs/issue-15-settings-seam-0.1.7.md`。
+> 本批随 **`0.5.6-beta.2`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.5`）。
 >
 > 同日顺带更正一处沿用了三个版本的错误叙述：注释与 README 一直写着「DSH Desktop 每次启动用随机回环端口 ⇒
 > localStorage 本来就空」，实测**两个桌面壳都早已是固定端口**（官方壳 `apps/desktop-host` 传 `--port 19387`；
@@ -398,7 +399,7 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6-beta.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6-beta.2...HEAD
 [0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
 [0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...v0.5.4
