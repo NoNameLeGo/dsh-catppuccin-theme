@@ -33,7 +33,8 @@
 > 而 0.1.5/0.1.6 宿主锁 `3.18.2`，无条件调用会在**模块求值期**抛错（把「不激活」升级成「加载失败」）。
 > **新增 23 条断言（215 用例全绿）**；8 条跨版本判定（含软注入永不出现、3.18.2 下守卫成立、旧宿主不会多出表单）
 > 用一次性探针实测过，0.1.7 侧的表单投影用 0.1.7-rc.1 的 `volatileForm`/`isVolatilePath` 原逻辑对跑验证。
-> **未做真机复核**——本机 CLI 仍是 `0.1.5-rc.2`，且 `web` profile 依赖树不完整。详见 `docs/issue-15-settings-seam-0.1.7.md`。
+> **当时未做真机复核**（本机 CLI 是 `0.1.5-rc.2`、`web` profile 依赖树不完整）——**已于同日补做并通过**，见本节下方。
+> 详见 `docs/issue-15-settings-seam-0.1.7.md`。
 > 本批随 **`0.5.6-beta.2`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.5`）。
 >
 > **2026-09-24（beta.2 之后）：修正客户端平台模块表的镜像。** `web-platform.ts` 是上游 `packages/client/web/src/platform.ts`
@@ -44,6 +45,15 @@
 > 但表错着，一旦以后要从 `dsh-client-store` / `dsh-client-ui-dockkit` 取值就会被 bundle 纯度门拒掉，
 > 而引用那两个退役名字会产出一个真实表答不上来的 `require()`。新增 5 条断言把表钉住（含「产物只 require 表内 specifier」
 > 与「tsdown 仍从表派生 externals」），两条经变异验证会红。将随下一个 beta 发布。
+>
+> 同日 **真机验证了 beta.2 在 DSH `0.1.7-rc.1` 上确实修好**（维护者把 DSH Desktop 升到 0.1.7 后，用该运行时启动 `web` profile）：
+> 装 beta.1 时页面一字不差地复现 `pending (waiting for service: settingsScope)`；换 beta.2 后无 pending、四条设置行齐全、
+> 点 Mocha 后 profile patch 的 `flavor` 落成 `catppuccin-mocha`、重启后用全新浏览器会话仍从文档 hydrate 回 Mocha。
+> **真机还抓出一个单测与假宿主都没暴露的缺陷**：`scheduleLegacyMigration` 的三次机会之间只挡了「已完成」标志，
+> 于是首次启动跑了两个并发迁移——先写的成功，后写的在它提交前读到同一个 revision、撞栅栏被拒，日志里出现
+> `legacy state migration failed: SettingsConflictError`（迁移其实成功了，观感像出错）。改为入口**同步认领**槽位
+> （仅在 outcome 为「暂不可寻址」时释放），并加 `tests/migrate-legacy.spec.ts` 并发用例（用跨 tick 的写延迟复现；
+> 去掉守卫即变红）。**这个修复尚未发布**，随下一个 beta 一起出。详见 `docs/issue-15-settings-seam-0.1.7.md` §0.1。
 >
 > 同日顺带更正一处沿用了三个版本的错误叙述：注释与 README 一直写着「DSH Desktop 每次启动用随机回环端口 ⇒
 > localStorage 本来就空」，实测**两个桌面壳都早已是固定端口**（官方壳 `apps/desktop-host` 传 `--port 19387`；

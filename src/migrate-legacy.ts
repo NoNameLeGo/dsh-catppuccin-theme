@@ -119,11 +119,23 @@ export function scheduleLegacyMigration(
   hasUserLayer: (user: unknown) => boolean,
 ): void {
   let settled = false
+  // One attempt in flight at a time. The deferred timer and the entry's own
+  // `settings/document-updated` routinely land within the same tick, and two
+  // concurrent `describe` → `update` pairs race on the namespace revision: the
+  // loser is refused and reported as a FAILURE even though the migration
+  // succeeded (observed on a real 0.1.7 host, 2026-09-24). `claimed` is set
+  // synchronously before the first `await`, so the second caller cannot pass.
+  let claimed = false
   const attempt = (): void => {
-    if (settled) return
+    if (settled || claimed) return
+    claimed = true
     void migrateLegacyStateOnce(settings, ns, hasUserLayer, { fence: true })
       .then((outcome) => {
-        if (outcome === 'pending') return
+        if (outcome === 'pending') {
+          // Not addressable yet — release the slot so a later attempt retries.
+          claimed = false
+          return
+        }
         settled = true
         if (outcome === 'migrated') {
           console.info(`[dsh-catppuccin] migrated the legacy state file into "${ns}"`)

@@ -9,12 +9,35 @@
 | 项 | 结果 |
 |---|---|
 | 改动文件 | `src/state.ts`、`src/settings-catppuccin.ts`、`src/migrate-legacy.ts`（新）、`src/index.ts`、`src/client/state-sync.ts`、`src/client/index.ts`、`package.json`、`AGENTS.md`、`CHANGELOG.md` |
-| 测试 | 新增 `tests/settings-seam.spec.ts`（17 条）；`tests/client.spec.ts` / `tests/reentrancy.spec.ts` / `tests/e2e/update-check.e2e.spec.ts` 扩写；**215 用例全绿**（原 192） |
+| 测试 | 新增 `tests/settings-seam.spec.ts`（17 条）、`tests/migrate-legacy.spec.ts`（6 条）、`tests/client-platform.spec.ts`（5 条）；`tests/client.spec.ts` / `tests/reentrancy.spec.ts` / `tests/e2e/update-check.e2e.spec.ts` 扩写；**226 用例全绿**（原 192） |
 | 验证 | `pnpm typecheck && pnpm typecheck:tests && pnpm build && pnpm test` 全过；产物核对：`lib/client.js` 的 `inject` 只剩 `['slots','locale','theme']`，两条软注入 `inject(["configForms"])` / `inject(["settingsScope"])` 都在；`lib/index.js` 仍从宿主解析 `@deepseek-ai/schemastery`（守卫有效），导出 `Config` |
 | 依赖 | `@deepseek-ai/*` devDeps 整条升到 `0.1.7-rc.1`、`cordis ~4.0.4`、`schemastery ~3.18.4`；整份源码在这一版类型下**零改动通过** typecheck（无上游漂移） |
 | 实施中修正 | 第一版 `volatileFields()` 只给 `glass.*` 标了 volatile，顶层 5 个标量漏了——被 `tests/settings-seam.spec.ts` 的「每个叶子都必须 volatile」当场抓住（这正是那条断言的价值） |
+| **真机验证：已通过（2026-09-24，DSH `0.1.7-rc.1` 真运行时）** | 见 §0.1。发现并修掉一个**只在真机暴露**的缺陷（迁移并发竞态，见下） |
 | **不做（已决策：转为待观察）** | §5.4 的 **P2 迁移**（把 `settings.yaml.imported` 里我们那个被拒的 `catppuccin:` 段捞回来）。原因：那是 YAML，而本插件的 host 半区是零依赖产物（不打包任何 YAML 解析器），读它需要一个我们不愿引入的运行时依赖。**issue #15 正文从未提到这一点**（只提了 `settingsScope`/`installSection`/`configForms`），所以维护者 2026-09-24 决定：**先记录在案，等真有用户报这个现象再评估**。**影响面（2026-09-24 更正）**：两个桌面壳都用**固定端口**（官方壳 `--port 19387`；`anywhere-labs/dsh-desktop` 默认 `43120`，仅冲突时顺序 +1），所以 localStorage 的 origin 跨重启是稳定的 ⇒ 正常升级路径下客户端会把 localStorage 里的选择推回新文档、偏好**不会丢**。真正会丢的只有一种情形：偏好**只存在于旧的持久存储里、而当前浏览器的 localStorage 里没有**（例如在浏览器 A 里配过、之后第一次在浏览器 B / 桌面端打开，或站点数据被清过）——那时无源可推，回落到默认值。要修同样得先决策 YAML 依赖，或由上游把 section 名映射到条目 id |
-| **未做（需授权）** | 真机复核（要升 CLI + 修 `web` profile，会往 C 盘下载）；GitHub Actions 的打 tag 发布 |
+| **未做（需授权）** | GitHub Actions 的打 tag 发布（beta.2 已发；带竞态修复的下一个版本待发） |
+
+### 0.1 真机验证（2026-09-24，通过）
+
+**环境**：本机维护者的 **DSH Desktop**（社区壳 `D:\PROGRAM\DSH`）把 DSH 升到了 `0.1.7-rc.1`，其运行时落在
+`%APPDATA%\DSH\data\versions\0.1.7-rc.1\node_modules\@deepseek-ai\dsh`（**自带整套 0.1.7 包**，schemastery 3.18.4）。
+注意这个壳**不**自带 DSH：它按版本下载运行时，所以「哪个 seam」取决于它下下来的那份。启动方式与探针手法记在 `AGENTS.md`。
+
+| # | 验证项 | 结果 |
+|---|---|---|
+| 基线（复现） | 装 `0.5.6-beta.1` 的 `web` profile 用该运行时启动 | 页面直接显示 **`Failed to load plugins / @nonamelego/dsh-catppuccin: pending (waiting for service: settingsScope)`** —— 与报告人一字不差 |
+| 1 | 无 pending | ✅ 启动 9 秒后页面无该文案，控制台 3 条日志里**零** catppuccin 相关 |
+| 2 | 四条设置行 | ✅ 设置 → 通用：Catppuccin 主题（Latte/Frappé/Macchiato/Mocha + 跟随系统）、代码高亮风格、玻璃质感（开关/模式/预设/三个滑杆/还原默认值）、检查更新（含「当前版本：0.1.7-rc.1」） |
+| 3 | 改一个旋钮 → 落盘 | ✅ 点 Mocha 后 `$DSH_HOME/profiles/web/cordis.patch.yml` 的该条目从 `flavor: catppuccin-latte` 变成 **`flavor: catppuccin-mocha`**（mtime 同步更新）——新 seam 的端点写路径（浏览器 → `configForms.mutate` → settings 服务 → configEditor → patch 文件）全程打通 |
+| 4 | 跨重启恢复 | ✅ 杀掉宿主重启后，用**全新浏览器会话**（localStorage 为空）打开：`getComputedStyle(body).colorScheme === 'dark'`、`--dsw-alias-bg-base === #11111b`、`localStorage['dsh.catppuccin.flavor'] === 'catppuccin-mocha'` ⇒ 偏好确实是从文档 hydrate 回来的 |
+| 附带 | 迁移一次性 | ✅ 首次启动打印一次 `[dsh-catppuccin] migrated the legacy state file into "dsh-catppuccin"`；重启后**不再**尝试（用户层已存在） |
+
+**⚠️ 真机才发现、单测与假宿主都没暴露的缺陷（已修）**：首次启动打印了**两次**结果——一次成功、一次
+`legacy state migration failed: SettingsConflictError: … (expected revision 0, now 1)`。原因是
+`scheduleLegacyMigration` 的三次机会（0ms 定时器、3s 定时器、`settings/document-updated` 事件）之间**只挡了 `settled`（完成后置位）**，
+而真实写要跨文件 I/O：第二个尝试在第一个的写提交**之前**读到同一个 revision 0，于是撞上栅栏被拒，并被记成失败
+——**迁移其实成功了，日志却像出错**。修法是在入口**同步**认领槽位（`claimed`，`'pending'` 时才释放），
+并加 `tests/migrate-legacy.spec.ts` 的并发用例（用带延迟的双件复现；去掉守卫即变红）。
 
 ---
 

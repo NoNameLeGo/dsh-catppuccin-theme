@@ -99,7 +99,7 @@
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.5.5`**（2026-09-21），`beta` = **`0.5.6-beta.2`**（2026-09-24 发布：**issue #15 —— DSH 0.1.7 的 settings seam 双通道适配**：客户端 `inject` 去掉 `settingsScope` 硬依赖、两个 seam 各一次软注入由 `DurableScope` 适配、Host 新增 volatile `Config` 并保留 `installSection` 分支、`.volatile()` 加 schemastery 3.18 能力守卫、迁移延迟重试；+23 断言 / 215 用例全绿。**该版本已在 npm 的 `beta` 渠道**，但**未经真机验证**——维护者将自行把本机 DSH 升到 0.1.7 后由 Agent 复核；同一提交里还更正了「Desktop 每次启动随机端口」的错误叙述）。上一版 beta.1（2026-09-23）是上游 0.1.7 适配复核（带 alpha 的静态色不再被抹成实心、菜单半透明只在宿主声明 `--dsw-menu-backdrop-filter` 时启用、新增的 `--dsw-alias-link` 暗色达到 AA、文档预览浅色标签不再糊在深底、右侧栏玻璃钩子改指 `data-sidebar-right-panel`；+15 条断言 / 191 用例，5 条经变异验证会红）。beta.0（2026-09-22）是审计 F1~F9 那批修复（跨窗口旋钮同步、读侧陈旧写保护补真、预设组键盘可达、跨窗口关闭风味落地、草稿行 key、重试通道、override 垃圾键收敛等），**它已在两个本地 profile 上装过（`web` 与 `desktop` 均为 `0.5.6-beta.0`**，desktop 用 `~/.dsh/profiles/node_modules/pnpm` 的 11.8.0 装，pnpm 会自动把该版本加进 `minimumReleaseAgeExclude`）；**beta.1 / beta.2 尚未在任何 profile 实测**（本机 `web` profile 依赖树损坏，`@deepseek-ai/dsh-sandbox-local` 解析失败，需 `dsh plugin --profile web install`）。下次按常规 semver 判断：**修复走 `0.5.x`，新特性走 `0.6.0`**；预发布仍用 `-beta.n` 后缀。发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建；**预发布按仓库惯例留在 `[Unreleased]` 里，只把该链路的比较基线指到新 tag**）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
+> ⚠️ **发版版本号**：`latest` = **`0.5.5`**（2026-09-21），`beta` = **`0.5.6-beta.2`**（2026-09-24 发布：**issue #15 —— DSH 0.1.7 的 settings seam 双通道适配**：客户端 `inject` 去掉 `settingsScope` 硬依赖、两个 seam 各一次软注入由 `DurableScope` 适配、Host 新增 volatile `Config` 并保留 `installSection` 分支、`.volatile()` 加 schemastery 3.18 能力守卫、迁移延迟重试；+23 断言 / 215 用例全绿。**已在本机真机验证通过**——维护者把 DSH Desktop 升到 DSH `0.1.7-rc.1` 后，用该运行时启动 `web` profile 逐项过关（无 pending / 四条设置行 / 点 Mocha 后 patch 落盘 / 重启后从文档 hydrate 回 Mocha），过程与结论见 `docs/issue-15-settings-seam-0.1.7.md` §0.1）。**⚠️ beta.2 之后还有一个未发布修复**：真机暴露出 `scheduleLegacyMigration` 的并发竞态（三次机会之间只挡了 `settled`，第二个尝试在第一个写提交前读到同一 revision，撞栅栏后被记成 `legacy state migration failed`，而迁移其实成功了），已修并加并发断言（去掉守卫即变红）⇒ **下次发版（`0.5.6-beta.3`）必须带上它**；同批还修了 `web-platform.ts` 平台模块表的漂移。上一版 beta.1（2026-09-23）是上游 0.1.7 适配复核（带 alpha 的静态色不再被抹成实心、菜单半透明只在宿主声明 `--dsw-menu-backdrop-filter` 时启用、新增的 `--dsw-alias-link` 暗色达到 AA、文档预览浅色标签不再糊在深底、右侧栏玻璃钩子改指 `data-sidebar-right-panel`；+15 条断言 / 191 用例，5 条经变异验证会红）。beta.0（2026-09-22）是审计 F1~F9 那批修复（跨窗口旋钮同步、读侧陈旧写保护补真、预设组键盘可达、跨窗口关闭风味落地、草稿行 key、重试通道、override 垃圾键收敛等），**它已在两个本地 profile 上装过（`web` 与 `desktop` 均为 `0.5.6-beta.0`**，desktop 用 `~/.dsh/profiles/node_modules/pnpm` 的 11.8.0 装，pnpm 会自动把该版本加进 `minimumReleaseAgeExclude`）；**beta.1 未实测**。下次按常规 semver 判断：**修复走 `0.5.x`，新特性走 `0.6.0`**；预发布仍用 `-beta.n` 后缀。发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建；**预发布按仓库惯例留在 `[Unreleased]` 里，只把该链路的比较基线指到新 tag**）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
 
 ### 1. 升版本 + 本地验证
 1. 编辑 `package.json` 的 `version`（连同本次要发布的代码改动）
@@ -174,6 +174,28 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - 报告的机制推断**逐条核对**后再回：本轮 #13 的两处表格错（边缘渐变条、composer 卡片都不是 mica 独有）就是这样查出来的——**自己代码注释里的同类说法也要一起改**。
 
 ## 本机测量资产（真页 A/B 与面积账）
+
+### 真机验证某个具体 DSH 版本（2026-09-24 打通，issue #15 用过）
+
+社区桌面壳（`D:\PROGRAM\DSH`）**不自带 DSH**：它按版本把运行时下到
+`%APPDATA%\DSH\data\versions\<ver>\node_modules\@deepseek-ai\`（该目录**自带整套 0.1.7 包 + schemastery 3.18.4**），
+`%APPDATA%\DSH\data\config.json` 的 `versions` 列出已装版本。所以「验证 0.1.7」不需要动全局 CLI（那里还是 0.1.5-rc.2）：
+
+```bash
+V="C:/Users/LeGo/AppData/Roaming/DSH/data/versions/0.1.7-rc.1/node_modules/@deepseek-ai/dsh/lib/bin.js"
+node "$V" --version                                              # 0.1.7-rc.1
+node "$V" plugin --profile web add @nonamelego/dsh-catppuccin@beta
+node "$V" --profile web --no-open --port 19411                   # 前台跑，token 在 stdout 的 URL 里
+```
+
+- **host 侧**：插件 host 半区日志只走 stdout（`console.info/warn`），直接在启动日志里 grep。
+- **client 侧**（`pending (waiting for service: …)` 这类）**只在浏览器控制台**，stdout 看不到 ⇒ 必须起页面。
+- 起页面：Playwright + **系统 Chrome**（`C:/Program Files/Google/Chrome/Application/chrome.exe`，无需下载浏览器），
+  `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules"`，**必须加 `args:['--no-proxy-server']`**
+  ——本机沙箱有 `HTTP_PROXY=127.0.0.1:1793`，localhost 请求会被代理吃掉（报 502/连接被拒）。
+- ⚠️ **别用 `(node ... &)` 起宿主**：Bash 调用结束时进程会被清掉，日志为空。要长期存活就用后台任务方式起（前台 node 包在后台任务里）。
+- 落盘位置（0.1.7 新 seam）＝ `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里该条目的 `config:`
+  ——改一个旋钮后 `grep -A13 'id: dsh-catppuccin'` 就能确认写通。
 
 - **配置真源**（版本相关，issue #15 起）：**≤ 0.1.6-alpha.2** 是 `~/.dsh/settings.yaml` 的 `catppuccin:` 段（插件 `installSection` 注册的命名空间）；**≥ 0.1.7-alpha.1** 改成 profile patch `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里 `dsh-catppuccin` 条目的 `config:`，即插件 volatile `Config` 表单，Client 用 `ctx.configForms.get('dsh-catppuccin')` 读写——表单 ns **就是 profile 条目 id**，与 `cordis.patch.yml` 的 insert id 是硬契约（`CATPPUCCIN_ENTRY_ID`，有断言钉住）。两套 seam 由 `src/client/state-sync.ts` 的通道适配层同时支持，**任何一侧都不能写进硬依赖 `inject`**（写进去会在另一侧永久 pending，这就是 #15 的现象）。`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（本轮它还写着 `brightness: 50`，真值 100）——引用旧文件会把玻璃参数写错。方案与实测判定见 `docs/issue-15-settings-seam-0.1.7.md`。
 - **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（**token 在 `dsh web` 的 stdout**——`%TEMP%\dsh-web.log` 会过期，引用它会让浏览器/探针打开一个 401 空白页；`dsh web` 默认会弹浏览器，加 `--no-open`）。
