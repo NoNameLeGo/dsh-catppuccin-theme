@@ -6,13 +6,12 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.6] - 2026-09-24
 
-> 本节全部来自 2026-09-22 的全量代码审计（`docs/code-audit-2026-09-22.md`）：9 条缺陷 F1~F9 同日修完，
-> 新增 15 条断言（173 用例全绿），其中 F1/F2/F3/F5/F6 逐条用变异测试验证过「改回旧写法即变红」。
+> 本节节内各批都先在 npm 的 `beta` 渠道发过一轮（`0.5.6-beta.0` → `beta.2`），本版本起整节进 `latest`。
 >
-> 本批已随 **`0.5.6-beta.0`** 发到 npm 的 `beta` 渠道（`dsh plugin --profile <name> add @nonamelego/dsh-catppuccin@beta`）；
-> `latest` 仍是 `0.5.5`。正式版发布时本节整节成为 `## [0.5.6]`。
+> 第一批来自 2026-09-22 的全量代码审计（`docs/code-audit-2026-09-22.md`）：9 条缺陷 F1~F9 同日修完，
+> 新增 15 条断言（173 用例全绿），其中 F1/F2/F3/F5/F6 逐条用变异测试验证过「改回旧写法即变红」。
 
 > **2026-09-23 追加：上游 0.1.7 适配复核（含跨版本兼容）。** 按 `AGENTS.md`「上游形态与维护核心」核对，官方 token 表自
 > 0.1.6 / 0.1.7 起**新增 9 个 token**（static 73→77、alias 79→84，取值变更只有 2 处），其中两个会直接把配色改坏（带 alpha
@@ -35,7 +34,7 @@
 > 用一次性探针实测过，0.1.7 侧的表单投影用 0.1.7-rc.1 的 `volatileForm`/`isVolatilePath` 原逻辑对跑验证。
 > **当时未做真机复核**（本机 CLI 是 `0.1.5-rc.2`、`web` profile 依赖树不完整）——**已于同日补做并通过**，见本节下方。
 > 详见 `docs/issue-15-settings-seam-0.1.7.md`。
-> 本批随 **`0.5.6-beta.2`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.5`）。
+> 本批经 `0.5.6-beta.2` 在 `beta` 渠道试跑后，随本版本进入 `latest`。
 >
 > **2026-09-24（beta.2 之后）：修正客户端平台模块表的镜像。** `web-platform.ts` 是上游 `packages/client/web/src/platform.ts`
 > 的**镜像**，此前多写了两个**已退役**的 specifier（`dsh-client-web-react`、`dsh-client-schema-form`，两者都停在 `0.1.0-rc.7`，
@@ -44,7 +43,7 @@
 > （只有 `v0.1.2-rc.1` 早于 dockkit）。**此前不致命**——客户端只从这张表取一个值导入（`react` / `react/jsx-runtime`）——
 > 但表错着，一旦以后要从 `dsh-client-store` / `dsh-client-ui-dockkit` 取值就会被 bundle 纯度门拒掉，
 > 而引用那两个退役名字会产出一个真实表答不上来的 `require()`。新增 5 条断言把表钉住（含「产物只 require 表内 specifier」
-> 与「tsdown 仍从表派生 externals」），两条经变异验证会红。将随下一个 beta 发布。
+> 与「tsdown 仍从表派生 externals」），两条经变异验证会红。
 >
 > 同日 **真机验证了 beta.2 在 DSH `0.1.7-rc.1` 上确实修好**（维护者把 DSH Desktop 升到 0.1.7 后，用该运行时启动 `web` profile）：
 > 装 beta.1 时页面一字不差地复现 `pending (waiting for service: settingsScope)`；换 beta.2 后无 pending、四条设置行齐全、
@@ -53,7 +52,7 @@
 > 于是首次启动跑了两个并发迁移——先写的成功，后写的在它提交前读到同一个 revision、撞栅栏被拒，日志里出现
 > `legacy state migration failed: SettingsConflictError`（迁移其实成功了，观感像出错）。改为入口**同步认领**槽位
 > （仅在 outcome 为「暂不可寻址」时释放），并加 `tests/migrate-legacy.spec.ts` 并发用例（用跨 tick 的写延迟复现；
-> 去掉守卫即变红）。**这个修复尚未发布**，随下一个 beta 一起出。详见 `docs/issue-15-settings-seam-0.1.7.md` §0.1。
+> 去掉守卫即变红）。详见 `docs/issue-15-settings-seam-0.1.7.md` §0.1。
 >
 > 同日顺带更正一处沿用了三个版本的错误叙述：注释与 README 一直写着「DSH Desktop 每次启动用随机回环端口 ⇒
 > localStorage 本来就空」，实测**两个桌面壳都早已是固定端口**（官方壳 `apps/desktop-host` 传 `--port 19387`；
@@ -418,7 +417,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6-beta.2...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6
 [0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
 [0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.3...v0.5.4
