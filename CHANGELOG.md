@@ -36,6 +36,15 @@
 > **未做真机复核**——本机 CLI 仍是 `0.1.5-rc.2`，且 `web` profile 依赖树不完整。详见 `docs/issue-15-settings-seam-0.1.7.md`。
 > 本批随 **`0.5.6-beta.2`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.5`）。
 >
+> **2026-09-24（beta.2 之后）：修正客户端平台模块表的镜像。** `web-platform.ts` 是上游 `packages/client/web/src/platform.ts`
+> 的**镜像**，此前多写了两个**已退役**的 specifier（`dsh-client-web-react`、`dsh-client-schema-form`，两者都停在 `0.1.0-rc.7`，
+> 在任何版本的上游表里都不存在）、漏了两个**现役**的（`dsh-client-store`、`dsh-client-ui-dockkit`）。逐 tag 核对
+> `v0.1.2-rc.1 / v0.1.5-rc.3 / v0.1.6-alpha.2 / v0.1.7-alpha.1 / v0.1.7-rc.1 / master`：修好后的表在我们支持的全部版本上一致
+> （只有 `v0.1.2-rc.1` 早于 dockkit）。**此前不致命**——客户端只从这张表取一个值导入（`react` / `react/jsx-runtime`）——
+> 但表错着，一旦以后要从 `dsh-client-store` / `dsh-client-ui-dockkit` 取值就会被 bundle 纯度门拒掉，
+> 而引用那两个退役名字会产出一个真实表答不上来的 `require()`。新增 5 条断言把表钉住（含「产物只 require 表内 specifier」
+> 与「tsdown 仍从表派生 externals」），两条经变异验证会红。将随下一个 beta 发布。
+>
 > 同日顺带更正一处沿用了三个版本的错误叙述：注释与 README 一直写着「DSH Desktop 每次启动用随机回环端口 ⇒
 > localStorage 本来就空」，实测**两个桌面壳都早已是固定端口**（官方壳 `apps/desktop-host` 传 `--port 19387`；
 > `anywhere-labs/dsh-desktop` 默认 `43120`，仅绑定冲突时顺序 +1，且 2026-08-21 就提交了 "prefer a stable loopback
