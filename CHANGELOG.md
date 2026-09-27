@@ -10,8 +10,38 @@
 
 > 本节（2026-09-24 下半场）随 **`0.5.7-beta.0`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.6`）：
 > 官方桌面壳识别改用 Electron 运行时，外加一批文档 / 仓库卫生修正（提交 `bbba077`、`4b3fa59`）。
+> 2026-09-27 追加的 issue #16 修复**在该预发布之后**落地，尚未随任何预发布发出（下一次预发布 = `0.5.7-beta.1`）。
 
 ### 修复
+
+- **兼容模式不再给 DSH 原生右侧栏的「布局壳」加模糊（issue #16）**：`[class*='panel']` 是宽泛子串匹配，
+  命中了宿主自己的右侧栏容器 `P3OORG_panel` 与其 `P3OORG_panelBody`
+  （`@deepseek-ai/dsh-client-ui-sidebar-right`）。两者都是**透明布局壳**（`position:absolute;
+  pointer-events:none`，没有任何 `background` 声明），关闭右栏时宿主只把**子节点** dock
+  `translateX(...)` 移出并 `visibility:hidden`，容器本身仍停在窗口右缘 ⇒ 它身上的 `backdrop-filter`
+  继续绘制；右 300px 下方是正文内容（**不是**纯色地面），模糊不是恒等变换，于是残留一条约
+  **300×518px** 的磨砂带（报告人在 DSH `0.1.7-rc.2` 实测 `x=1156 y=0 w=300 h=518`、computed
+  `blur(12px)`，与其配置的 `blur: 8` 不符——12px 正是这条规则的硬编码字面量，容器与 body 在同一矩形上
+  各报一次）。现在按稳定钩子 `data-sidebar-right-panel` 把该容器**及其整棵子树**排除，只用
+  `[data-sidebar-right-open]` 在**展开态**把模糊加回来 ⇒ 打开时观感不变，关闭后残带消失。
+  `tests/glass-css.spec.ts` 新增一条**选择器级**用例（拿宿主真实 markup 跑 `querySelectorAll`，含
+  「容器外的 panel 仍必须被模糊」的对照组，防 `:not()` 被引擎静默忽略），**两层变异都验证会红**
+  （回退成裸子串 / 只删子树那半，分别报 `wrapper blur, open=false` 与 `panelBody blur, open=false`）；
+  `scripts/e2e-boot-check.cjs` 加了 compat 下的**真页级联**采样（真会话里读宿主渲染出来的
+  `[data-sidebar-right-panel]`；新 `DSH_HOME` 无会话时记 `skipped`，不假绿）与一条**不依赖会话**的
+  合成 markup 版本（往真页塞 `P3OORG_panel` + `P3OORG_panelBody` 读计算样式——真 Chromium + 真样式表，
+  带「容器外的同名类仍必须被模糊」的对照组），外加**同页 A/B**：把修复前那条选择器插回 `<style>`，
+  同一个真宿主元素必须立刻从 `none` 变 `blur(12px)`、撤掉再回 `none`。**在 DSH `0.1.7-rc.2` + 系统
+  Chrome 上实跑 19/19 通过**（临时 `DSH_HOME` 自动建了会话，那条真机断言没跳过：闭态容器 648×900、
+  `backdrop-filter: none`；A/B 实测 `{withOldRule:"blur(12px)", bodyWithOldRule:"blur(12px)",
+  afterRemoval:"none"}` ⇒ 读数敏感，且旧规则正是成因）。
+  顺带更正 `glass.module.css` 里把 `P3OORG_panel` 称作 "opaque" 的旧注释——0.1.7-rc.1/rc.2 实测无 `background`。
+  （EN: compat mode no longer frosts the host's right-sidebar *layout* wrapper — that
+  `[class*='panel']` substring match hit `P3OORG_panel`/`P3OORG_panelBody`, which stay in the DOM after the
+  panel closes, so the blur kept painting a ~300x518px band at the window's right edge; the wrapper and its
+  whole subtree are now excluded via the stable `data-sidebar-right-panel` hook and re-frosted only while
+  `data-sidebar-right-open` is present, locked by a selector-level jsdom case whose two halves are both
+  mutation-verified）
 
 - **官方桌面版现在能被正确识别（`process.versions.electron`）**：上一节把识别信号改成了「官方壳注入的
   `DSH_DESKTOP_NODE_EXECUTABLE`」，但 2026-09-24 取证发现官方壳**根本不注入它**（上游说明：
@@ -27,6 +57,17 @@
   advance to stop passing off the previous case's cached verdict）
 
 ### 其他
+
+- **启动级 e2e 在 DSH `0.1.7-rc.2` 上跑得通了（顺手修的是 harness，不是插件）**：
+  ① 向导是多包拼的多步流程（`settings-account` 的「继续 / 进入应用 / 跳过」+ `settings-models` 的
+  「稍后配置」），**步骤切换的间隙整棵子树会短暂脱离 `role=dialog[aria-modal]`**，旧写法按 dialog 找，
+  按完第一步「继续」就以为做完了 —— 之后每次点击都被残留的 `_mask_*` 遮罩拦下（本机实测 30s 超时）。
+  现在 dialog 找不到就按按钮文案在全页找，并且**轮询到遮罩真的消失**才算走完。
+  ② 「兼容模式」那一次点击实测会**静默不生效**，于是它下面**所有** compat 断言都在「compat 其实没开」
+  的状态下取样（rim 找不到、`panel` 没描边、右侧栏没 blur 一起变成假绿，本机一轮就撞上了）——现在轮询到
+  html 真挂上 `data-dsh-glass-compat` 再往下，并把这个切换本身也断出来。
+  ③ 本机 `%LOCALAPPDATA%\ms-playwright` 被清空时退到**系统 Chrome**（省一次浏览器下载），并按
+  AGENTS.md 给 launch 加 `--no-proxy-server`（本机沙箱的 `HTTP_PROXY` 会吃掉 localhost 请求）。
 
 - **更正「官方桌面壳靠 `DSH_DESKTOP_NODE_EXECUTABLE` 识别」这条假设（2026-09-24 取证）**：上游架构说明的原话是
   「`DSH_DESKTOP_NODE_EXECUTABLE` **仅为包安装注入**」（`.agents/notes/implemented/architecture/2026-09-11-desktop-electron-node-runtime.zh.md`），

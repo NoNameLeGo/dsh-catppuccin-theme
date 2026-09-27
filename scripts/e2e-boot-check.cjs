@@ -25,7 +25,7 @@ const DSH_BIN =
   path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 
 /** Onboarding buttons to try, in order, as the first-run wizard advances. */
-const ONBOARDING = ['继续', '稍后配置', '跳过', '开始使用', '完成']
+const ONBOARDING = ['继续', '稍后配置', '进入应用', '跳过', '开始使用', '完成']
 
 const log = (...args) => console.log(...args)
 const results = []
@@ -77,21 +77,52 @@ function bootServer(home) {
 
 /** Advance through the host's first-run wizard; returns how many steps it took. */
 async function passOnboarding(page) {
+  // 0.1.7-rc.2 实测的变化：向导是多个包拼的多步流程（`dsh-client-ui-settings-account`
+  // 的「继续 / 进入应用 / 跳过」+ `dsh-client-ui-settings-models` 的「稍后配置」），
+  // **步骤切换的间隙整棵子树会短暂脱离 `role=dialog[aria-modal]`**，而且退出后那层
+  // `_mask_*` 遮罩仍留在 DOM 里继续吃点击 —— 旧写法只看 dialog，第一步「继续」之后
+  // 就以为做完了，后面的点击全被遮罩拦下（本机 rc.2 实测 30s 超时）。
+  // 所以：dialog 优先，找不到就按标签在全页找（首次运行的首屏没有别的东西可点），
+  // 而且必须确认遮罩消失才算走完。
   let steps = 0
-  for (; steps < 6; steps++) {
-    const modal = page.locator("[role='dialog'][aria-modal='true']")
-    if ((await modal.count()) === 0) break
-    const buttons = await modal.first().locator('button').evaluateAll((els) =>
-      els.map((el) => (el.getAttribute('aria-label') || el.innerText || '').replace(/\n/g, '|').trim()).filter(Boolean),
-    )
-    const next = ONBOARDING.find((label) => buttons.includes(label)) ?? buttons[0]
-    if (!next) {
-      log(`  [onboarding] no button to press, modal says: ${(await modal.first().innerText()).replace(/\n+/g, ' | ').slice(0, 160)}`)
-      break
+  for (; steps < 8; steps++) {
+    await page.waitForTimeout(900)
+    const modal = page.locator("[role='dialog'][aria-modal='true']").last()
+    let target = null
+    if ((await modal.count()) > 0) {
+      const buttons = await modal.locator('button').evaluateAll((els) =>
+        els.map((el) => (el.getAttribute('aria-label') || el.innerText || '').replace(/\n/g, '|').trim()).filter(Boolean),
+      )
+      const next = ONBOARDING.find((label) => buttons.includes(label)) ?? buttons[0]
+      if (next) {
+        log(`  [onboarding] step ${steps + 1} (dialog): ${buttons.join(' / ')} → press「${next}」`)
+        target = modal.getByRole('button', { name: next, exact: true }).first()
+      }
+    } else {
+      const pageWide = page
+        .getByRole('button')
+        .filter({ hasText: new RegExp(`^(${ONBOARDING.join('|')})$`) })
+      if ((await pageWide.count()) > 0) {
+        log(`  [onboarding] step ${steps + 1} (page-wide): press「${(await pageWide.last().innerText()).trim()}」`)
+        target = pageWide.last()
+      }
     }
-    log(`  [onboarding] step ${steps + 1}: ${buttons.join(' / ')} → press「${next}」`)
-    await modal.first().getByRole('button', { name: next, exact: true }).first().click()
-    await page.waitForTimeout(1200)
+    if (!target) break
+    await target.click({ timeout: 8000 }).catch((error) => log(`  [onboarding] click failed: ${String(error).split('\n')[0]}`))
+    await page.waitForTimeout(900)
+  }
+  // 遮罩必须真的走了 —— 否则后面的设置页点击会被它拦下（Playwright 报
+  // "intercepts pointer events"），而那看起来像插件坏了。
+  for (let i = 0; i < 10; i++) {
+    const masks = await page.evaluate(() =>
+      [...document.querySelectorAll("[class*='_mask_']")].filter((el) => {
+        const style = getComputedStyle(el)
+        return style.pointerEvents !== 'none' && el.getBoundingClientRect().width > 0
+      }).length,
+    )
+    if (masks === 0) break
+    if (i === 0) log(`  [onboarding] ${masks} 层遮罩仍在，等它退场…`)
+    await page.waitForTimeout(500)
   }
   return steps
 }
@@ -101,16 +132,26 @@ async function passOnboarding(page) {
     throw new Error('lib/ 不存在：先跑 `pnpm build`（link 的是构建产物）')
   }
   const { chromium } = require('playwright')
-  // 本地用机器上已缓存的 Chromium；找不到（例如 CI 的 Linux，浏览器在
-  // ~/.cache/ms-playwright 而不是 %LOCALAPPDATA%）就交给 playwright 自己的默认路径。
+  // 本地用机器上已缓存的 Chromium；找不到（例如缓存被清、或 CI 的 Linux，浏览器在
+  // ~/.cache/ms-playwright 而不是 %LOCALAPPDATA%）就退到**系统 Chrome**（本机测量资产
+  // 一节的老办法，省掉一次浏览器下载），再找不到才交给 playwright 自己的默认路径。
   const chromiumExe = (() => {
     const cache = path.join(process.env.LOCALAPPDATA || os.homedir(), 'ms-playwright')
-    if (!fs.existsSync(cache)) return undefined
-    for (const dir of fs.readdirSync(cache)) {
-      if (!dir.startsWith('chromium-')) continue
-      for (const candidate of [path.join(cache, dir, 'chrome-win64', 'chrome.exe'), path.join(cache, dir, 'chrome-win', 'chrome.exe')]) {
-        if (fs.existsSync(candidate)) return candidate
+    if (fs.existsSync(cache)) {
+      for (const dir of fs.readdirSync(cache)) {
+        if (!dir.startsWith('chromium-')) continue
+        for (const candidate of [path.join(cache, dir, 'chrome-win64', 'chrome.exe'), path.join(cache, dir, 'chrome-win', 'chrome.exe')]) {
+          if (fs.existsSync(candidate)) return candidate
+        }
       }
+    }
+    const pf = process.env.ProgramFiles || 'C:\\Program Files'
+    const pfx86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'
+    for (const candidate of [
+      path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(pfx86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ]) {
+      if (fs.existsSync(candidate)) return candidate
     }
     return undefined // CI: playwright's own download
   })()
@@ -132,7 +173,9 @@ async function passOnboarding(page) {
     server = await bootServer(home)
     log(`   up in ${Date.now() - t1} ms → ${server.url.replace(/token=[\w-]+/, 'token=…')}`)
 
-    browser = await chromium.launch({ executablePath: chromiumExe })
+    // `--no-proxy-server`：本机沙箱有 HTTP_PROXY=127.0.0.1:1793，不加它 localhost 的请求会被
+    // 代理吃掉（见 AGENTS.md「本机测量资产」）；对 CI 是无副作用的空操作。
+    browser = await chromium.launch({ executablePath: chromiumExe, args: ['--no-proxy-server'] })
     // 固定浏览器 locale：DSH 的界面语言在没存过偏好时就从 `navigator.languages` 推导
     // （见 `@deepseek-ai/dsh-client-locale`），而 CI 的默认是 en-US —— 那里界面会变成英文，
     // 下面基于中文文案的选择器（设置 / 总开关 / 兼容模式 …）就全失效了。
@@ -221,8 +264,18 @@ async function passOnboarding(page) {
     }
 
     // ---- 关键区域采样 4：OO 在 compat 模式下给浮动面 rim -----------------
-    await page.getByRole('button', { name: '兼容模式' }).click()
-    await page.waitForTimeout(1500)
+    // 点一下不等于切过去了：本机 rc.2 实测有一次点击没生效，于是下面**所有** compat
+    // 断言都在「compat 其实没开」的状态下取样 —— rim 找不到、panel 没描边、右侧栏
+    // 没 blur 全部变成假绿。显式轮询到 html 真挂上 data-dsh-glass-compat 再往下走
+    // （最多补点两次），并把这次切换本身也断出来。
+    const compatOn = async () => page.evaluate(() => document.documentElement.hasAttribute('data-dsh-glass-compat'))
+    let switched = false
+    for (let attempt = 0; attempt < 3 && !switched; attempt++) {
+      await page.getByRole('button', { name: '兼容模式' }).click()
+      await page.waitForTimeout(1500)
+      switched = await compatOn()
+    }
+    check('compat 模式已激活（html 挂上 data-dsh-glass-compat）', switched)
     const rim = await page.evaluate(() => {
       const sel = "[role='menu'],[class*='card'],[class*='popover'],[class*='dropdown']"
       for (const el of document.querySelectorAll(sel)) {
@@ -245,14 +298,111 @@ async function passOnboarding(page) {
     })
     check('compat 模式下 panel 不被描边（OO 的刻意排除）', panelTouched === null, String(panelTouched))
 
+    // ---- 关键区域采样 5：关闭态的右侧栏容器不得残留 blur（issue #16）------
+    // 真页级联断言（上一节 compat 的 rim / panel 采样是同一层）。
+    // `[class*='panel']` 是子串匹配，会命中宿主自己的右侧栏布局壳
+    // （`P3OORG_panel` + `P3OORG_panelBody`，来自
+    // `@deepseek-ai/dsh-client-ui-sidebar-right`）。那个壳在右栏关闭后仍留在
+    // DOM 里（只把子节点 dock 移出并隐藏），于是 blur 继续绘制成右缘约
+    // 300×518 的磨砂残带（报告人在 0.1.7-rc.2 实测）。修复后：容器及其子树
+    // 在闭态下不允许有 backdrop-filter，展开态才允许。
+    // 全新的 DSH_HOME 没有会话 ⇒ 很可能根本渲染不出这个容器，那按 PP 那条
+    // 先例记 skipped（不假绿），真机另有复核。
+    const rightPanel = await page.evaluate(() => {
+      const el = document.querySelector('[data-sidebar-right-panel]')
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      return {
+        open: el.hasAttribute('data-sidebar-right-open'),
+        blur: getComputedStyle(el).backdropFilter,
+        bodyBlur: el.firstElementChild ? getComputedStyle(el.firstElementChild).backdropFilter : null,
+        size: `${Math.round(box.width)}x${Math.round(box.height)}`,
+      }
+    })
+    if (rightPanel === null) {
+      results.push({ name: '右侧栏容器闭态无 blur（#16）', ok: true, skipped: true, detail: '本环境无会话 ⇒ 无右侧栏容器' })
+      log('— 右侧栏容器闭态无 blur：跳过（新 DSH_HOME 无会话，在真机上另测）')
+    } else {
+      check(
+        '右侧栏容器闭态无 blur（#16）',
+        rightPanel.open || (rightPanel.blur === 'none' && rightPanel.bodyBlur === 'none'),
+        JSON.stringify(rightPanel),
+      )
+      // 同页 A/B（AGENTS.md「控制项必须 DIFFERS」）：把**修复前那条**选择器插回去，
+      // 同一个真宿主元素必须立刻变成 blur —— 否则 `none` 可能只是因为玻璃没开、
+      // 元素不存在或规则压根没生效，那种绿什么都不证明。插完立刻撤掉。
+      const ab = await page.evaluate(() => {
+        const el = document.querySelector('[data-sidebar-right-panel]')
+        if (!el) return null
+        const style = document.createElement('style')
+        style.textContent = "[data-dsh-glass-compat] [class*='panel']{backdrop-filter:blur(12px)}"
+        document.head.append(style)
+        const withOldRule = getComputedStyle(el).backdropFilter
+        const bodyWithOldRule = el.firstElementChild ? getComputedStyle(el.firstElementChild).backdropFilter : null
+        style.remove()
+        return { withOldRule, bodyWithOldRule, afterRemoval: getComputedStyle(el).backdropFilter }
+      })
+      check(
+        '同页 A/B：插回旧规则后同一元素立刻变 blur（#16）',
+        ab !== null && ab.withOldRule !== 'none' && ab.afterRemoval === 'none',
+        JSON.stringify(ab),
+      )
+    }
+
+    // 上面那条依赖真有一个会话；新 DSH_HOME 通常没有，于是这里再补一条**不依赖会话**
+    // 的同类断言：往真页里合成宿主右侧栏的 markup（类名 / 属性逐字照抄上游
+    // SidebarRight.tsx），读**级联后**的计算样式。这层比 tests/glass-css.spec.ts 强
+    // （真 Chromium + 真样式表），比上面那条弱（markup 是造的，不是宿主渲染的）——
+    // 两条一起才既有 CI 覆盖、又有真机覆盖。必须留在 compat 分支内：下面就会把模式
+    // 切回云母，那时 `[data-dsh-glass-compat]` 已经不在了。
+    const synthetic = await page.evaluate(() => {
+      const host = document.createElement('div')
+      host.innerHTML =
+        '<div class="P3OORG_panel" data-sidebar-right-panel="push" aria-hidden="true">' +
+        '<div class="P3OORG_panelBody"></div></div>'
+      const panel = host.firstElementChild
+      document.body.append(host)
+      const closedPanel = getComputedStyle(panel).backdropFilter
+      const closedBody = getComputedStyle(panel.firstElementChild).backdropFilter
+      panel.setAttribute('data-sidebar-right-open', '')
+      panel.removeAttribute('aria-hidden')
+      const openPanel = getComputedStyle(panel).backdropFilter
+      // 对照组：同样的类名、但不带宿主的两个属性 ⇒ 通用家族必须照旧给它模糊。
+      // 少了它，一条「静默失效却永不报错」的选择器也能让上面几条断言变绿。
+      const control = document.createElement('div')
+      control.className = 'P3OORG_panel'
+      document.body.append(control)
+      const controlPanel = getComputedStyle(control).backdropFilter
+      host.remove()
+      control.remove()
+      return { closedPanel, closedBody, openPanel, controlPanel }
+    })
+    check(
+      '右侧栏容器闭态无 blur / 展开态有 blur（#16，合成 markup）',
+      synthetic.closedPanel === 'none' &&
+        synthetic.closedBody === 'none' &&
+        synthetic.openPanel !== 'none' &&
+        synthetic.controlPanel !== 'none',
+      JSON.stringify(synthetic),
+    )
+
     // ---- 行为断言：总开关真的能切（先切回云母，再关、再开）------------------
+    // 同 compat 那条：点了不等于切了（开关的点击也会静默不生效），所以要轮询到
+    // 属性真的被摘掉再断，必要时补点一次。
     await page.getByRole('button', { name: '云母效果' }).click()
     await page.waitForTimeout(800)
-    await glassSwitch.click()
-    await page.waitForTimeout(1200)
-    check('关掉总开关后 data-dsh-glass 被摘除', await page.evaluate(() => !document.documentElement.hasAttribute('data-dsh-glass')))
-    await glassSwitch.click() // 还原
-    await page.waitForTimeout(1200)
+    const glassOff = async () => page.evaluate(() => !document.documentElement.hasAttribute('data-dsh-glass'))
+    let off = false
+    for (let attempt = 0; attempt < 3 && !off; attempt++) {
+      await glassSwitch.click()
+      await page.waitForTimeout(1200)
+      off = await glassOff()
+    }
+    check('关掉总开关后 data-dsh-glass 被摘除', off)
+    if (off) {
+      await glassSwitch.click() // 还原
+      await page.waitForTimeout(1200)
+    }
 
     check('页面无未捕获异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
   } finally {

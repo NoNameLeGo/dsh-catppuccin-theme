@@ -1,4 +1,4 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 /**
  * Glass blur budget guard (issue #13).
  *
@@ -28,9 +28,17 @@
  * anything but the page ground behind it.
  */
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-const CSS = readFileSync(new URL('../src/client/glass/glass.module.css', import.meta.url), 'utf8')
+// Resolved to a STRING path on purpose: this spec runs under jsdom, where the
+// global `URL` is jsdom's own implementation, and handing that object to
+// `fs.readFileSync` fails with "The URL must be of scheme file".
+const CSS = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'client', 'glass', 'glass.module.css'),
+  'utf8',
+)
 
 /** Selectors known to sit over the flat page ground (issue #13). */
 const GROUND_ONLY = /sidebarCol|bubble|trajectory/
@@ -113,6 +121,71 @@ describe('glass blur budget (issue #13)', () => {
         /(?:^|;)\s*background\s*:/.test(rule.decls),
     )
     expect(filledPanels.map((rule) => rule.selector), 'compat must not double-fill nested panels').toEqual([])
+  })
+
+  it('never blurs the host right-sidebar wrapper once it is closed (issue #16)', () => {
+    // `[class*='panel']` is a substring match, and DSH's CSS Modules emit
+    // `P3OORG_panel` / `P3OORG_panelBody` for the RIGHT SIDEBAR's container
+    // (`@deepseek-ai/dsh-client-ui-sidebar-right`, verified in 0.1.7-rc.1 and
+    // -rc.2). That container is a transparent layout wrapper — `position:
+    // absolute; pointer-events: none`, no `background` declaration at all —
+    // and it STAYS in the DOM after the sidebar closes: only its child dock is
+    // moved out and hidden. The blur therefore kept painting ~300×518px of
+    // frost at the window's right edge (the reporter's live reading: computed
+    // `backdrop-filter: blur(12px)`, `x=1156 y=0 w=300 h=518`).
+    //
+    // The fixture below is upstream's markup verbatim (`SidebarRight.tsx`):
+    // `data-sidebar-right-panel` is ALWAYS present; `data-sidebar-right-open`
+    // is `expanded || void 0` (gone on close) and `aria-hidden` is its
+    // inverse. Assertions run through real `querySelectorAll` against the
+    // sheet's own selectors, so they lock the MATCH, not a selector spelling.
+    //
+    // `#outside` is the control: the generic family must still frost panel-ish
+    // elements that are NOT inside the host container, so an over-broad fix
+    // (or a `:not()` the DOM engine quietly ignores) fails loudly.
+    const fixture = (open: boolean): HTMLElement => {
+      document.body.innerHTML =
+        '<div data-dsh-glass-compat>' +
+        '<div class="abc123_panel" id="outside"></div>' +
+        '<div class="P3OORG_panel" data-sidebar-right-panel="push" ' +
+        (open ? 'data-sidebar-right-open=""' : 'aria-hidden="true"') +
+        '>' +
+        '<div class="P3OORG_panelBody"><div class="abc123_panel" id="inside"></div></div>' +
+        '</div></div>'
+      return document.querySelector('.P3OORG_panel') as HTMLElement
+    }
+    /** True when any blurring rule in the sheet matches this element. */
+    const blurred = (el: Element): boolean =>
+      blurring.some((rule) => {
+        try {
+          return [...document.querySelectorAll(rule.selector)].includes(el)
+        } catch {
+          return false // jsdom lacks some combinators (`:has`), which none of these need
+        }
+      })
+
+    // Control first: the fixture must still be something the OLD bare
+    // substring would have hit (outside panel + wrapper + panelBody + inner
+    // panel), otherwise this test proves nothing.
+    fixture(false)
+    expect(document.querySelectorAll("[data-dsh-glass-compat] [class*='panel']").length).toBe(4)
+
+    for (const open of [true, false]) {
+      const panel = fixture(open)
+      const body = panel.firstElementChild as HTMLElement
+      const inside = document.getElementById('inside') as HTMLElement
+      const outside = document.getElementById('outside') as HTMLElement
+      expect(blurred(panel), `wrapper blur, open=${open}`).toBe(open)
+      expect(blurred(body), `panelBody blur, open=${open}`).toBe(open)
+      expect(blurred(inside), `panel inside the wrapper, open=${open}`).toBe(open)
+      expect(blurred(outside), `panel outside the wrapper, open=${open}`).toBe(true)
+    }
+
+    // Narrowing the panel family must not take the other compat surfaces with
+    // it (cards are the ones the OO note actually wants frosted).
+    document.body.innerHTML = '<div data-dsh-glass-compat><div class="abc123_card"></div></div>'
+    expect(blurred(document.querySelector('.abc123_card') as HTMLElement)).toBe(true)
+    document.body.innerHTML = ''
   })
 
   it('paints the selected sidebar row with a fill that is not the page ground (PP)', () => {

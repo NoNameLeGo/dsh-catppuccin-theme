@@ -704,10 +704,15 @@
    itself: this skin's own raised fill plus a hairline rim. Three deliberate
    choices:
    - `[class*='panel']` is deliberately NOT filled (it keeps only its blur).
-     Panels nest — probed on the live GUI 2026-09-18: `P3OORG_panel` (opaque)
-     contains a transparent `P3OORG_panelBody`; filling both stacks two layers
-     and paints an inner rectangle the host never asked for. Cards and the
-     overlay families (menu / tooltip / popover / dropdown) do not nest this way.
+     Panels nest — probed on the live GUI 2026-09-18: `P3OORG_panel` contains a
+     transparent `P3OORG_panelBody`; filling both stacks two layers and paints
+     an inner rectangle the host never asked for. Cards and the overlay
+     families (menu / tooltip / popover / dropdown) do not nest this way.
+     (Correction, 2026-09-27 / issue #16: this note used to call `P3OORG_panel`
+     "opaque". It is not — in 0.1.7-rc.1 and -rc.2 it declares no `background`
+     at all and computes to `rgba(0,0,0,0)` on the live GUI, exactly as issue
+     #16 measured. The reason not to fill it is unchanged; the reason it must
+     not be *blurred* in its closed state is added below.)
    - the rim is drawn with `outline` (+ negative offset), not `border` /
      `box-shadow`: a border shifts box-sizing:content-box host surfaces and a
      box-shadow would clobber the host's own elevation — `outline` touches
@@ -721,9 +726,35 @@
 [data-dsh-glass-compat] [role='menu'],
 [data-dsh-glass-compat] [role='tooltip'],
 [data-dsh-glass-compat] [class*='card'],
-[data-dsh-glass-compat] [class*='panel'],
+[data-dsh-glass-compat] [class*='panel']:not([data-sidebar-right-panel], [data-sidebar-right-panel] *),
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
+  backdrop-filter: blur(12px);
+}
+
+/* Issue #16: the host's own right-sidebar container is a transparent LAYOUT
+   wrapper, not a surface — and so is the `P3OORG_panelBody` inside it. The
+   wrapper is `position:absolute; pointer-events:none` with no background of
+   its own (see the correction above), and closing the sidebar only hides its
+   CHILD (`[data-dockkit-host=dock]` gets `transform:translateX(var(
+   --dsh-sidebar-width));visibility:hidden`) — the container stays in the DOM
+   at the right edge, ~300px wide and still `visibility:visible`. A
+   `backdrop-filter` on it therefore keeps painting: over the live transcript
+   (not the flat ground) the sampled backdrop is not uniform, so the blur is
+   NOT an identity, and a 300×518px frost band was left at the window's right
+   edge — measured by the reporter on DSH 0.1.7-rc.2 with BOTH the wrapper and
+   its body reporting `backdrop-filter: blur(12px)` on the same rect
+   (`x=1156 y=0 w=300 h=518`), i.e. the literal from the rule above, not the
+   configured `blur: 8`.
+
+   So the generic `[class*='panel']` above now excludes the host container
+   AND everything inside it (`data-sidebar-right-panel` is the stable hook:
+   `SidebarRight.tsx` puts it on the element ALWAYS, value `push` /
+   `fullscreen`, while `data-sidebar-right-open` is `expanded || void 0` and
+   disappears on close), and this rule hands the frost back for the open state
+   only — so nothing moves visually while the panel is actually showing. */
+[data-dsh-glass-compat] [data-sidebar-right-panel][data-sidebar-right-open],
+[data-dsh-glass-compat] [data-sidebar-right-panel][data-sidebar-right-open] [class*='panel'] {
   backdrop-filter: blur(12px);
 }
 
