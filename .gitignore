@@ -40,6 +40,12 @@ quicksort.py
 # Stray local pnpm store (should live outside the repo)
 .pnpm-store/
 
+# Local caches that must NOT land in the repo: scripts here pass `--cache .cache/npm`
+# on machines with a tight C: drive (README/AGENTS 的 npm 缓存约定), and release
+# verification downloads tarballs into .cache/ too. Not ignored until 2026-09-27,
+# when one `git add -A` swept 19 npm-cache files + a published tarball into a commit.
+.cache/
+
 # Generated API docs (typedoc) — regenerate on demand with `pnpm docs:api`
 docs/api/
 
