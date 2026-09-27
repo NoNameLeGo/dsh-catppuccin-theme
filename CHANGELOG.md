@@ -6,11 +6,10 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.7] - 2026-09-27
 
-> 本节（2026-09-24 下半场）随 **`0.5.7-beta.0`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.6`）：
-> 官方桌面壳识别改用 Electron 运行时，外加一批文档 / 仓库卫生修正（提交 `bbba077`、`4b3fa59`）。
-> 2026-09-27 追加的 issue #16 修复**在该预发布之后**落地，尚未随任何预发布发出（下一次预发布 = `0.5.7-beta.1`）。
+> 本节含两批：2026-09-24 下半场那批（曾以 **`0.5.7-beta.0`** 单独发到 npm 的 `beta` 渠道，`latest` 当时仍是 `0.5.6`）
+> 与 2026-09-27 的 **issue #16** 修复。整节作为 **`0.5.7`** 发到 `latest`（提交 `bbba077`、`4b3fa59`、`1b44822`）。
 
 ### 修复
 
@@ -521,7 +520,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6
 [0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
 [0.5.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.4...v0.5.5
