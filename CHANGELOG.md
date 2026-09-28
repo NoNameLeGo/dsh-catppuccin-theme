@@ -40,8 +40,12 @@
     `the generic panel family came back` / `compat frosts tooltips again` / `the card substring came back`）；
     #16 那条用例里「容器外 panel 仍必须被模糊」的对照组 `#outside` **反向**（现在必须**不**被模糊），
     另一条对照组从 `class="abc123_card"` 换成 `data-composer-card`，`scripts/e2e-boot-check.cjs` 的合成
-    markup 对照组与 rim 采样选择器同步更新。**尚未在真机复跑 e2e**（`0.1.7-rc.2` + Chrome 那套），
-    单测 233/233 与 `typecheck` 通过。
+    markup 对照组与 rim 采样选择器同步更新。单测 233/233、`typecheck` 通过。
+    **真机 e2e 已复跑通过**：DSH `0.1.7-rc.2` + 系统 Chrome，**19/19**（49 s），其中这次改动的三条直接证据是
+    ——合成 markup 的 `{"closedPanel":"none","closedBody":"none","openPanel":"blur(12px)","controlPanel":"none"}`
+    （`controlPanel` 就是本次反转的对照）、宿主右栏真页采样闭态 `{"open":false,"blur":"none","bodyBlur":"none","size":"648x900"}`
+    （同页 A/B 插回旧规则立刻变 `blur(12px)`、撤掉回 `none`，证明读数敏感），以及 rim 采样这次落在
+    `uV2eYG_card`（composer 卡）上 ⇒ 新锚点 `[data-composer-card]` 在真页确实生效。
   （EN: compat drops three substring families — the generic `[class*='panel']` blur, `[role='tooltip']`, and the
   `card` substring (narrowed to the composer card's own `data-composer-card` hook). Each removal is justified by
   "the rule painted something the host never drew": panels are never filled, so a blur-only rule had zero payoff
@@ -50,7 +54,12 @@
   found 18 declaring their own `background` (so the skin was replacing a design token while their own fill
   already covered the blur) and 2 declaring none (the reported grey row stripes). Locked by a per-family jsdom
   case whose three assertions are each mutation-verified, with the #16 controls reversed/aligned and the
-  boot-check e2e matching. The live-GUI e2e has not been re-run yet.)
+  boot-check e2e matching. The live-GUI e2e was re-run on DSH `0.1.7-rc.2` with system Chrome:
+  **19/19 in 49 s**, including the reversed synthetic-markup control
+  (`{"closedPanel":"none","closedBody":"none","openPanel":"blur(12px)","controlPanel":"none"}`), the
+  host right-sidebar sample in its closed state (`none`, with an on-page A/B showing the old rule
+  flips it back to `blur(12px)`), and the rim sample now landing on `uV2eYG_card` — the composer card,
+  i.e. the new `[data-composer-card]` anchor really matches in the live page.)
 
 ## [0.5.7] - 2026-09-27
 
