@@ -6,7 +6,7 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.8] - 2026-09-28
 
 ### 修复
 
@@ -575,7 +575,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...HEAD
+[0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6
 [0.5.6-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6-beta.0
