@@ -92,11 +92,14 @@ describe('glass blur budget (issue #13)', () => {
 
   it('gives compat surfaces a material, not just a blur over the flat ground (OO)', () => {
     // Compat's blur alone painted nothing (a blurred flat ground is a no-op), so
-    // the surface still read as stock DSH. The material has to be the fill + rim.
+    // the surface still read as stock DSH. The material has to be the fill + rim
+    // — carried by the composer card, the one compat surface family with both a
+    // stable host hook and a floating job (issue #17 narrowed it there from the
+    // `card` substring).
     const fill = rules.find(
       (rule) =>
         rule.selector.includes('[data-dsh-glass-compat]') &&
-        rule.selector.includes("[class*='card']") &&
+        rule.selector.includes('[data-composer-card]') &&
         /background\s*:\s*[^;]*--dsh-glass-card/.test(rule.decls),
     )
     expect(fill, 'compat surfaces lost their translucent fill').toBeDefined()
@@ -140,9 +143,12 @@ describe('glass blur budget (issue #13)', () => {
     // inverse. Assertions run through real `querySelectorAll` against the
     // sheet's own selectors, so they lock the MATCH, not a selector spelling.
     //
-    // `#outside` is the control: the generic family must still frost panel-ish
-    // elements that are NOT inside the host container, so an over-broad fix
-    // (or a `:not()` the DOM engine quietly ignores) fails loudly.
+    // `#outside` used to be the control proving the `:not()` was not silently
+    // ignored. Issue #17 removed the generic `[class*='panel']` selector
+    // outright (see the #17 case below), so `#outside` is now the control for
+    // the OPPOSITE claim: an element carrying the stock class but none of the
+    // host hooks must NOT be frosted. Both directions are asserted, so a
+    // re-added generic selector fails loudly instead of silently returning.
     const fixture = (open: boolean): HTMLElement => {
       document.body.innerHTML =
         '<div data-dsh-glass-compat>' +
@@ -178,14 +184,55 @@ describe('glass blur budget (issue #13)', () => {
       expect(blurred(panel), `wrapper blur, open=${open}`).toBe(open)
       expect(blurred(body), `panelBody blur, open=${open}`).toBe(open)
       expect(blurred(inside), `panel inside the wrapper, open=${open}`).toBe(open)
-      expect(blurred(outside), `panel outside the wrapper, open=${open}`).toBe(true)
+      expect(blurred(outside), `panel outside the wrapper, open=${open}`).toBe(false)
     }
 
     // Narrowing the panel family must not take the other compat surfaces with
-    // it (cards are the ones the OO note actually wants frosted).
-    document.body.innerHTML = '<div data-dsh-glass-compat><div class="abc123_card"></div></div>'
-    expect(blurred(document.querySelector('.abc123_card') as HTMLElement)).toBe(true)
+    // it. Issue #17 moved the card family onto the composer card's own hook, so
+    // that is the surface this checks (a bare `*_card` class is deliberately
+    // NOT frosted any more — see the #17 case below).
+    document.body.innerHTML = '<div data-dsh-glass-compat><div data-composer-card></div></div>'
+    expect(blurred(document.querySelector('[data-composer-card]') as HTMLElement)).toBe(true)
     document.body.innerHTML = ''
+  })
+
+  it('keeps the row-level and token-owned families out of compat (issue #17)', () => {
+    // Issue #17: a substring selector cannot tell a SURFACE from a row-level
+    // container inside one, so three families left the compat rule sets. Each
+    // removal is locked here by its own reason — all three are "the rule was
+    // drawing something the host never drew", not taste.
+    const compat = rules.filter((rule) => rule.selector.includes('[data-dsh-glass-compat]'))
+    const withCompat = compat.map((rule) => rule.selector)
+
+    // C — `panel` survives ONLY as the host right sidebar's open state, which
+    // is the one panel with evidence for a blur (issue #16). Panels are never
+    // filled, so a generic blur on them painted nothing over the solid ground
+    // and only ever showed up on row-level `*panel*` containers of other
+    // plugins (the reporter's hard-edged block over an 8% row highlight).
+    const panelRules = withCompat.filter((selector) => selector.includes("[class*='panel']"))
+    expect(panelRules.length, 'the generic panel family came back').toBe(1)
+    expect(panelRules.every((selector) => selector.includes('[data-sidebar-right-open]'))).toBe(true)
+
+    // B — the native tooltip paints `--dsw-alias-tooltip-bg` itself; filling it
+    // replaced a token the design owns, at a large-surface grade.
+    expect(
+      withCompat.some((selector) => selector.includes("[role='tooltip']")),
+      'compat frosts tooltips again',
+    ).toBe(false)
+
+    // A2 + A1/A3 — the `card` substring is gone: an offline sweep of every
+    // `*_card` class in the shipped client packages (0.1.7-rc.2) found 18 of 20
+    // declaring their OWN `background` (so the skin was replacing a design token,
+    // and their own fill already covered the blur) and 2 declaring none (so the
+    // rule was the only thing drawing them — the reported grey row stripes).
+    // The composer card is the one that has a stable hook AND floats over moving
+    // content, so it is the only card the compat material names.
+    expect(
+      withCompat.some((selector) => selector.includes("[class*='card']")),
+      'the card substring came back',
+    ).toBe(false)
+    const composerRules = withCompat.filter((selector) => selector.includes('[data-composer-card]'))
+    expect(composerRules.length, 'the composer card lost its compat material').toBe(3)
   })
 
   it('paints the selected sidebar row with a fill that is not the page ground (PP)', () => {

@@ -701,18 +701,8 @@
    OO (2026-09-18): the blur alone read as nothing — a blur over the flat page
    ground paints no pixels at all, so the surface still looked stock and
    compat mode "看不出皮肤". The floating families now carry the material
-   itself: this skin's own raised fill plus a hairline rim. Three deliberate
+   itself: this skin's own raised fill plus a hairline rim. Two deliberate
    choices:
-   - `[class*='panel']` is deliberately NOT filled (it keeps only its blur).
-     Panels nest — probed on the live GUI 2026-09-18: `P3OORG_panel` contains a
-     transparent `P3OORG_panelBody`; filling both stacks two layers and paints
-     an inner rectangle the host never asked for. Cards and the overlay
-     families (menu / tooltip / popover / dropdown) do not nest this way.
-     (Correction, 2026-09-27 / issue #16: this note used to call `P3OORG_panel`
-     "opaque". It is not — in 0.1.7-rc.1 and -rc.2 it declares no `background`
-     at all and computes to `rgba(0,0,0,0)` on the live GUI, exactly as issue
-     #16 measured. The reason not to fill it is unchanged; the reason it must
-     not be *blurred* in its closed state is added below.)
    - the rim is drawn with `outline` (+ negative offset), not `border` /
      `box-shadow`: a border shifts box-sizing:content-box host surfaces and a
      box-shadow would clobber the host's own elevation — `outline` touches
@@ -722,11 +712,49 @@
      `--dsw-alias-bg-layer-1` === `--dsw-alias-bg-base` (official Catppuccin
      mapping), so the fill mixes to the page ground and is invisible on its own;
      the dark flavours get both. Same trap PP hit with `--dsh-glass-card*`.
-   No new `backdrop-filter` here — see the blur budget note under the bubbles. ---------- */
+   No new `backdrop-filter` here — see the blur budget note under the bubbles.
+
+   Issue #17 (2026-09-28): three families left the coarse substring selectors.
+   A substring match cannot tell a SURFACE from a row-level container inside one
+   — every removal below carries its own evidence, none is a preference.
+   - `[class*='panel']` — REMOVED from all three rule sets. Panels are never
+     filled here (they nest: `P3OORG_panel` holds a transparent
+     `P3OORG_panelBody`, so filling both stacks two layers), and "blur only"
+     over this skin's SOLID page ground is an identity transform that paints
+     nothing (issue #13). The rule's only measurable effect was therefore on
+     panels whose backdrop is NOT the ground — i.e. row-level `*panel*`
+     containers in third-party plugins (the reporter measured a hard-edged
+     block over better-sidebar's 8% row highlight, backgrounds byte-identical
+     with and without compat). The one panel with evidence FOR a blur is the
+     host's own right sidebar, which keeps its own rule below (#16). Net: the
+     family is gone, not excluded — the reporter's local override can go.
+   - `[role='tooltip']` — REMOVED from all three rule sets. The native tooltip
+     paints `--dsw-alias-tooltip-bg` itself, so filling it REPLACED a token the
+     design already owns (rule 4: the glass layer must not change colour
+     semantics), and a large-surface grade on a 40x26px bubble reads as "text
+     sitting on a grey plate" (issue #17 B). Stock tooltip wins.
+   - `[class*='card']` — NARROWED to `[data-composer-card]`. An offline sweep of
+     every `*_card` class in the shipped client packages (0.1.7-rc.2, 20 hits)
+     found **18 of them declare their own `background`** (`--dsw-specific-input-major`,
+     `--card-fill`, `--dsw-alias-settings-card-fill`, `--plan-card-fill`,
+     `--dsw-alias-bg-layer-1`, …): for those the skin was REPLACING a token the
+     design owns (rule 4 — the same defect the reporter filed as A2 for the
+     markdown code block), while their own near-opaque fill already covered the
+     blur (zero payoff, issue #13). The remaining two (`CY-8Ka_card` in
+     `dsh-client-ui-tool/bash-sample`, `cvtE3a_card` in ui-cordis — plus the
+     SkillRow's `iWrAna_card`) declare NO background at all, so this rule was the
+     only thing drawing them: the reporter's grey row stripes and stray rims
+     (A1/A3). The one card with BOTH a stable hook AND a real floating job is the
+     composer card (`InputBar` renders `data-composer-card`; ~76k px² of blurred
+     surface over the scrolling transcript, #13) — it keeps the whole recipe.
+     `.md-code-block` needs no exclusion any more: the substring is gone, so the
+     code block never enters this family (that was #17 A2).
+     Settings-page cards are NOT affected by this narrowing — their glass comes
+     from the token remap under `[data-dsh-glass-settings]`, not from this rule.
+     (Float mode still uses the `card` substring, but only for its 14px corner
+     radius — a radius on a container that paints nothing is harmless.) */
 [data-dsh-glass-compat] [role='menu'],
-[data-dsh-glass-compat] [role='tooltip'],
-[data-dsh-glass-compat] [class*='card'],
-[data-dsh-glass-compat] [class*='panel']:not([data-sidebar-right-panel], [data-sidebar-right-panel] *),
+[data-dsh-glass-compat] [data-composer-card],
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
   backdrop-filter: blur(12px);
@@ -735,7 +763,8 @@
 /* Issue #16: the host's own right-sidebar container is a transparent LAYOUT
    wrapper, not a surface — and so is the `P3OORG_panelBody` inside it. The
    wrapper is `position:absolute; pointer-events:none` with no background of
-   its own (see the correction above), and closing the sidebar only hides its
+   its own (0.1.7-rc.1/-rc.2 declare none; the live computed value is
+   `rgba(0,0,0,0)`), and closing the sidebar only hides its
    CHILD (`[data-dockkit-host=dock]` gets `transform:translateX(var(
    --dsh-sidebar-width));visibility:hidden`) — the container stays in the DOM
    at the right edge, ~300px wide and still `visibility:visible`. A
@@ -747,28 +776,28 @@
    (`x=1156 y=0 w=300 h=518`), i.e. the literal from the rule above, not the
    configured `blur: 8`.
 
-   So the generic `[class*='panel']` above now excludes the host container
-   AND everything inside it (`data-sidebar-right-panel` is the stable hook:
-   `SidebarRight.tsx` puts it on the element ALWAYS, value `push` /
+   Issue #17 then removed the generic `[class*='panel']` selector outright, so
+   this is now the ONLY panel rule in compat: the closed state needs no guard
+   (nothing else matches `*panel*` any more), and this rule hands the frost back
+   for the open state only — so nothing moves visually while the panel is
+   actually showing. `data-sidebar-right-panel` is the stable hook
+   (`SidebarRight.tsx` puts it on the element ALWAYS, value `push` /
    `fullscreen`, while `data-sidebar-right-open` is `expanded || void 0` and
-   disappears on close), and this rule hands the frost back for the open state
-   only — so nothing moves visually while the panel is actually showing. */
+   disappears on close). */
 [data-dsh-glass-compat] [data-sidebar-right-panel][data-sidebar-right-open],
 [data-dsh-glass-compat] [data-sidebar-right-panel][data-sidebar-right-open] [class*='panel'] {
   backdrop-filter: blur(12px);
 }
 
 [data-dsh-glass-compat] [role='menu'],
-[data-dsh-glass-compat] [role='tooltip'],
-[data-dsh-glass-compat] [class*='card'],
+[data-dsh-glass-compat] [data-composer-card],
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
   background: var(--dsh-glass-card-raised);
 }
 
 [data-dsh-glass-compat] [role='menu']:not(:focus-visible),
-[data-dsh-glass-compat] [role='tooltip']:not(:focus-visible),
-[data-dsh-glass-compat] [class*='card']:not(:focus-visible),
+[data-dsh-glass-compat] [data-composer-card]:not(:focus-visible),
 [data-dsh-glass-compat] [class*='popover']:not(:focus-visible),
 [data-dsh-glass-compat] [class*='dropdown']:not(:focus-visible) {
   outline: 1px solid var(--dsh-glass-rim);
@@ -783,8 +812,8 @@
    with the rest of the blur.)
    Compat mode remains the cheaper material overall — measured on the live GUI
    (1440×900, one conversation): mica carries ~460k px² of visible blurred
-   surface, compat ~106k px². But do NOT read that as "compat never blurs the
-   composer": the generic `[class*='card']` rule above still blurs DSH's
+   surface, compat ~106k px².    But do NOT read that as "compat never blurs the
+   composer": the `[data-composer-card]` rule above still blurs DSH's
    composer card (~76k px²), which is why issue #13's surface table is off on
    two rows — the composer card is not mica-only, and neither are the page-edge
    fade bands (they are gated on `[data-dsh-glass]`, so both modes have them).

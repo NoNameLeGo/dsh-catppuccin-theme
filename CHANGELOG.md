@@ -6,6 +6,52 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 修复
+
+- **兼容模式摘掉三族「子串选择器」的误命中（issue #17）**：`[class*='card']` / `[class*='panel']` /
+  `[role='tooltip']` 都是宽泛子串匹配，**无法区分「面」与「面里的行级容器」**，报告人在 DSH `0.1.7-rc.2` +
+  `0.5.7` 上给了 5 组可复现实例（含只读取证脚本与逐元素 computed 对照）。这次按证据逐族处理，三者都是
+  「规则画出了宿主没画的东西」，不是审美偏好：
+  - **`[class*='panel']` 从 compat 的三条规则里整体移除**（#16 时只是加了
+    `:not([data-sidebar-right-panel], [data-sidebar-right-panel] *)` 把宿主右栏容器摘出去）。panel 在本皮肤里
+    **从不被填充**（panel 会嵌套，填充会叠出宿主没要的内矩形），所以「只 blur」在**纯色地面**上是恒等变换、
+    零像素收益（issue #13 实测）；它唯一的可见效果落在「背后不是地面」的场景，也就是第三方插件的**行级**
+    `*panel*` 元素——报告人实测 better-sidebar 的行高亮背景值前后逐字节相同，只多出一层把 8% 平滑高亮渲染成
+    硬边灰块的 blur。唯一有证据需要模糊的 panel 是宿主自己的右侧栏**展开态**，#16 已为它写了专用规则
+    （按 `data-sidebar-right-panel` + `data-sidebar-right-open`）⇒ 整族删除后该场景观感不变。
+  - **`[role='tooltip']` 从 compat 的三条规则里移除**：原生 tooltip 自带 `--dsw-alias-tooltip-bg` 配色，
+    填充它是**替换**设计已经拥有的 token（违反本项目「玻璃层不得改变配色语义」），且大面档套在 40×26px
+    的侧栏悬停气泡上读作「文字压着一块灰底」。
+  - **`[class*='card']` 收窄到 `[data-composer-card]`**（composer 卡）。离线扫描本机 `0.1.7-rc.2` 全套客户端包
+    （957 个文件）里全部 **20 个 `*_card` 类名**，18 个**自绘 `background`**（`--dsw-specific-input-major` /
+    `--card-fill` / `--dsw-alias-settings-card-fill` / `--plan-card-fill` / `--dsw-alias-bg-layer-1` …）⇒ 对它们
+    我们是**替换**了设计自己拥有的 token（与 A2 代码块同一个缺陷），而它们自己的近不透明底色已经把模糊盖住
+    （零收益，纯成本）；剩下 2 个（`CY-8Ka_card` / `cvtE3a_card`，外加 SkillRow 的 `iWrAna_card`）**没有任何
+    background 声明** ⇒ 这条规则是唯一把它们画出来的东西，正是报告人的整行灰纹与凭空孤线（A1/A3）。
+    唯一既有稳定钩子、又真的浮在滚动内容之上的 card 是 composer 卡（`InputBar` 渲染 `data-composer-card`，
+    issue #13 实测约 76k px² 模糊面）⇒ 它保留完整配方（填充 + rim + blur）。代码块不再需要单独排除：
+    子串没了，它自然进不了这个族。设置页的卡不受影响——它们的玻璃来自 `[data-dsh-glass-settings]` 下的
+    **token 重映射**，不走这条规则。
+  - 测试：`tests/glass-css.spec.ts` 新增一条**按族锁定**的用例（panel 只允许出现在宿主右栏展开态规则里、
+    tooltip 在 compat 下彻底消失、compat 下不得再出现 `[class*='card']` 且 `[data-composer-card]` 必须出现在
+    三条规则里），**三条断言各自做了变异验证**（回退任一族分别报
+    `the generic panel family came back` / `compat frosts tooltips again` / `the card substring came back`）；
+    #16 那条用例里「容器外 panel 仍必须被模糊」的对照组 `#outside` **反向**（现在必须**不**被模糊），
+    另一条对照组从 `class="abc123_card"` 换成 `data-composer-card`，`scripts/e2e-boot-check.cjs` 的合成
+    markup 对照组与 rim 采样选择器同步更新。**尚未在真机复跑 e2e**（`0.1.7-rc.2` + Chrome 那套），
+    单测 233/233 与 `typecheck` 通过。
+  （EN: compat drops three substring families — the generic `[class*='panel']` blur, `[role='tooltip']`, and the
+  `card` substring (narrowed to the composer card's own `data-composer-card` hook). Each removal is justified by
+  "the rule painted something the host never drew": panels are never filled, so a blur-only rule had zero payoff
+  over the solid ground and only ever showed up on third-party row-level `*panel*` containers; the native tooltip
+  owns `--dsw-alias-tooltip-bg`; and an offline sweep of all 20 `*_card` classes in the shipped client packages
+  found 18 declaring their own `background` (so the skin was replacing a design token while their own fill
+  already covered the blur) and 2 declaring none (the reported grey row stripes). Locked by a per-family jsdom
+  case whose three assertions are each mutation-verified, with the #16 controls reversed/aligned and the
+  boot-check e2e matching. The live-GUI e2e has not been re-run yet.)
+
 ## [0.5.7] - 2026-09-27
 
 > 本节含两批：2026-09-24 下半场那批（曾以 **`0.5.7-beta.0`** 单独发到 npm 的 `beta` 渠道，`latest` 当时仍是 `0.5.6`）

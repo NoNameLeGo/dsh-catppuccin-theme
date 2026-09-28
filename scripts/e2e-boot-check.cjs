@@ -277,7 +277,7 @@ async function passOnboarding(page) {
     }
     check('compat 模式已激活（html 挂上 data-dsh-glass-compat）', switched)
     const rim = await page.evaluate(() => {
-      const sel = "[role='menu'],[class*='card'],[class*='popover'],[class*='dropdown']"
+      const sel = "[role='menu'],[data-composer-card],[class*='popover'],[class*='dropdown']"
       for (const el of document.querySelectorAll(sel)) {
         const box = el.getBoundingClientRect()
         if (box.width < 40 || box.height < 24) continue
@@ -367,8 +367,10 @@ async function passOnboarding(page) {
       panel.setAttribute('data-sidebar-right-open', '')
       panel.removeAttribute('aria-hidden')
       const openPanel = getComputedStyle(panel).backdropFilter
-      // 对照组：同样的类名、但不带宿主的两个属性 ⇒ 通用家族必须照旧给它模糊。
-      // 少了它，一条「静默失效却永不报错」的选择器也能让上面几条断言变绿。
+      // 反向对照（issue #17 改向）：同样的类名、但不带宿主的两个属性 ⇒ 现在必须
+      // **没有**模糊。删掉通用 `[class*='panel']` 之前这里反向（必须有），所以这条
+      // 同时证明「通用族真的被摘掉了」；少了它，一个把 panel 全族恢复回来的回退
+      // 会让上面几条断言照样绿。
       const control = document.createElement('div')
       control.className = 'P3OORG_panel'
       document.body.append(control)
@@ -378,11 +380,11 @@ async function passOnboarding(page) {
       return { closedPanel, closedBody, openPanel, controlPanel }
     })
     check(
-      '右侧栏容器闭态无 blur / 展开态有 blur（#16，合成 markup）',
+      '右侧栏容器闭态无 blur / 展开态有 blur / 其它 panel 类名不再有 blur（#16 + #17，合成 markup）',
       synthetic.closedPanel === 'none' &&
         synthetic.closedBody === 'none' &&
         synthetic.openPanel !== 'none' &&
-        synthetic.controlPanel !== 'none',
+        synthetic.controlPanel === 'none',
       JSON.stringify(synthetic),
     )
 
