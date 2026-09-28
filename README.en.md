@@ -63,9 +63,10 @@ Catppuccin theme automatically.
 - 🔧 **Custom token overrides**: override individual colour tokens with `--dsw-* var: value` pairs (e.g. turn comments blue); persisted alongside the selected flavour
 - 🖍️ **Code-block highlight style**: default / italic-comments shiki themes
 - 🌐 Seven UI languages (Chinese / English / Japanese / Korean / Spanish / French / German, follows the system language)
-- 🪟 **Glass skin**: frosted glass for the top bar / sidebar / composer / stats line /
+- 🪟 **Glass skin** (Mica mode): frosted glass for the top bar / sidebar / composer / stats line /
   trajectory view / chat bubbles / new-session button, one-click toggle in Settings;
-  mica & compatibility modes, adjustable blur, frost and backdrop brightness
+  mica & compatibility modes (Compatibility keeps the stock layout and only frosts the composer
+  card and floating layers), adjustable blur, frost and backdrop brightness
   (interaction reference: [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin))
 - 🌫️ **Glass details**: gradient blur bands at the top/bottom page edges, a floating glass
   rail when the sidebar is collapsed, a solid background in the theme's own base colour —
@@ -142,9 +143,10 @@ Installing from the repo works the same way: `dsh plugin --profile desktop add h
 > `$DSH_HOME/profiles/desktop`, so the command above works for either. This plugin's desktop support
 > targets the **official web + desktop** builds; the community shell's `desktopProfiles` service probe
 > is kept. The official shell's profile process carries **no** dedicated env marker (its
-> `DSH_DESKTOP_NODE_EXECUTABLE` is injected only into its package-install children), so the official
-> desktop build is currently treated as plain web for upgrade copy; the profile name and the settings
-> round-trip are unaffected (see the comment in `src/profile-detect.ts`).
+> `DSH_DESKTOP_NODE_EXECUTABLE` is injected only into its package-install children), so the plugin
+> detects that shell through the **Electron-as-node runtime** (`process.versions.electron`) instead —
+> the profile name shown in the upgrade copy is therefore correct, and settings reads/writes are
+> unaffected (see the comment in `src/profile-detect.ts`).
 
 ### Option 2: from the repository
 
@@ -218,8 +220,10 @@ Right below the **Catppuccin theme** row in **Settings → General** you'll find
 - **Mode**: **Mica** turns the interface into floating frosted cards; **Compatibility** keeps
   the stock layout and swaps only the material.
 - **Performance**: Mica blurs **large areas** (top bar, composer, sidebar), which shows up as
-  GPU load while output streams; the blur radius is not the driver (0 px is billed the same).
-  Prefer **Compatibility** (no large-area blur) or the **Clear** preset if that matters.
+  GPU load while output streams (measured ~80% peak in one conversation, under 30% for
+  Compatibility); the blur radius is not the driver — anything but `none` re-reads the backdrop
+  every frame, `0 px` included. Prefer **Compatibility** if that matters: it only frosts the
+  composer card and floating layers, a much smaller footprint.
 - **Presets**: **Clear / Standard / Frosted** one-click presets; fine-tune with the sliders
   afterwards (a preset lights up when the current knob values match it).
 - **Blur** (0–40 px) and **Frost** (0–100%): the blur radius and opacity of the glass.
@@ -265,6 +269,64 @@ What this plugin does:
 - **One-click toggle**: off restores the stock UI exactly; uninstalling the plugin leaves
   nothing behind.
 
+### What Compatibility mode matches
+
+Compatibility mode frosts host and third-party floating surfaces through **class substrings and
+semantic attributes**, needing no cooperation from other plugins — the price is that a substring
+cannot tell a *surface* from a *row-level container inside one*. Since `0.5.8` the families it
+matches are exactly these:
+
+| Family | Anchor |
+|---|---|
+| Composer card | `[data-composer-card]` (the host's own attribute) |
+| Menus | `[role='menu']` |
+| Popovers | `[class*='popover']` / `[class*='dropdown']` (still substrings) |
+| Modal dialogs | `[role='dialog'][aria-modal='true']` |
+| Host right sidebar (open state only) | `[data-sidebar-right-panel][data-sidebar-right-open]` |
+
+`0.5.8` narrowed the three widest families out of the sheet on evidence (the `card` substring, the
+`panel` substring and row-level tooltips — see issue #17), but a **new class name in a third-party
+plugin can still be misread**. Defaults only change with evidence, so when you hit one:
+
+**1. Collect evidence** (read-only — paste into the browser console). Lists every element the glass
+rules match, the matched rule text and its computed values:
+
+```js
+(() => {
+  const rules = []
+  for (const ss of document.styleSheets) {
+    let rs; try { rs = ss.cssRules } catch { continue }
+    for (const r of rs) if (r.selectorText && r.selectorText.includes('dsh-glass')) rules.push(r)
+  }
+  const out = []
+  for (const el of document.querySelectorAll('[class*="card"],[class*="panel"],[role="tooltip"]')) {
+    const hit = rules.filter(r => { try { return el.matches(r.selectorText) } catch { return false } })
+    if (!hit.length) continue
+    const cs = getComputedStyle(el), b = el.getBoundingClientRect()
+    if (b.width < 8 || b.height < 8) continue
+    out.push({ cls: String(el.className).slice(0, 48), w: Math.round(b.width), h: Math.round(b.height),
+               bf: cs.backdropFilter, bg: cs.backgroundColor,
+               rule: hit.map(x => x.style.cssText).join(' | ').slice(0, 60) })
+  }
+  console.table(out.slice(0, 40))
+})()
+```
+
+**2. Stop the bleeding locally.** The plugin has **no** "custom CSS" option (DSH's profile patch
+layer can only write plugin `config` — there is no generic style entry point), so this needs an
+external injector: a browser extension (Stylus / Violentmonkey) or DevTools Overrides with an
+`!important` rule, e.g.
+
+```css
+[class*='yourRow'] { backdrop-filter: none !important; background: none !important; outline: none !important; }
+```
+
+**3. Report it.** Paste step 1's output plus your DSH and plugin versions into
+[issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues). That is how `0.5.8` was built:
+the reporter supplied per-element computed values and we narrowed the **defaults** — which is also
+why there is no "custom CSS" option: the default should be right first, an escape hatch is only a
+supplement.
+
 ## Compatibility, permissions and failure bounds
 
 ### Compatibility
@@ -273,8 +335,8 @@ What this plugin does:
 |---|---|
 | DSH | `>=0.1.5-rc.1` (both settings seams: the legacy channel on ≤ `0.1.6-alpha.2` and `configForms` on ≥ `0.1.7-alpha.1`) |
 | Node.js | `>=20` |
-| Profile | `web` (the official Electron shell and community DSH Desktop both run the same web UI) |
-| Verified exact version | `0.1.7-rc.1`: installed, started, had a setting persisted to disk and restored across a restart in a real profile (evidence: §0.1 of [`docs/issue-15-settings-seam-0.1.7.md`](docs/issue-15-settings-seam-0.1.7.md)); `0.1.5-rc.3`, `0.1.7-alpha.1` and `0.1.7-alpha.2` are declared as the same seam |
+| Profile | `web` (the Web GUI and both desktop shells run the web UI and share this plugin); desktop profiles are named `desktop` |
+| Verified exact version | `0.1.7-rc.1`: installed, started, persisted a setting to disk and restored it across a restart in a real profile ([evidence](docs/issue-15-settings-seam-0.1.7.md)); `0.1.7-rc.2`: boot-level e2e and live-page sampling of the glass layer (issues #16 / #17); `0.1.5-rc.3`, `0.1.7-alpha.1` and `0.1.7-alpha.2` are declared as the same seam |
 
 The machine-readable form of the above is `dsh.compatibility` (`dsh` / `dshReleases` /
 `dshOperations`) in `package.json`.
@@ -336,10 +398,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guide and
 
 ### Local link debugging
 
-Clone the repo, link it into a profile and add it to the bundles (use your own paths):
+Clone the repo, link it into a profile and add it to the bundles (use your own paths;
+`$DSH_HOME` defaults to `~/.dsh`):
 
 ```sh
-pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppuccin
+pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
+# Windows example:
+# pnpm --dir C:\Users\<you>\.dsh\profiles\web add link:D:\dev\dsh-catppuccin
 ```
 
 Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`

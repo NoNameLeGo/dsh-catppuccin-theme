@@ -60,8 +60,9 @@ Catppuccin 主题。
 - 🔧 **自定义 token 覆盖**：按「`--dsw-* 变量: 值`」逐条覆盖单个配色 token（例如把注释色换成蓝色），与所选风味一起持久保存
 - 🖍️ **代码块高亮风格**：默认 / 注释斜体（italic-comments）两套 shiki 风格可选
 - 🌐 中 / 英 / 日 / 韩 / 西 / 法 / 德七语文案（跟随系统语言）
-- 🪟 **玻璃质感**：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
-  新会话按钮磨砂玻璃效果，设置里一键开关；云母 / 兼容双模式，模糊度、磨砂度、
+- 🪟 **玻璃质感**（云母模式）：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
+  新会话按钮磨砂玻璃效果，设置里一键开关；云母 / 兼容双模式（兼容模式保持原版排版，
+  只给输入框卡片与浮层上玻璃），模糊度、磨砂度、
   背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
@@ -132,8 +133,9 @@ dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 > [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 都启动
 > `$DSH_HOME/profiles/desktop`，所以**上面的命令对两者都成立**。本插件的桌面支持以
 > **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留。
-> 但官方壳的 profile 进程**没有**可用的专用环境标记（它的 `DSH_DESKTOP_NODE_EXECUTABLE` 只注入给
-> 包安装子进程），所以官方桌面版目前会被当成 web 来给升级提示；不影响 profile 名与设置的读写。
+> 但官方壳的 profile 进程**没有**专用的环境标记（它的 `DSH_DESKTOP_NODE_EXECUTABLE` 只注入给
+> 包安装子进程），所以本插件改为识别 **Electron-as-node 运行时**（`process.versions.electron`）
+> 来判定官方桌面版——升级提示里的 profile 名与文案因此是对的；设置的读写不受影响。
 
 ### 方式二：从仓库安装
 
@@ -196,8 +198,9 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - **模式**：**云母效果**把界面改成悬浮磨砂卡片；**兼容模式**保持原版排版，
   只把材质换成玻璃。
 - **性能**：云母效果会在**大面积区域**（顶栏、输入框、侧边栏）做背景模糊，
-  流式输出时占用 GPU 较明显；模糊半径本身不是主因（调到 0 px 也照样计费）。
-  在意占用就用**兼容模式**（不模糊大面积区域），或选**清透**预设。
+  流式输出时占用 GPU 较明显（同一会话实测峰值约 80%，兼容模式不到 30%）；
+  模糊半径本身不是主因（调到 0 px 也照样计费——只要不是 `none`，每帧都要回读背景）。
+  在意占用就用**兼容模式**：它只在输入框卡片与浮层上做玻璃，命中面明显更小。
 - **预设**：**清透 / 标准 / 磨砂** 三档一键套用；想微调再用下面的滑条
   （当前旋钮值与某档一致时该档高亮）。
 - **玻璃模糊度**（0–40 px）、**磨砂度**（0–100%）：控制玻璃的模糊半径与
@@ -241,6 +244,64 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
   变色；页面底色取当前主题纯色，背景亮度旋钮直接往纯色里调和白/黑；
 - **一键开关**：关闭即完全还原原生界面，插件卸载不留任何残留。
 
+### 兼容模式会命中哪些面
+
+兼容模式靠**类名子串与语义属性**给宿主与第三方插件的悬浮面加玻璃，不需要任何插件配合——
+代价是子串匹配**无法区分「面」与「面里的行级容器」**。自 `0.5.8` 起，明确会被命中的族只剩这些：
+
+| 族 | 锚点 |
+|---|---|
+| 输入框卡片 | `[data-composer-card]`（宿主自己的属性） |
+| 菜单 | `[role='menu']` |
+| 弹出层 | `[class*='popover']` / `[class*='dropdown']`（这两个仍是子串） |
+| 模态框 | `[role='dialog'][aria-modal='true']` |
+| 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |
+
+`0.5.8` 按证据把最宽的三族收窄掉了（宽泛的 `card` 子串、`panel` 子串、行级 tooltip，详见
+issue #17），但**第三方插件里新出现的类名仍可能被误命中**。默认收窄要讲证据，遇到时走下面三步。
+
+#### 1. 取证（只读，粘进浏览器控制台）
+
+列出当前所有被玻璃规则命中的元素、命中的规则原文与 computed 值：
+
+```js
+(() => {
+  const rules = []
+  for (const ss of document.styleSheets) {
+    let rs; try { rs = ss.cssRules } catch { continue }
+    for (const r of rs) if (r.selectorText && r.selectorText.includes('dsh-glass')) rules.push(r)
+  }
+  const out = []
+  for (const el of document.querySelectorAll('[class*="card"],[class*="panel"],[role="tooltip"]')) {
+    const hit = rules.filter(r => { try { return el.matches(r.selectorText) } catch { return false } })
+    if (!hit.length) continue
+    const cs = getComputedStyle(el), b = el.getBoundingClientRect()
+    if (b.width < 8 || b.height < 8) continue
+    out.push({ cls: String(el.className).slice(0, 48), w: Math.round(b.width), h: Math.round(b.height),
+               bf: cs.backdropFilter, bg: cs.backgroundColor,
+               rule: hit.map(x => x.style.cssText).join(' | ').slice(0, 60) })
+  }
+  console.table(out.slice(0, 40))
+})()
+```
+
+#### 2. 临时止血
+
+插件**没有**「自定义 CSS」配置项（DSH 的 profile patch 层只能给插件写 `config`，没有通用样式入口），
+所以这一步要用外部注入——浏览器扩展（Stylus / 暴力猴）或 DevTools 的 Overrides——加一条
+`!important` 规则把该族还原，例如：
+
+```css
+[class*='yourRow'] { backdrop-filter: none !important; background: none !important; outline: none !important; }
+```
+
+#### 3. 反馈
+
+把第 1 步的表格输出连同 DSH 与插件版本贴到
+[issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues)。`0.5.8` 就是这么修出来的：
+报告人给了逐元素的 computed 对照，我们据此收窄**默认**规则——这也是为什么没有「自定义 CSS」
+配置项：默认行为应该先是对的，配置项只能当补充。
+
 ## 兼容性、权限与失败边界
 
 ### 兼容范围
@@ -249,8 +310,8 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 |---|---|
 | DSH | `>=0.1.5-rc.1`（同时适配两套 settings seam：≤ `0.1.6-alpha.2` 的旧通道与 ≥ `0.1.7-alpha.1` 的 `configForms`） |
 | Node.js | `>=20` |
-| Profile | `web`（官方 Electron 壳与社区 DSH Desktop 同样启动 `web`/`desktop` 的 web 界面，共用本插件） |
-| 已验证的具体版本 | `0.1.7-rc.1`：在真实 profile 上完成安装、启动、改设置落盘与重启恢复（证据见 [`docs/issue-15-settings-seam-0.1.7.md`](docs/issue-15-settings-seam-0.1.7.md) 的 §0.1）；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
+| Profile | `web`（Web GUI 与两个桌面壳都启动 web 界面，共用本插件）；桌面端默认 profile 名为 `desktop` |
+| 已验证的具体版本 | `0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
 
 以上也是 `package.json` 里 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）的机器可读版本。
 
@@ -307,10 +368,12 @@ pnpm docs:api
 
 ### 本地链接调试
 
-克隆到本地后，把包链接进 profile 并加入 bundles（路径换成你自己的）：
+克隆到本地后，把包链接进 profile（把路径换成你自己的；`$DSH_HOME` 默认是 `~/.dsh`）：
 
 ```sh
-pnpm --dir C:\Users\LeGo\.dsh\profiles\web add link:D:\Vibe-Coding\dsh-catppuccin
+pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
+# Windows 例：
+# pnpm --dir C:\Users\<you>\.dsh\profiles\web add link:D:\dev\dsh-catppuccin
 ```
 
 再把 `@nonamelego/dsh-catppuccin` 加进 profile `package.json` 的
