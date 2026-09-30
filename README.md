@@ -287,7 +287,9 @@ issue #17），但**第三方插件里新出现的类名仍可能被误命中**�
 
 #### 2. 临时止血
 
-插件**没有**「自定义 CSS」配置项（DSH 的 profile patch 层只能给插件写 `config`，没有通用样式入口），
+本插件**没有**「自定义 CSS」配置项（DSH 的 profile patch 层只能给插件写 `config`，没有通用样式入口；
+但**个别第三方插件自带样式入口**，例如 `dsh-better-sidebar@0.21.1` 的 `customCss`——它 gate 在自身的
+`titleBarScheme: 'custom'` 上、以 `data-dsh-custom-css` 注入，装了这类插件时也可以直接写在它的 `config` 里），
 所以这一步要用外部注入——浏览器扩展（Stylus / 暴力猴）或 DevTools 的 Overrides——加一条
 `!important` 规则把该族还原，例如：
 
