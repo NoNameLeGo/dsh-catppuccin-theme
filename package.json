@@ -1,7 +1,7 @@
 {
   "name": "@nonamelego/dsh-catppuccin",
   "description": "Catppuccin themes + a toggleable glassmorphism skin for the DeepSeek Harness web GUI — Latte, Frappé, Macchiato and Mocha registered into the official theme system (Appearance settings), fully remapping the --dsw-* token ladder, with adjustable frosted glass for the top bar, sidebar, composer, stats line and trajectory view.",
-  "version": "0.5.8",
+  "version": "0.5.9-beta.0",
   "type": "module",
   "packageManager": "pnpm@10.33.3",
   "engines": {
@@ -50,7 +50,8 @@
         "0.1.5-rc.3": "compatible",
         "0.1.7-alpha.1": "compatible",
         "0.1.7-alpha.2": "compatible",
-        "0.1.7-rc.1": "compatible"
+        "0.1.7-rc.1": "compatible",
+        "0.2.0-rc.2": "compatible"
       },
       "dshOperations": {
         "0.1.7-rc.1": {
@@ -58,10 +59,17 @@
           "start": "passed",
           "uninstall": "unknown",
           "rollback": "unknown"
+        },
+        "0.2.0-rc.2": {
+          "install": "passed",
+          "start": "passed",
+          "uninstall": "unknown",
+          "rollback": "unknown"
         }
       },
       "profiles": [
-        "web"
+        "web",
+        "desktop"
       ]
     }
   },
@@ -94,17 +102,17 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",
-    "@deepseek-ai/dsh-api-remotes": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-brand": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-client-locale": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-client-ui-theme": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-invariants": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-scope": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-session": "0.1.7-rc.1",
-    "@deepseek-ai/dsh-settings": "0.1.7-rc.1",
+    "@deepseek-ai/dsh-api-remotes": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-brand": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-theme": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-invariants": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-scope": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
     "@deepseek-ai/schemastery": "~3.18.4",
     "@testing-library/react": "^14.3.1",
     "@types/node": "^26.2.0",

@@ -84,6 +84,35 @@ describe('glass blur budget (issue #13)', () => {
     }
   })
 
+  it('drops the TOP fade on the Windows desktop caption strip (and only there)', () => {
+    // Official DSH Desktop marks <html> with `data-windows-titlebar` and reserves
+    // 40px above every column; nothing scrolls under it, so the top band's blur
+    // is an identity read (issue #13) and its veil seams against the native
+    // caption, which the shell colours from the same sidebar-fill token.
+    const top = rules.find(
+      (rule) =>
+        rule.selector.includes('[data-windows-titlebar]') &&
+        rule.selector.includes("data-dsh-glass-fade='top']"),
+    )
+    expect(top?.selector, 'missing the Windows caption guard').toBeDefined()
+    expect(top!.selector, 'the guard must not hit the bottom band').not.toContain("fade='bottom'")
+    expect(/display\s*:\s*none/.test(top!.decls), 'the band must be removed, not just hidden').toBe(
+      true,
+    )
+    // The generic bands (web, macOS) keep their veil: the shared rule still
+    // blurs, and the top band still carries its mask.
+    expect(
+      blurring.some((rule) => rule.selector === '[data-dsh-glass] [data-dsh-glass-fade]'),
+    ).toBe(true)
+    expect(
+      rules.some(
+        (rule) =>
+          rule.selector === "[data-dsh-glass] [data-dsh-glass-fade='top']" &&
+          rule.decls.includes('mask-image'),
+      ),
+    ).toBe(true)
+  })
+
   it('keeps the composer slab erasing the inner card blur (no double read)', () => {
     const erasers = rules.filter((rule) => blurOf(rule.decls) === 'none')
     expect(erasers.length).toBeGreaterThanOrEqual(3)
@@ -245,5 +274,55 @@ describe('glass blur budget (issue #13)', () => {
     expect(selected, 'the selected sidebar row lost its rule').toBeDefined()
     expect(/background\s*:\s*[^;]*--dsw-specific-sidebar-nav-item-active/.test(selected?.decls ?? '')).toBe(true)
     expect(/background\s*:\s*var\(--dsh-glass-card/.test(selected?.decls ?? '')).toBe(false)
+  })
+
+  it('gates the entry animations on the layer, never on the mode (2026-10-01)', () => {
+    // Reported: "switching mica/compat sometimes flashes". An animation whose
+    // `animation-name` follows the MODE restarts whenever `data-dsh-glass-float`
+    // goes back on — the computed name flips none → keyframes on every element
+    // that is already on screen, so the page and the open settings dialog replay
+    // their entry fade. Chromium, against the shipped sheet, 50ms after the
+    // flip: dialog opacity 0.149, active phase 0.085. The gate must therefore be
+    // `[data-dsh-glass]` (stable while the layer is on), and compat must keep
+    // the stock look by zeroing the CLOCK (`animation-duration` via
+    // `--dsh-glass-entry-scale`) — changing an animation property other than
+    // `animation-name` does not restart it (measured: opacity stays 1.000).
+    const entry = rules.filter((rule) =>
+      /animation\s*:[^;]*(dsh-glass-in|dsh-glass-rise|dsh-glass-dialog-in)/.test(rule.decls),
+    )
+    expect(entry.length, 'the five entry animations changed count — re-check the gate').toBe(5)
+    for (const rule of entry) {
+      expect(
+        rule.selector,
+        'a mode-gated entry animation restarts on every compat→mica flip',
+      ).not.toContain('data-dsh-glass-float')
+      expect(rule.selector).toContain('[data-dsh-glass]')
+      expect(rule.decls, `${rule.selector} must scale its duration, not its name`).toContain(
+        '--dsh-glass-entry-scale',
+      )
+    }
+
+    // The clock itself: 1 in mica, 0 in compat (the compat rule wins on source
+    // order at equal specificity, so it must come after).
+    const scaleRule = (selector: string): string => {
+      const rule = rules.find((candidate) => candidate.selector === selector)
+      expect(rule, `missing ${selector}`).toBeDefined()
+      return rule?.decls ?? ''
+    }
+    expect(scaleRule('[data-dsh-glass]')).toContain('--dsh-glass-entry-scale: 1')
+    expect(scaleRule('[data-dsh-glass-compat]')).toContain('--dsh-glass-entry-scale: 0')
+    expect(rules.findIndex((rule) => rule.selector === '[data-dsh-glass-compat]')).toBeGreaterThan(
+      rules.findIndex((rule) => rule.selector === '[data-dsh-glass]'),
+    )
+
+    // Reduced motion keeps killing the same animations — on the NEW gate, or a
+    // mode flip would silently re-arm them for reduced-motion users.
+    const reduced = rules.filter((rule) => /(?:^|;)\s*animation\s*:\s*none/.test(rule.decls))
+    expect(reduced.length).toBeGreaterThan(0)
+    for (const rule of reduced) {
+      expect(rule.selector, 'reduced motion still keys off the mode gate').not.toContain(
+        'data-dsh-glass-float',
+      )
+    }
   })
 })

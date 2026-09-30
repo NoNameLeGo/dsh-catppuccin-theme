@@ -23,11 +23,21 @@
  *     `override`, which defaults to `{}` (so `!== undefined` never fires
  *     there); the legacy document omits the field entirely when it holds no
  *     such section. → {@link DurableScope.hasUserLayer}.
- *  2. the write fence — the new controller forwards `expectedRevision` and
- *     reports a refusal as `false`; the legacy one resolves it as
- *     `pendingRevision ?? snapshot.revision` and reports refusal as a SILENT
- *     resolve, so forwarding an older base there would turn a write that
- *     succeeds today into an invisible loss. → {@link DurableScope.write}.
+ *  2. the write fence — the new controller takes an OPTIONAL
+ *     `expectedRevision` and reports a refusal as `false`; the legacy one has
+ *     no fence parameter at all and reports refusal as a SILENT resolve. Both
+ *     therefore resolve the fence themselves (`pendingRevision ??
+ *     snapshot.revision` on the new one) unless a caller supplies one, and
+ *     {@link persistStateToScope} deliberately supplies NONE — see the note
+ *     there. The only fence this module could offer is the revision a debounced
+ *     burst STARTED from, and a write of our own that lands inside the burst
+ *     moves the document past it; forwarding that older base makes the Host
+ *     refuse a write that must succeed, which the caller then reads as "another
+ *     window changed the document" and answers by reverting the user's newest
+ *     change (the fast-switching half of the 2026-10-01 report). Deciding the
+ *     fence stays the channel's job, exactly as before — the configForms
+ *     channel still forwards one when a staged editor supplies it.
+ *     → {@link DurableScope.write}.
  *  3. the refusal signal — only the new channel can report `refused`; the
  *     legacy one cannot, which is why the read-side revision guard in
  *     {@link persistStateToScope} must stay in place for BOTH channels.
@@ -89,8 +99,12 @@ export interface DurableScope<T> {
    *  per-channel on purpose (see difference 1 in the module header). */
   hasUserLayer(snapshot: DurableSnapshot<T>): boolean
   /** Issue one atomic write. Whether {@link baseRevision} becomes the Host's
-   *  fence is the channel's decision, never the caller's (difference 2). */
-  write(ops: readonly SettingsPathOpView[], baseRevision: number | undefined): Promise<WriteOutcome>
+   *  fence is the channel's decision, never the caller's (difference 2).
+   *  `baseRevision` is for STAGED editors — upstream's contract is "the revision
+   *  read before editing", so a conflict preserves the draft. The debounced
+   *  whole-state write-back in {@link persistStateToScope} passes none on
+   *  purpose: its base is the pre-burst revision, not an edit-start revision. */
+  write(ops: readonly SettingsPathOpView[], baseRevision?: number | undefined): Promise<WriteOutcome>
 }
 
 /** The snapshot an unbound scope reports: the pre-0.5.0 "transport absent"
@@ -137,7 +151,10 @@ function configFormsScope(
     write: async (ops, baseRevision) => {
       try {
         // The returned boolean is the only refusal signal any seam gives us;
-        // a transport failure rejects instead.
+        // a transport failure rejects instead. `baseRevision` is forwarded
+        // only when a caller supplies one (staged editors) — the debounced
+        // write-back passes none and lets the controller fence with its own
+        // `pendingRevision ?? snapshot.revision`, which is strictly fresher.
         return await form.mutate(ops, baseRevision) ? 'accepted' : 'refused'
       } catch {
         return 'failed'
@@ -283,13 +300,25 @@ export type PersistOutcome =
 /**
  * Read-side consistency guard for the durable persist (items C/X).
  *
- * The WRITE side is revision-fenced by the channel, so no optimistic locking
- * is re-built here. What a fence cannot see is a STALE LOCAL VIEW: tab A reads
- * an old localStorage value, the user changes flavour, and the debounced flush
- * writes that old-based state over tab B's already-committed newer choice.
- * This guard is also the ONLY conflict detector the legacy seam can offer —
- * that seam resolves a refused write silently, so without it a concurrent edit
- * would be lost without a trace.
+ * The WRITE side belongs to the channel — no optimistic locking is re-built
+ * here — but the persist path deliberately does NOT hand it a fence: the base
+ * below is the revision the local state was derived from (captured at SCHEDULE
+ * time), which is the right input for the READ-side guard and the wrong input
+ * for a write fence. A write of ours that lands inside the debounce window (or
+ * is still in flight when the flush runs) moves the document past that base
+ * while our mirror has not caught up, so fencing the next write with it makes
+ * the Host refuse a write that must succeed; the refusal is then reported as
+ * `stale`, and the caller adopts the remote state — silently reverting the
+ * user's newest change. That is the 2026-10-01 "switching the mica/compat mode
+ * quickly sometimes fails" report: two mode switches ~300ms apart, the second
+ * one reverted.
+ *
+ * What a fence cannot see is a STALE LOCAL VIEW: tab A reads an old
+ * localStorage value, the user changes flavour, and the debounced flush writes
+ * that old-based state over tab B's already-committed newer choice. That is
+ * what the guard below is for, and it is also the ONLY conflict detector the
+ * legacy seam can offer — that seam resolves a refused write silently, so
+ * without it a concurrent edit would be lost without a trace.
  *
  * The guard compares the revision the local state was derived from
  * (`baseRevision`, captured at schedule time) with the snapshot revision at
@@ -330,7 +359,12 @@ export async function persistStateToScope(
       && settingsSectionsEqual(settingsSectionFromState(remote), lastWrittenSection)
     if (!ourOwnEcho) return 'stale'
   }
-  const outcome = await scope.write(stateToMutateOps(state), baseRevision)
+  // No fence: the channel resolves `pendingRevision ?? snapshot.revision` when
+  // the write actually goes out, which is both fresher than our captured base
+  // and aware of our own superseded/in-flight writes (difference 2 in the
+  // module header). The Host still validates it against the document, so an
+  // external edit the mirror has not seen yet is still refused.
+  const outcome = await scope.write(stateToMutateOps(state))
   if (outcome === 'accepted') return 'written'
   // A refusal means the Host's document moved past what this state was derived
   // from — the same condition the read-side guard above reports. The channel

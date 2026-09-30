@@ -6,6 +6,89 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+> 本节两批（2026-09-30 官方桌面壳 0.2.0 线适配 + 2026-10-01 玻璃模式切换两条修复）随
+> **`0.5.9-beta.0`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.8`）：
+> 补齐 18 个漏映射 token 并退役一条已被上游修掉的浅色偏离、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐，
+> 以及「设置里切云母/兼容会闪一下」与「切得快时第二次被回滚」两条修复。
+
+### 修复
+
+- **设置里切换「云母效果 / 兼容模式」不再闪一下**（2026-10-01 报告）：入口动画原本挂在
+  `[data-dsh-glass-float]` 上，而模式切换正好会增删这个属性——属性一回来，屏幕上**已经存在**的元素其
+  `animation-name` 就从 `none` 变成关键帧，于是整页连同**正开着的设置弹窗**重播一遍入场淡入。实测
+  （真实 Chromium + shipped `glass-css.gen.ts`，翻转后 50ms）：弹窗 opacity **0.149**、active 相位
+  **0.085**。改法：动画门控换成模式无关的 `[data-dsh-glass]`，兼容模式改用一个**时钟**变量
+  `--dsh-glass-entry-scale`（mica `1` / compat `0`）把时长归零——改 `animation-duration` 不会重启动画，
+  实测来回切换后两者都停在 **1.000** 且无 running 动画；compat 下新挂载的视图仍不播动画，
+  mica 下新挂载的视图照常播（0.252 / running）。代价写进注释：compat 下这五处以零长度配方**顶掉了宿主
+  自己的入场动画**（宿主 Modal 的 `.dialog` 自带 0.2s `modalEnter`，其遮罩自身的淡入不受影响）——
+  「compat 不动骨架」与「保住宿主入场动画」不可兼得，保守模式取前者。
+- **快速连点模式开关不再被回滚**（2026-10-01 报告）：持久化写回把「本轮防抖**开始时**采到的 revision」
+  当写入栅栏回传，而自己这笔写若落在同一轮里就会把文档推过那个 revision ⇒ 宿主按栅栏拒写 ⇒ 我们把它
+  读成「另一窗口改过文档」并采纳远端状态 ⇒ 用户最新一次切换被静默还原。改为**不回传栅栏**，由通道自己
+  解析 `pendingRevision ?? snapshot.revision`（既更新、又认得自己排队中的写）；读侧守卫仍是冲突检测的
+  唯一入口，真正的外部改动依旧被丢弃。
+- **对齐上游 0.2.0 线：补 18 个漏映射 token，并退役一条已被上游修掉的浅色偏离**（官方桌面壳审计
+  2026-09-30，全文见 `docs/desktop-0.2.0-adaptation-audit.md`）。本机官方 DSH Desktop 自带
+  `@deepseek-ai/dsh-desktop-runtime@0.2.0-rc.2`（= 上游 HEAD、npm `latest`），token 快照按
+  `dsh-v0.2.0-rc.2` 的 `design-platform.css` 重建：static 77 / alias **84 → 101** / specific 11，
+  外加非三族的 `--dsw-*` 新桶 `other`（`--dsw-menu-surface-fill`），**每方案总量 172 → 190**，
+  覆盖 **190/190**（`scripts/parse-dsh-tokens.cjs` 扩桶 + `pnpm gen:palettes`）。
+  - **8 个字面量 token**（6 个 `--dsw-alias-file-diff-*` + `--dsw-alias-menu-group-header-fill` +
+    `--dsw-menu-surface-fill`）是「只覆盖静态阶梯、别名自动跟随」机制唯一够不到的形态 ⇒ 新增
+    `aliasLiteralOverrides` / `otherOverrides`：文件对比的底色与行号槽复用 0.1.7 起就有的
+    `green-500-a08/a12`、`red-600-a08`/`red-400-a12` 洗色（行号槽半强度，复刻上游「槽比行弱、
+    浅色更浅浅、深色更深」的关系），标记条用整色 accent，菜单分组标题与菜单材质都指回
+    `bg-layer-3`（94% / 58%·45%，后者是上游 0.2.0 的新 alpha）。
+  - **`--dsw-specific-menu` 跟随上游改为 `var(--dsw-menu-surface-fill)`**：材质由我们自己的基础 token
+    提供，两个名字解析到同一个可见面（测试辅助 `resolveSurface` 同步支持一层 var 间接）。
+  - **Latte 文档预览配对**：0.2.0 把浅色端翻成「近白面 + 中深字」（官方 4.84:1）。旧补丁（把 label 钉到
+    bluish-00）在新配对下会变成近白字压浅面（1.05:1），必须退役；但直接跟随官方 label 档也不行——我们的
+    浅色阶梯把官方 bluish-100 映射到 surface1（188,192,204，比官方 rgb(235,238,242) 深 47 级），配对只剩
+    3.44:1。按规则 3 **换档不换色**：把**面**钉到官方亮度最接近的 bluish-50（Latte mantle），label 保持
+    官方 bluish-700，实测 **5.14:1**。
+- **Windows 桌面壳顶部渐隐**（官方壳 2026-09-17 新增的 `data-windows-titlebar` 几何）：preload 给 `<html>`
+  挂标记并设 `--dsh-windows-titlebar-height: 40px`，ui-layout 因此在所有列上方预留该条；那条里没有滚动
+  内容，13px 顶部渐隐的模糊是恒等读取（issue #13 的形态），而壳用**同一个** `--dsw-specific-sidebar-fill`
+  画保留条与原生标题栏 ⇒ 渐隐只会在标题栏上留一道缝。现为
+  `[data-dsh-glass][data-windows-titlebar] [data-dsh-glass-fade='top'] { display: none }`，底部渐隐不动。
+
+### 其他
+
+- 测试（2026-10-01 两条修复的护栏，**均做过变异验证**）：`tests/glass-css.spec.ts` 新增一条——五条入口
+  动画不得再挂 `data-dsh-glass-float`、compat 必须把时钟归零、reduced-motion 必须落在同一门控上（把任一
+  条改回 float 即红）；`tests/client.spec.ts` 新增两条，`fencedScopeDouble` 按 0.1.7 `ConfigFormController`
+  的真实语义搭台（`expectedRevision ?? pendingRevision ?? snapshot.revision` + 宿主等值拒写 + 接受后回折
+  mirror），分别锁「自己的回显不得触发回滚」与「真正的外部改动仍被丢弃」（把栅栏改回回传即红：
+  `expected 'stale' to be 'written'`）。`scripts/e2e-boot-check.cjs` 新增真页面断言「切回云母不重播入口
+  动画」——**在翻转后 80ms 采样** running 动画（重播只有 0.24~0.32s，旧写法的 800ms 等待会让它假绿），
+  并打印采样到的门控元素数以防空断。真机 e2e **21/21**（把 dialog 那条动画改回 float 后为 **20/21**，
+  失败详情 `div:dsh-glass-dialog-in@73ms`），单测 **243/243**，`pnpm build` / 两个 typecheck 正常。
+- **兼容声明与类型面跟进 0.2.0**：`dsh.compatibility` 增补 `0.2.0-rc.2`（`install`/`start` = passed）
+  与 `desktop` profile；11 个 `@deepseek-ai/dsh-*` devDependencies 从 `0.1.7-rc.1` 对齐到 `0.2.0-rc.2`
+  （`pnpm typecheck` / `pnpm typecheck:tests` 零漂移）。商店窗口按 `.debug/dsh-store/verify-manifest.mjs`
+  复算：`{0.1.7-rc.2, 0.2.0-rc.1, 0.2.0-rc.2}` 内现在命中 `compatible`。
+- 测试：`tests/palettes.spec.ts` 新增一节（18 个新 token 全覆盖、四风味同 token 集合、字面量 token 必须
+  解析成 palette 色、文件 diff 与 code diff 同洗色且行号槽更弱、菜单分组标题与菜单同材质）+ 一条
+  **Windows 标题栏探针护栏**（`--dsw-specific-sidebar-fill` 与 `--dsw-alias-label-primary` 必须解析成
+  不透明 hex 且 ≥4.5:1——壳会把这两个值经 1×1 canvas 折算后交给 `setTitleBarOverlay`，解析不出来就是
+  原生标题栏变透明）；`tests/glass-css.spec.ts` 新增一条锁定「顶部渐隐只在 Windows 标记下消失，通用与
+  底部规则不动」；`scripts/e2e-boot-check.cjs` 新增一条真浏览器断言，让**浏览器**去解析
+  `--dsw-specific-menu → var(--dsw-menu-surface-fill)` 这条两层引用（解析失败会退成 `transparent`，
+  菜单与浮层会集体丢材质），并在详情里打印实际值：0.2.0 上是 `color(srgb 0.192157 0.196078 0.266667 / 0.45)`
+  （= Mocha `bg-layer-3` @ 上游新 alpha 0.45），0.1.5-rc.1 上是 `rgb(49, 50, 68)`（该宿主没有
+  `--dsw-menu-backdrop-filter`，走的是 `menuSurfaceFor(false)` 的不透明回退）。单测 **240/240**，
+  `pnpm build` 正常。
+- **真机取证**（未入库资产在 `.debug/desktop-audit/`）：启动级 e2e 指向桌面自带 0.2.0-rc.2 运行时
+  **20/20**（含上面那条菜单材质断言）；真机桌面窗口像素 `y≥32` 恰为 `#181825`（= 我们的
+  `--dsw-specific-sidebar-fill`），说明壳的标题栏探针拿到的就是我们的颜色；同时确认 `configForms` seam、
+  `process.versions.electron` 判据、固定端口 19387 在 0.2.0 上都没变。旧宿主回归按 **CI 的口径**
+  （`npm i --prefix <tmp> @deepseek-ai/dsh@0.1.5-rc.1 --before=2026-09-21`，不动全局树）复跑也 **19/19**。
+  ⚠️ 本机**全局** `dsh`（0.1.5-rc.2）当前自己起不来（干净 `DSH_HOME`、不装插件也报
+  `@deepseek-ai/dsh-sandbox-local` 解析失败），与本次改动无关，已记进审计文档。
+
 ## [0.5.8] - 2026-09-28
 
 ### 修复
@@ -575,7 +658,7 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9-beta.0...HEAD
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6

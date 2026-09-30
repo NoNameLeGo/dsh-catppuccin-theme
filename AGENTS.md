@@ -67,12 +67,32 @@
 
 |  | 官方壳（`apps/desktop-host`） | 社区壳（`anywhere-labs/dsh-desktop`） |
 |---|---|---|
-| 自带的 DSH 版本 | 与官方 monorepo 同步（0.1.7-alpha.1 起才有这个 app，**未发 npm**） | 无自带版本，启动**用户自己装的** `@deepseek-ai/dsh` |
+| 自带的 DSH 版本 | 与官方 monorepo 同步（`app.asar` 内 `dsh/package.json` = `@deepseek-ai/dsh-desktop-runtime`，2026-09-30 实测 **0.2.0-rc.2**；这个 app 自 0.1.7-alpha.1 起存在，**未发 npm**） | 无自带版本，启动**用户自己装的** `@deepseek-ai/dsh` |
 | Web 端口 | 固定 `--port 19387`（`src/index.ts` 写死） | 默认 `43120`（`DESKTOP_DEFAULT_WEB_PORT`），仅绑定冲突时顺序 +1（≤32 次）；2026-08-21 起「prefer a stable loopback port」 |
 | 识别信号 | ⚠️ **profile 进程里没有专用信号**（2026-09-24 证伪，见下）：`DSH_DESKTOP_NODE_EXECUTABLE` 只注入给包安装子进程；可用替代信号 `process.versions.electron` | `desktopProfiles` 服务；**`dsh-desktop-next` 重写版同时也会设 `DSH_DESKTOP_NODE_EXECUTABLE`** |
 
 ⇒ 结论：**settings seam 的适配与「哪个壳」无关**，只取决于该壳启动的那份 DSH 提供哪个服务（官方壳 = 0.1.7 线 → `configForms`；
 社区壳跟随用户所装版本）。两路识别信号则同时覆盖两个壳，且官方壳那条路在 `dsh-desktop-next` 上也成立。
+
+### 官方桌面壳的插件相关契约（2026-09-30 在 0.2.0-rc.2 上复核，全文见 `docs/desktop-0.2.0-adaptation-audit.md`）
+
+本机官方壳自带 `@deepseek-ai/dsh-desktop-runtime@0.2.0-rc.2`（= 上游 HEAD = npm `latest`），它与插件耦合的面就这几条，
+改动玻璃/设置/持久化前先对一遍：
+
+| 契约 | 位置（0.2.0-rc.2） | 插件侧 |
+|---|---|---|
+| 页面 origin 是自定义协议 `dsh-app://app/`，Web host 仍在 `http://127.0.0.1:19387`（**写死**） | `lib/main.js` 的 `SCHEME`；`dsh-desktop-host/lib/index.js` 的 `runProfile({ args: ['--no-open','--port','19387'] })` | 不依赖 origin 做持久化（走 host 侧文档） |
+| Host 由 **Electron 以 node 模式**起（`ELECTRON_RUN_AS_NODE=1`，`DSH_DESKTOP_NODE_EXECUTABLE` 仍只给包安装子进程） | `lib/main.js` `DesktopHostProcess.start()` → `desktopNodeEnvironment(this.node, void 0, …)` | `isElectronRuntime()`（`process.versions.electron`）仍是唯一 profile 进程信号 |
+| Windows：preload 给 `<html>` 挂 `data-windows-titlebar` + `--dsh-windows-titlebar-height: 40px`，`ui-layout` 据此在所有列上方预留标题栏 | `apps/desktop/src/preload-windows.ts` / `windows-layout.ts` | 顶部渐隐在该标记下 `display:none`（`glass.module.css`）——那条里没有滚动内容，模糊是恒等读取 |
+| Windows 标题栏取色：preload 插探针读 `--dsw-specific-sidebar-fill`（填充）与 `--dsw-alias-label-primary`（符号），经 1×1 canvas 折算成 `rgba()` 交 `setTitleBarOverlay` | 同上 | 两个 token 必须解析成不透明色（`tests/palettes.spec.ts` 的护栏用例）；2026-09-30 真机实测发到主进程的是 `rgba(24,24,37,1)` / `rgba(205,214,244,1)`，窗口 `y≥32` 像素正好 `#181825` |
+| Windows 标题栏菜单（应用/编辑）用 shadow DOM 挂在 `[data-shell-overlay]` 之后，消费 4 个 `--dsw-alias-*` token + `--dsw-font-family` | `apps/desktop/src/preload-menu.ts` | 全在映射表内；插件不碰 `[data-shell-overlay]` |
+| `html[data-ds-theme-source]` → 主进程 `nativeTheme.themeSource`（原生 chrome / Platform 登录页 / macOS vibrancy 跟随） | `apps/desktop/src/preload-theme.ts` | 插件用 `theme.setTheme()` 强制亮暗，实测桌面下 `themeSource=dark` 与风味一致 |
+| macOS：`html[data-platform='darwin'] body` 把 `--dsw-specific-menu` 覆写成 94% 不透明；主窗口 `vibrancy: sidebar` | `design-platform.css` 的 darwin 块；`lib/main.js` `createWindow()` | ⚠️ **未适配**：我们无条件覆写该 token，macOS 上的近不透明变体丢失；本机无法验证 |
+
+> 桌面壳专属 token `--dsw-desktop-window-tint` 只被欢迎窗口（`renderer/welcome.html`）消费，那份窗口自带整套字面量 token
+> ⇒ **不需要插件映射**（2026-09-30 由出厂包逐文件扫描确认）。
+> 另：`cordis_inspect_query` 的 client Service **目录不是全集**（`configForms` 就不在里面，但 0.2.0 里一堆官方包在用它）
+> ⇒ 别拿目录当「服务不存在」的证据。
 
 **⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
 「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」（多浏览器、清站点数据、第二个实例落到 43121 这类
@@ -108,9 +128,12 @@
   之外的所有 `.ts/.tsx/.js/.mjs/.cjs/.json/.yml/.sh/.py`（**`scripts/` 也算运行时源码**；`*.map` 不算）。
   ⇒ 我们读 `$DSH_HOME`、写 `~/.dsh-tui/themes/`、fetch npm registry，**必然红灯**。
 - **兼容窗口的算法**（`src/dsh-release-policy.mjs`+`dsh-release-policy.js`）：取 dist-tag 里**除 `next` 外**的最高
-  支持版本作 target（当前 = `alpha` 的 `0.1.7-alpha.2` 决定了序列），再取 ≤ target 的最高三版
-  ⇒ 当前窗口 `{0.1.7-alpha.1, 0.1.7-alpha.2, 0.1.7-rc.1}`（target 显示为 `0.1.7-rc.1`）。**窗口内 ≥1 条 `compatible` 即可**；
-  `approved` 条目三者全非 `compatible` 会转 `unlisted`。
+  支持版本作 target，再取 ≤ target 的最高三版。**窗口会随上游 dist-tag 移动，不是常量**：
+  - 2026-09-24 实测 `{0.1.7-alpha.1, 0.1.7-alpha.2, 0.1.7-rc.1}`（当时 target = `alpha` 的 `0.1.7-alpha.2`）；
+  - **2026-09-30 实测 `{0.1.7-rc.2, 0.2.0-rc.1, 0.2.0-rc.2}`**（target = `latest` 的 `0.2.0-rc.2`；`next` 也是 0.2.0-rc.2、
+    `alpha` 反而退到 0.1.7-alpha.2）——**声明没跟上的那两天，窗口内 `compatible` 命中为 0**，所以每次上游发版后
+    用 `.debug/dsh-store/verify-manifest.mjs` 复算一遍，别只看记忆里的窗口。
+  规则：**窗口内 ≥1 条 `compatible` 即可**；`approved` 条目三者全非 `compatible` 会转 `unlisted`。
 - **声明写在 `package.json` 的 `dsh.compatibility`**（`dsh` 范围字符串 + `dshReleases` 逐版本 + `dshOperations` 逐版本
   `install/start/uninstall/rollback`，值 `passed|failed|unknown`）。这是 **store 专有**字段：上游
   `@deepseek-ai/dsh-package-manifest` 的 `DshManifest` 里没有 `compatibility`，上游也不解析它。

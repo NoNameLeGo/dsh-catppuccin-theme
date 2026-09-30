@@ -148,6 +148,20 @@
   mask-image: linear-gradient(180deg, black 0%, transparent 100%);
 }
 
+/* Windows desktop shell (official `apps/desktop`): the preload marks <html> with
+   `data-windows-titlebar` and sets `--dsh-windows-titlebar-height: 40px`, and
+   ui-layout reserves that strip above every column. Two consequences for the top
+   band: nothing scrolls under it, so there is no content for the blur to soften
+   (it would be an identity read, the issue #13 shape); and the shell paints the
+   strip — plus the native caption overlay — with `--dsw-specific-sidebar-fill`,
+   so a dark veil there only creates a seam against the caption the shell
+   measured from the same token. Drop the top band only; the bottom one still
+   covers the scrolling transcript. Measured on DSH Desktop 0.2.0-rc.2
+   (2026-09-30): the strip renders #181825, the sidebar-fill value. */
+[data-dsh-glass][data-windows-titlebar] [data-dsh-glass-fade='top'] {
+  display: none;
+}
+
 [data-dsh-glass] [data-dsh-glass-fade='bottom'] {
   bottom: 0;
   -webkit-mask-image: linear-gradient(0deg, black 0%, transparent 100%);
@@ -649,25 +663,60 @@
 }
 
 /* ---------- Page transitions: opacity-only (a running transform would
-   re-anchor position:fixed descendants mid-flight). ---------- */
-[data-dsh-glass-float] [data-phase='hero'] {
-  animation: dsh-glass-in 0.32s var(--ds-ease-in-out);
+   re-anchor position:fixed descendants mid-flight).
+
+   The gate is `[data-dsh-glass]` — NOT `[data-dsh-glass-float]`. An animation
+   whose `animation-name` follows the rendering MODE restarts on every
+   compat→mica switch: adding the float attribute changes the computed
+   animation-name from none to the keyframes on every element that is already
+   on screen, so the whole page — and the settings dialog the mode picker sits
+   in — replays its entry fade. Measured in Chromium against the shipped sheet,
+   50 ms after the flip: the dialog at opacity 0.149 and the active phase at
+   0.085 (the reported "切换会闪一下"; controls are in
+   tests/glass-css.spec.ts, which pins the gate).
+
+   Compat keeps today's look the other way: `--dsh-glass-entry-scale` is 1 in
+   mica and 0 in compat, so the SAME shorthand is declared in both modes and
+   only its computed duration moves (0.3s → 0s). Changing an animation property
+   other than `animation-name` does not restart the animation (measured: both
+   flips leave every element at opacity 1.000 with no running animation), a view
+   mounted in compat still enters instantly, and the name never changes.
+
+   Trade-off, deliberate: because the shorthand now matches in compat too, the
+   zero-length recipe replaces whatever entry animation the HOST declared on
+   these five seams (the host Modal's `.dialog` carries its own 0.2s
+   `modalEnter`; its mask keeps its own fade, which this sheet does not touch).
+   The alternative — leaving compat without a declaration — is exactly the
+   animation-name flip that makes the skin flash, so "compat has no skin motion"
+   (the float gate's documented intent) and "the host's entry animation survives
+   in compat" cannot both hold. Compat, the conservative mode, keeps the
+   quieter side of that trade. ---------- */
+[data-dsh-glass] {
+  --dsh-glass-entry-scale: 1;
 }
 
-[data-dsh-glass-float] [data-phase='active'] {
-  animation: dsh-glass-in 0.3s var(--ds-ease-in-out);
+[data-dsh-glass-compat] {
+  --dsh-glass-entry-scale: 0;
 }
 
-[data-dsh-glass-float] [data-testid^='view-'] {
-  animation: dsh-glass-in 0.26s var(--ds-ease-in-out);
+[data-dsh-glass] [data-phase='hero'] {
+  animation: dsh-glass-in calc(0.32s * var(--dsh-glass-entry-scale, 1)) var(--ds-ease-in-out);
 }
 
-[data-dsh-glass-float] [data-tool] {
-  animation: dsh-glass-rise 0.3s var(--ds-ease-in-out) both;
+[data-dsh-glass] [data-phase='active'] {
+  animation: dsh-glass-in calc(0.3s * var(--dsh-glass-entry-scale, 1)) var(--ds-ease-in-out);
 }
 
-[data-dsh-glass-float] [role='dialog'] {
-  animation: dsh-glass-dialog-in 0.24s var(--ds-ease-in-out);
+[data-dsh-glass] [data-testid^='view-'] {
+  animation: dsh-glass-in calc(0.26s * var(--dsh-glass-entry-scale, 1)) var(--ds-ease-in-out);
+}
+
+[data-dsh-glass] [data-tool] {
+  animation: dsh-glass-rise calc(0.3s * var(--dsh-glass-entry-scale, 1)) var(--ds-ease-in-out) both;
+}
+
+[data-dsh-glass] [role='dialog'] {
+  animation: dsh-glass-dialog-in calc(0.24s * var(--dsh-glass-entry-scale, 1)) var(--ds-ease-in-out);
 }
 
 @keyframes dsh-glass-in {
@@ -831,11 +880,11 @@
 
 /* ---------- Reduced motion: keep the static look, drop every effect. ---------- */
 @media (prefers-reduced-motion: reduce) {
-  [data-dsh-glass-float] [data-phase='hero'],
-  [data-dsh-glass-float] [data-phase='active'],
-  [data-dsh-glass-float] [data-testid^='view-'],
-  [data-dsh-glass-float] [data-tool],
-  [data-dsh-glass-float] [role='dialog'] {
+  [data-dsh-glass] [data-phase='hero'],
+  [data-dsh-glass] [data-phase='active'],
+  [data-dsh-glass] [data-testid^='view-'],
+  [data-dsh-glass] [data-tool],
+  [data-dsh-glass] [role='dialog'] {
     animation: none;
   }
 }

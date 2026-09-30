@@ -22,9 +22,10 @@
  * (palette.json is gone as of the 2.0.0 repo rework) — the npm package's
  * esm/palette.js is the same v1.8.0 data.
  *
- * Strategy: every --dsw-static-*, --dsw-alias-*, --dsw-specific-* token the
- * official theme stylesheet declares is remapped to a Catppuccin colour for
- * each of the four flavours (Latte / Frappé / Macchiato / Mocha).
+ * Strategy: every --dsw-static-*, --dsw-alias-*, --dsw-specific-* and
+ * --dsw-* (other families) token the official theme stylesheet declares is
+ * remapped to a Catppuccin colour for each of the four flavours
+ * (Latte / Frappé / Macchiato / Mocha).
  *
  * The official static ladder runs 00 (white) -> 1000 (near-black) and the
  * alias layer flips which end it reads on light vs dark (light: bg-base =
@@ -289,33 +290,101 @@ const darkLabelReadabilityOverrides = {
 /**
  * Light-flavour alias overrides (same shape as the dark table).
  *
- * The document-preview pair added in 0.1.7 is a DARK surface with a LIGHT
- * label: `bg-document-preview -> bluish-750` (upstream light rgb(67,69,74))
- * and `label-document-preview -> bluish-200` (upstream light rgb(225,229,238))
- * — 9.27:1 on its own surface. Latte reads the ladder light-end-first, so
- * bluish-200 lands on overlay0 (#9ca0b0) and the pair collapses to 3.07:1,
- * below AA for the preview text (PDF body / text preview). Point the label at
- * the ladder's lightest step instead: same family, no hue invention, and the
- * step is semantically "near-white" exactly as upstream's value is.
+ * The document-preview pair moved twice upstream. 0.1.7 shipped a DARK surface
+ * with a LIGHT label (`bg -> bluish-750`, `label -> bluish-200`), which collapsed
+ * under Latte's light-end-first ladder (3.07:1) and used to be patched on the
+ * label. 0.2.0 **flipped the light pair**: a near-white surface
+ * (`bg -> bluish-100` = official rgb(235,238,242)) under mid-dark text
+ * (`label -> bluish-700` = official rgb(97,102,107)); upstream's own pair reads
+ * 4.84:1.
+ *
+ * The retired label pin cannot simply be dropped: our light ladder maps
+ * bluish-100 to `surface1` (#bcc0cc, 188,192,204) — 47 levels darker than the
+ * official value — so the official label step (Latte bluish-700 = subtext1
+ * #5c5f77) would land 3.44:1, under AA. Rule 3's first lever is the ladder step,
+ * not the colour, and the ladder step whose official counterpart is closest in
+ * lightness to bluish-100 is bluish-50 (official rgb(249,250,251), ours = mantle
+ * #e6e9ef). Pinning the *surface* there restores AA with the official label step
+ * and keeps the pair light-on-light, which is now upstream's own direction.
+ * tests/palettes.spec.ts locks both the step and the ratio.
  */
-const lightLabelReadabilityOverrides = {
-  'dsw-alias-label-document-preview': 'var(--dsw-static-neutral-bluish-00)',
+const lightReadabilityOverrides = {
+  'dsw-alias-bg-document-preview': 'var(--dsw-static-neutral-bluish-50)',
+}
+
+/**
+ * Alias tokens whose upstream value is a **literal colour** — the only kind the
+ * "keep the var() ref and let our static overrides flow through" mechanism
+ * cannot reach. 0.2.0 added seven alias ones (the eighth literal,
+ * `--dsw-menu-surface-fill`, lives outside the alias family — see
+ * otherOverrides); each would otherwise paint the stock neutral/green/red inside
+ * a Catppuccin UI (rule 1: an official value that does not hold under DSH is
+ * exactly the case the deviation process covers).
+ *
+ * `--dsw-alias-file-diff-*` (the file-comparison view: line background, line
+ * number gutter, and the +/- marker bar). Upstream light is a pale green/red
+ * wash, dark a deep one, with the gutter one notch weaker than the line in both
+ * schemes (light: rgb(237,247,237) vs rgb(230,244,231); dark: rgb(19,32,22) vs
+ * rgb(31,49,36)). A half-strength wash reproduces that order in both schemes —
+ * weaker over a light page reads lighter, weaker over a dark page reads deeper —
+ * so no second hue is invented and no ladder step is added: the tint reuses the
+ * same palette accent and alpha statics the code-diff aliases have used since
+ * 0.1.7. The marker is the full accent (upstream's marker is the saturated
+ * green/red of its own scheme, bright in dark).
+ *
+ * `--dsw-alias-menu-group-header-fill` is the sticky group header inside a menu:
+ * upstream keeps it at 94% in both schemes exactly so it stays legible over the
+ * translucent menu material. Re-point it at the ladder step the menu itself
+ * derives from (`bg-layer-3`, see specificOverrides) at upstream's own alpha, so
+ * header and menu stay one material.
+ */
+const aliasLiteralOverrides = {
+  'dsw-alias-file-diff-added-bg': {
+    light: 'var(--dsw-static-green-500-a08)',
+    dark: 'var(--dsw-static-green-500-a12)',
+  },
+  'dsw-alias-file-diff-added-gutter': {
+    light: 'color-mix(in srgb, var(--dsw-static-green-500) 4%, transparent)',
+    dark: 'color-mix(in srgb, var(--dsw-static-green-500) 6%, transparent)',
+  },
+  'dsw-alias-file-diff-added-marker': {
+    light: 'var(--dsw-static-green-500)',
+    dark: 'var(--dsw-static-green-500)',
+  },
+  'dsw-alias-file-diff-deleted-bg': {
+    light: 'var(--dsw-static-red-600-a08)',
+    dark: 'var(--dsw-static-red-400-a12)',
+  },
+  'dsw-alias-file-diff-deleted-gutter': {
+    light: 'color-mix(in srgb, var(--dsw-static-red-500) 4%, transparent)',
+    dark: 'color-mix(in srgb, var(--dsw-static-red-500) 6%, transparent)',
+  },
+  'dsw-alias-file-diff-deleted-marker': {
+    light: 'var(--dsw-static-red-500)',
+    dark: 'var(--dsw-static-red-500)',
+  },
+  'dsw-alias-menu-group-header-fill': {
+    light: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 94%, transparent)',
+    dark: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 94%, transparent)',
+  },
 }
 
 /** Alias tokens: keep official values (var() refs resolve through our static overrides). */
 function aliasTokens(flavor) {
   const dark = catppuccin[flavor].dark
   const table = dark ? official.dark_alias : official.light_alias
-  const overrides = dark ? darkLabelReadabilityOverrides : lightLabelReadabilityOverrides
+  const overrides = dark ? darkLabelReadabilityOverrides : lightReadabilityOverrides
   const out = {}
   for (const [name, value] of Object.entries(table)) {
     // Hard-coded brand colour pin remapped to the Catppuccin brand blue;
     // everything else keeps its official value, except the readability
-    // overrides above.
+    // overrides above and the literal-valued families below.
     if (name === 'dsw-alias-brand-primary-new-colorprimary-new-color') {
       out[name] = ctp(flavor, 'blue')
     } else if (overrides[name] !== undefined) {
       out[name] = overrides[name]
+    } else if (aliasLiteralOverrides[name] !== undefined) {
+      out[name] = dark ? aliasLiteralOverrides[name].dark : aliasLiteralOverrides[name].light
     } else {
       out[name] = value
     }
@@ -338,9 +407,12 @@ function aliasTokens(flavor) {
  * the blur that only makes sense with it — stays intact.
  */
 const specificOverrides = {
+  // 0.2.0 changed the shape as well: upstream now derives the menu material from
+  // `--dsw-menu-surface-fill`, so we mirror that indirection and own the base
+  // token instead (see otherOverrides below).
   'dsw-specific-menu': {
-    light: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 58%, transparent)',
-    dark: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 50%, transparent)',
+    light: 'var(--dsw-menu-surface-fill)',
+    dark: 'var(--dsw-menu-surface-fill)',
   },
 }
 
@@ -350,6 +422,36 @@ function specificTokens(flavor) {
   const out = {}
   for (const [name, value] of Object.entries(table)) {
     const override = specificOverrides[name]
+    out[name] = override === undefined ? value : dark ? override.dark : override.light
+  }
+  return out
+}
+
+/**
+ * The fourth bucket: `--dsw-*` tokens outside the static / alias / specific
+ * families. 0.2.0 introduced the first one — `--dsw-menu-surface-fill`, the base
+ * material for menus, popovers and other elevated surfaces, which
+ * `--dsw-specific-menu` now references. Upstream's value is a literal
+ * translucent neutral (light `rgba(248,249,250,.58)` / dark `rgba(67,69,74,.45)`);
+ * keeping it would drop the Catppuccin hue from every floating surface. Point it
+ * at the ladder step the menu alias itself used before 0.2.0 (`bg-layer-3`) with
+ * **upstream's own alpha**, so the translucency that `--dsw-menu-backdrop-filter`
+ * expects survives (the menu's dark alpha moved 50% → 45% because that is
+ * upstream's new base value, not a local choice).
+ */
+const otherOverrides = {
+  'dsw-menu-surface-fill': {
+    light: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 58%, transparent)',
+    dark: 'color-mix(in srgb, var(--dsw-alias-bg-layer-3) 45%, transparent)',
+  },
+}
+
+function otherTokens(flavor) {
+  const dark = catppuccin[flavor].dark
+  const table = dark ? official.dark_other : official.light_other
+  const out = {}
+  for (const [name, value] of Object.entries(table)) {
+    const override = otherOverrides[name]
     out[name] = override === undefined ? value : dark ? override.dark : override.light
   }
   return out
@@ -374,9 +476,10 @@ lines.push(`/**
 ${UPSTREAM_PIN !== null ? ` * // UPSTREAM_PIN: ${UPSTREAM_PIN}
 ` : ''} * Each flavour carries a flat dictionary of every --dsw-static-*,
  * --dsw-alias-* and --dsw-specific-* token the official theme stylesheet
- * declares. Alias/specific entries keep their var() references so the static
- * overrides below flow through automatically; literal (non-var) entries are
- * remapped to Catppuccin colours.
+ * declares, plus the --dsw-* tokens outside those families (0.2.0's
+ * --dsw-menu-surface-fill). Alias/specific entries keep their var() references
+ * so the static overrides below flow through automatically; literal (non-var)
+ * entries are remapped to Catppuccin colours — see aliasLiteralOverrides.
  */`)
 
 lines.push(`export type CatppuccinFlavorId = 'latte' | 'frappe' | 'macchiato' | 'mocha'`)
@@ -398,7 +501,8 @@ for (const f of FLAVORS) {
   const staticT = staticTokens(f.id)
   const aliasT = aliasTokens(f.id)
   const specificT = specificTokens(f.id)
-  const tokens = { ...staticT, ...aliasT, ...specificT }
+  const otherT = otherTokens(f.id)
+  const tokens = { ...staticT, ...aliasT, ...specificT, ...otherT }
   const accent = ctp(f.id, 'blue')
   const colorScheme = catppuccin[f.id].dark ? 'dark' : 'light'
 

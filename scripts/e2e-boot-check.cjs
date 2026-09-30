@@ -210,6 +210,24 @@ async function passOnboarding(page) {
     const mochaBase = await baseOf()
     check('切 Mocha 后 --dsw-alias-bg-base 生效', mochaBase.toLowerCase() === '#11111b', `实际 ${mochaBase}`)
 
+    // 0.2.0 把菜单材质拆成了 `--dsw-menu-surface-fill`，`--dsw-specific-menu` 只是对它的
+    // var() 引用。用探针 span 让**浏览器**去解析这条链（不需要真有菜单打开）：解析不出来
+    // 时 `background-color: var(x)` 会在计算值阶段失效 ⇒ `transparent` ⇒ 菜单/浮层集体丢掉
+    // 材质。断言「不是全透明」即可，色相由 tests/palettes.spec.ts 锁。
+    const menuMaterial = await page.evaluate(() => {
+      const probe = document.createElement('span')
+      probe.style.cssText = 'position:fixed;visibility:hidden;background-color:var(--dsw-specific-menu)'
+      document.body.append(probe)
+      const value = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return value
+    })
+    check(
+      '菜单材质经 --dsw-menu-surface-fill 间接引用后仍是真实填充（0.2.0）',
+      /^(?:rgba?\(|color\()/.test(menuMaterial) && menuMaterial !== 'rgba(0, 0, 0, 0)',
+      menuMaterial,
+    )
+
     // ---- 玻璃层：先开启（默认是关的）------------------------------------
     // 顺序很重要：模式选择器只在玻璃开启时渲染，且「背后只有地面就不该有 blur」只有
     // 在玻璃开启时才是个真断言——本脚本初版把 blur 采样放在开关之前，结果在
@@ -391,7 +409,44 @@ async function passOnboarding(page) {
     // ---- 行为断言：总开关真的能切（先切回云母，再关、再开）------------------
     // 同 compat 那条：点了不等于切了（开关的点击也会静默不生效），所以要轮询到
     // 属性真的被摘掉再断，必要时补点一次。
-    await page.getByRole('button', { name: '云母效果' }).click()
+    //
+    // 这次「切回云母」同时是 2026-10-01「切换会闪一下」的验收点：入口动画曾挂在
+    // data-dsh-glass-float 上，属性一回来就让屏幕上**已经存在**的元素（含正开着
+    // 的设置弹窗）重播入场淡入。现在门控是模式无关的 [data-dsh-glass]，compat 只把
+    // 时钟 --dsh-glass-entry-scale 归零，所以翻转不得重启任何动画。采样必须紧跟
+    // 翻转：重播只有 0.24~0.32s，等 800ms 就什么都看不到了（旧写法正是这么假绿的）。
+    let backToMica = false
+    let replayed = []
+    let sampled = 0
+    for (let attempt = 0; attempt < 3 && !backToMica; attempt++) {
+      await page.getByRole('button', { name: '云母效果' }).click()
+      await page.waitForTimeout(80)
+      const sample = await page.evaluate(() => {
+        const names = ['dsh-glass-in', 'dsh-glass-rise', 'dsh-glass-dialog-in']
+        const hits = []
+        const sel = "[role='dialog'][aria-modal='true'],[data-phase],[data-testid^='view-'],[data-tool]"
+        const nodes = [...document.querySelectorAll(sel)]
+        for (const el of nodes) {
+          for (const anim of el.getAnimations()) {
+            if (names.includes(anim.animationName)) {
+              hits.push(`${el.tagName.toLowerCase()}:${anim.animationName}@${Math.round(Number(anim.currentTime) || 0)}ms`)
+            }
+          }
+        }
+        return { float: document.documentElement.hasAttribute('data-dsh-glass-float'), hits, sampled: nodes.length }
+      })
+      backToMica = sample.float
+      replayed = sample.hits
+      sampled = sample.sampled
+      if (!backToMica) await page.waitForTimeout(700)
+    }
+    check(
+      '切回云母不重播入口动画（2026-10-01 闪一下）',
+      backToMica && replayed.length === 0 && sampled > 0,
+      backToMica
+        ? `${sampled} 个门控元素上 ${replayed.join(', ') || '无 running 入口动画'}`
+        : '云母模式没切回来',
+    )
     await page.waitForTimeout(800)
     const glassOff = async () => page.evaluate(() => !document.documentElement.hasAttribute('data-dsh-glass'))
     let off = false

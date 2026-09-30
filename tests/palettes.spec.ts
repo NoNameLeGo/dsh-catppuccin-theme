@@ -100,15 +100,18 @@ const ALPHA_MIX = /^color-mix\(in srgb, (var\(--[a-z0-9-]+\)|#[0-9a-fA-F]{6}) (\
 
 /**
  * Resolve a *surface* token to the colour a user actually sees. Menus became
- * translucent upstream in 0.1.7 — `--dsw-specific-menu` is now
- * `color-mix(in srgb, var(--dsw-alias-bg-layer-3) P%, transparent)` (see
- * `specificOverrides` in generate-palettes.mjs) and rides the host's own
- * `--dsw-menu-backdrop-filter`, so its effective colour is the fill
- * composited over the page. Opaque surfaces resolve as before.
+ * translucent upstream in 0.1.7 and 0.2.0 split the material out into
+ * `--dsw-menu-surface-fill`, which `--dsw-specific-menu` now merely references
+ * (see `specificOverrides` / `otherOverrides` in generate-palettes.mjs); the
+ * surface rides the host's own `--dsw-menu-backdrop-filter`, so its effective
+ * colour is the fill composited over the page. Opaque surfaces resolve as before.
  */
 function resolveSurface(tokens: Record<string, string>, name: string): string {
   const value = tokens[name]
   if (value === undefined) throw new Error(`missing token ${name}`)
+  // One level of plain var() indirection (0.2.0's menu -> base material alias).
+  const indirect = value.match(/^var\((--[a-z0-9-]+)\)$/)
+  if (indirect !== null) return resolveSurface(tokens, indirect[1])
   const alphaMix = value.match(ALPHA_MIX)
   if (alphaMix === null) return resolveAliasHex(tokens, name)
   const fill = resolveHex(tokens, alphaMix[1])
@@ -604,14 +607,23 @@ describe('upstream 0.1.7 token additions (compat audit 2026-09-23)', () => {
   })
 
   it('menu keeps the Catppuccin hue at upstream translucency', () => {
-    // Upstream 0.1.7 hard-codes rgba(248,249,250,.58) / rgba(48,49,54,.5) here
-    // so menus can ride --dsw-menu-backdrop-filter. Keeping the literal would
-    // drop the flavour from every menu and popover (10+ consumers).
+    // 0.1.7 hard-coded rgba(248,249,250,.58) / rgba(48,49,54,.5) here so menus
+    // could ride --dsw-menu-backdrop-filter; 0.2.0 moved that material into
+    // --dsw-menu-surface-fill (light .58 / dark .45) and left the alias as a
+    // plain reference. We own the base token instead — same ladder step the alias
+    // used before (bg-layer-3), upstream's own alpha — so every consumer of
+    // either name keeps the flavour hue and the translucency the blur needs.
     for (const f of CATPPUCCIN_FLAVORS) {
-      const m = f.tokens[MENU].match(ALPHA_MIX)
-      expect(m, `${f.themeId} ${MENU} = ${f.tokens[MENU]}`).not.toBeNull()
-      expect(m![1], `${f.themeId} ${MENU} fill`).toBe('var(--dsw-alias-bg-layer-3)')
-      expect(Number(m![2]), `${f.themeId} ${MENU} alpha`).toBe(f.colorScheme === 'dark' ? 50 : 58)
+      expect(f.tokens[MENU], `${f.themeId} ${MENU}`).toBe('var(--dsw-menu-surface-fill)')
+      const base = f.tokens['--dsw-menu-surface-fill']
+      const m = base.match(ALPHA_MIX)
+      expect(m, `${f.themeId} menu-surface-fill = ${base}`).not.toBeNull()
+      expect(m![1], `${f.themeId} menu fill`).toBe('var(--dsw-alias-bg-layer-3)')
+      expect(Number(m![2]), `${f.themeId} menu alpha`).toBe(f.colorScheme === 'dark' ? 45 : 58)
+      // Both names have to resolve to the same visible surface.
+      expect(resolveSurface(f.tokens, MENU), `${f.themeId} menu surface`).toBe(
+        resolveSurface(f.tokens, '--dsw-menu-surface-fill'),
+      )
     }
   })
 
@@ -648,21 +660,153 @@ describe('upstream 0.1.7 token additions (compat audit 2026-09-23)', () => {
   })
 
   it('document-preview label reads on its own preview surface', () => {
-    // Preview surfaces are dark in BOTH schemes (light maps bluish-750 to the
-    // text colour), so the label has to clear AA against them, not the page.
-    // Measured 2026-09-23: Latte 7.06:1 (upstream's own pair 9.27), dark
+    // 0.2.0 flipped the LIGHT pair (near-white surface + mid-dark text); dark
+    // flavours keep the dark surface + light label. Either way the label has to
+    // clear AA against its own preview surface, not the page. Measured
+    // 2026-09-30: Latte 5.14:1 (upstream's own light pair 4.84), dark
     // 4.45 / 4.90 / 5.07:1.
     for (const f of CATPPUCCIN_FLAVORS) {
       const bg = resolveAliasHex(f.tokens, '--dsw-alias-bg-document-preview')
       const label = resolveAliasHex(f.tokens, '--dsw-alias-label-document-preview')
       expect(contrast(label, bg), `${f.themeId} preview label`).toBeGreaterThanOrEqual(
-        f.colorScheme === 'light' ? 6.5 : 4.4,
+        f.colorScheme === 'light' ? 5.0 : 4.4,
       )
     }
-    // Latte deviates from the official bluish-200 step on purpose: it reads the
-    // ladder light-end-first, which landed the label on overlay0 (3.07:1).
+    // The light deviation moved from the label to the surface: upstream's new
+    // light label step (bluish-700) is kept as-is, while the surface is pinned
+    // one ladder step lighter than the official bluish-100 — our ladder maps
+    // that step to surface1 (188,192,204), 47 levels below the official
+    // rgb(235,238,242), which collapsed the pair to 3.44:1.
     expect(LATTE.tokens['--dsw-alias-label-document-preview']).toBe(
-      'var(--dsw-static-neutral-bluish-00)',
+      'var(--dsw-static-neutral-bluish-700)',
     )
+    expect(LATTE.tokens['--dsw-alias-bg-document-preview']).toBe(
+      'var(--dsw-static-neutral-bluish-50)',
+    )
+  })
+})
+
+describe('upstream 0.2.0 adaptation (desktop audit 2026-09-30)', () => {
+  // The 0.2.0 refresh (design-platform.css at dsh-v0.2.0-rc.2, the runtime the
+  // official DSH Desktop ships) took alias 84 -> 101 and total 172 -> 190 per
+  // scheme, and added the first token outside the three families
+  // (--dsw-menu-surface-fill). Nine of the aliases keep a var() chain and inherit
+  // our static ladder; eight are LITERALS upstream — the one shape the ladder
+  // override cannot reach — and are remapped by `aliasLiteralOverrides` /
+  // `otherOverrides` in generate-palettes.mjs. See
+  // docs/desktop-0.2.0-adaptation-audit.md.
+  const ADDED = [
+    '--dsw-alias-bg-document-selection',
+    '--dsw-alias-file-diff-added-bg',
+    '--dsw-alias-file-diff-added-gutter',
+    '--dsw-alias-file-diff-added-marker',
+    '--dsw-alias-file-diff-deleted-bg',
+    '--dsw-alias-file-diff-deleted-gutter',
+    '--dsw-alias-file-diff-deleted-marker',
+    '--dsw-alias-label-deep-diving',
+    '--dsw-alias-label-deep-diving-shimmer',
+    '--dsw-alias-label-shimmer',
+    '--dsw-alias-menu-icon',
+    '--dsw-alias-menu-group-header-fill',
+    '--dsw-alias-switch-thumb',
+    '--dsw-alias-toast-label',
+    '--dsw-alias-tooltip-key-bg',
+    '--dsw-alias-turn-trigger-bg',
+    '--dsw-alias-turn-trigger-bg-hover',
+    '--dsw-menu-surface-fill',
+  ]
+  /** The subset whose upstream value is a literal colour, not a var() chain. */
+  const LITERAL = [
+    '--dsw-alias-file-diff-added-bg',
+    '--dsw-alias-file-diff-added-gutter',
+    '--dsw-alias-file-diff-added-marker',
+    '--dsw-alias-file-diff-deleted-bg',
+    '--dsw-alias-file-diff-deleted-gutter',
+    '--dsw-alias-file-diff-deleted-marker',
+    '--dsw-alias-menu-group-header-fill',
+    '--dsw-menu-surface-fill',
+  ]
+
+  it('every flavour covers every added token', () => {
+    for (const f of CATPPUCCIN_FLAVORS) {
+      for (const token of ADDED) expect(f.tokens[token], `${f.themeId} ${token}`).toBeTruthy()
+    }
+  })
+
+  it('the four flavours carry the same token set', () => {
+    const [first, ...rest] = CATPPUCCIN_FLAVORS
+    const names = Object.keys(first.tokens).sort()
+    for (const f of rest) expect(Object.keys(f.tokens).sort(), f.themeId).toEqual(names)
+  })
+
+  it('literal-valued additions resolve through the palette, never to the stock greys', () => {
+    // A literal upstream value cannot inherit our static overrides: left alone it
+    // paints the stock neutral/green/red inside a Catppuccin surface. Every one
+    // of them has to be a var() reference or a colour-mix of palette steps.
+    for (const f of CATPPUCCIN_FLAVORS) {
+      for (const token of LITERAL) {
+        expect(f.tokens[token], `${f.themeId} ${token}`).toMatch(/^(var\(|color-mix\()/)
+      }
+    }
+  })
+
+  it('file-diff tints reuse the code-diff washes, one notch weaker in the gutter', () => {
+    for (const f of CATPPUCCIN_FLAVORS) {
+      // Same washes the code-diff aliases have used since 0.1.7 (upstream's two
+      // values are within a few points of each other in light), so the comparison
+      // view keeps one coherent green/red.
+      expect(f.tokens['--dsw-alias-file-diff-added-bg']).toBe(
+        f.tokens['--dsw-alias-code-diff-added'],
+      )
+      expect(f.tokens['--dsw-alias-file-diff-deleted-bg']).toBe(
+        f.tokens['--dsw-alias-code-diff-deleted'],
+      )
+      // Upstream's gutter is weaker than the line in BOTH schemes (lighter in
+      // light, deeper in dark); half the wash reproduces that order.
+      const gutterAlpha = { '--dsw-alias-file-diff-added-gutter': f.colorScheme === 'dark' ? 6 : 4, '--dsw-alias-file-diff-deleted-gutter': f.colorScheme === 'dark' ? 6 : 4 }
+      for (const [token, pct] of Object.entries(gutterAlpha)) {
+        const m = f.tokens[token].match(ALPHA_MIX)
+        expect(m, `${f.themeId} ${token} = ${f.tokens[token]}`).not.toBeNull()
+        expect(Number(m![2]), `${f.themeId} ${token} alpha`).toBe(pct)
+      }
+      // The marker bar is the full accent of its family.
+      expect(resolveHex(f.tokens, f.tokens['--dsw-alias-file-diff-added-marker'])).toBe(
+        resolveHex(f.tokens, 'var(--dsw-static-green-500)'),
+      )
+      expect(resolveHex(f.tokens, f.tokens['--dsw-alias-file-diff-deleted-marker'])).toBe(
+        resolveHex(f.tokens, 'var(--dsw-static-red-500)'),
+      )
+    }
+  })
+
+  it('the sticky menu group header stays one material with the menu it sits in', () => {
+    for (const f of CATPPUCCIN_FLAVORS) {
+      const header = f.tokens['--dsw-alias-menu-group-header-fill'].match(ALPHA_MIX)
+      expect(
+        header,
+        `${f.themeId} group header = ${f.tokens['--dsw-alias-menu-group-header-fill']}`,
+      ).not.toBeNull()
+      expect(header![1], `${f.themeId} group header fill`).toBe('var(--dsw-alias-bg-layer-3)')
+      expect(Number(header![2]), `${f.themeId} group header alpha`).toBe(94)
+    }
+  })
+
+  it('the Windows caption probe always resolves to a readable opaque pair', () => {
+    // apps/desktop/src/preload-windows.ts inserts a probe with
+    // `background-color: var(--dsw-specific-sidebar-fill)` and
+    // `color: var(--dsw-alias-label-primary)`, converts both through a 1x1 canvas
+    // and hands them to `setTitleBarOverlay`. A missing or unresolvable var()
+    // would make each declaration invalid at computed-value time — `transparent`
+    // for the fill, `currentColor`/black for the symbol — and the native caption
+    // loses the colour the shell measured from our own token. Measured on DSH
+    // Desktop 0.2.0-rc.2 (2026-09-30): both arrive as rgba(...,1) and pass the
+    // main process's validColor check.
+    for (const f of CATPPUCCIN_FLAVORS) {
+      const fill = resolveHex(f.tokens, f.tokens['--dsw-specific-sidebar-fill'])
+      const symbol = resolveHex(f.tokens, f.tokens['--dsw-alias-label-primary'])
+      expect(fill, `${f.themeId} caption fill`).toMatch(/^#[0-9a-f]{6}$/)
+      expect(symbol, `${f.themeId} caption symbol`).toMatch(/^#[0-9a-f]{6}$/)
+      expect(contrast(symbol, fill), `${f.themeId} caption symbols on the caption`).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })

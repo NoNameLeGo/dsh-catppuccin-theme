@@ -37,7 +37,7 @@ import {
 } from '../src/client/state-sync.ts'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { STATE_VERSION, defaultSettingsSection, defaultState, settingsSectionFromState } from '../src/state.ts'
-import type { CatppuccinSettingsSection } from '../src/state.ts'
+import type { CatppuccinSettingsSection, CatppuccinState } from '../src/state.ts'
 
 beforeEach(() => {
   localStorage.clear()
@@ -333,6 +333,122 @@ describe('createBaseRevisionTracker (audit F2)', () => {
     const blind = scopeDouble({ snapshot: { ...hostSnapshot(remote), revision: 4 } })
     expect(await persistStateToScope(blind.scope, state, { baseRevision: 4 })).toBe('written')
     expect(blind.mutations).toHaveLength(1)
+  })
+})
+
+/**
+ * A channel double that models the 0.1.7 `ConfigFormController` fence instead of
+ * stubbing it away (`dsh-client-ui-settings` `client.js`, `mutate`):
+ *   revision = expectedRevision ?? pendingRevision ?? snapshot.revision,
+ * the Host REFUSES when that revision is not the document's, an accepted write
+ * folds its answer into the mirror, and a superseded write parks its revision in
+ * `pendingRevision` for its queued successor. `scopeDouble` above ignores the
+ * fence — which is exactly why the fast-switching bug could not show up in it.
+ */
+function fencedScopeDouble(initialRevision: number): {
+  scope: DurableScope<CatppuccinSettingsSection>
+  /** The revision each write actually committed under (or was refused at). */
+  fences: number[]
+} {
+  let documentRevision = initialRevision
+  let mirrorRevision = initialRevision
+  let mirrorSection = defaultSettingsSection()
+  let pendingRevision: number | undefined
+  let generation = 0
+  const fences: number[] = []
+  /** Decode the atomic op list the way the Host folds it back. */
+  const sectionFromOps = (ops: readonly SettingsPathOpView[]): CatppuccinSettingsSection => {
+    const draft = JSON.parse(JSON.stringify(defaultSettingsSection())) as Record<string, unknown>
+    for (const op of ops) {
+      if (op.op !== 'set') continue
+      const [head, ...rest] = op.path
+      if (head === undefined) continue
+      if (rest.length === 0) draft[head] = op.value
+      else (draft[head] as Record<string, unknown>)[rest.join('.')] = op.value
+    }
+    return draft as unknown as CatppuccinSettingsSection
+  }
+  return {
+    fences,
+    scope: {
+      kind: 'configForms',
+      getSnapshot: () => ({
+        status: 'ready',
+        value: mirrorSection,
+        base: defaultSettingsSection(),
+        user: { glass: { mode: 'mica' } },
+        revision: mirrorRevision,
+        writable: true,
+        mode: 'host',
+      }),
+      subscribe: () => () => {},
+      hasUserLayer: () => true,
+      write: async (ops, baseRevision) => {
+        const current = ++generation
+        const revision = baseRevision ?? pendingRevision ?? mirrorRevision
+        fences.push(revision)
+        if (revision !== documentRevision) return 'refused'
+        documentRevision += 1
+        mirrorSection = sectionFromOps(ops)
+        if (current === generation) {
+          pendingRevision = undefined
+          mirrorRevision = documentRevision
+        } else {
+          pendingRevision = documentRevision
+        }
+        return 'accepted'
+      },
+    },
+  }
+}
+
+describe('persistStateToScope — the write fence (fast switching, 2026-10-01)', () => {
+  const withGlassMode = (mode: 'mica' | 'compat'): CatppuccinState => ({
+    ...defaultState(),
+    glass: { ...defaultState().glass, enabled: true, mode },
+  })
+
+  it('does not fence with a base revision our own write already moved past', async () => {
+    // Reported: "switching mica/compat quickly sometimes fails". The base is
+    // captured when the burst is SCHEDULED; a write of ours that lands inside
+    // the burst moves the document on, so the captured base is stale by flush
+    // time. Fencing with it makes the Host refuse a write that must succeed →
+    // `stale` → the caller adopts the remote state → the newest switch is
+    // silently reverted. The channel must resolve the fence itself.
+    const { scope, fences } = fencedScopeDouble(5)
+    const compat = withGlassMode('compat')
+    const mica = withGlassMode('mica')
+
+    // Burst 1 (the user picks compat): base captured at schedule time = 5.
+    expect(await persistStateToScope(scope, compat, { baseRevision: 5 })).toBe('written')
+
+    // The write committed under revision 6 and folded back into the mirror. The
+    // user switches to mica at once; this burst captured its base BEFORE that
+    // echo (still 5) while the document is already at 6. The movement is our
+    // own echo, so the guard passes it — and the write must land.
+    const outcome = await persistStateToScope(scope, mica, {
+      baseRevision: 5,
+      lastWrittenSection: settingsSectionFromState(compat),
+    })
+    expect(outcome, 'the fast second switch was reverted as a conflict').toBe('written')
+    // Old behaviour forwarded the stale base twice ([5, 5]) and the second was
+    // refused at the Host's fence; now the channel fences with what it knows.
+    expect(fences).toEqual([5, 6])
+  })
+
+  it('still abandons a write whose movement is NOT our own echo', async () => {
+    // The guard must stay a conflict detector: revision 6 holds someone else's
+    // section, so the local change is stale and must not be written at all.
+    const { scope, fences } = fencedScopeDouble(5)
+    const theirs = withGlassMode('compat')
+    expect(await persistStateToScope(scope, theirs, { baseRevision: 5 })).toBe('written')
+    const local = withGlassMode('mica')
+    const outcome = await persistStateToScope(scope, local, {
+      baseRevision: 4, // a base from before THEIR write, and not our echo
+      lastWrittenSection: settingsSectionFromState(defaultState()),
+    })
+    expect(outcome).toBe('stale')
+    expect(fences, 'a stale write must never reach the wire').toEqual([5])
   })
 })
 
