@@ -267,10 +267,17 @@ async function passOnboarding(page) {
       // 首屏（hero，无工作区）可能根本不渲染 header，所以退到其它「盖住移动内容」的面；
       // 样式表那两条不变量在 tests/glass-css.spec.ts 里已经逐选择器锁过，这里只要确认
       // 级联后至少有一个这样的面真的还在付费。
-      for (const sel of ['header', '[data-composer-card]', '[data-dsh-glass-inputbar]']) {
+      // issue #19：composer 的模糊挂在 `::before` 材质面上（卡/输入栏本体必须保持
+      // filter-free，否则命令面板读空），所以这两个要读伪元素的计算值。
+      const probes = [
+        ['header', null],
+        ['[data-composer-card]', '::before'],
+        ['[data-dsh-glass-inputbar]', '::before'],
+      ]
+      for (const [sel, pseudo] of probes) {
         const el = document.querySelector(sel)
         if (!el) continue
-        return { sel, blur: getComputedStyle(el).backdropFilter }
+        return { sel: sel + (pseudo ?? ''), blur: getComputedStyle(el, pseudo ?? null).backdropFilter }
       }
       return null
     })
@@ -279,6 +286,51 @@ async function passOnboarding(page) {
       log('— 盖住内容的面保留 blur：跳过（本环境无 header / composer）')
     } else {
       check(`盖住内容的面保留 backdrop-filter（${covered.sel}）`, covered.blur !== 'none' && covered.blur !== null, String(covered.blur))
+    }
+
+    // ---- 关键区域采样 3b：命令面板不得落在任何 filtered 祖先里（issue #19）----
+    // 面板（`[data-trigger-menu]`）被挂进 `[data-composer-card]` 的
+    // `conversation.input.overlay` 锚点，而它整块悬在卡盒之外（`bottom: calc(100% + 4px)`）。
+    // 卡（或分栏态的输入栏）上只要有 backdrop-filter，它就成为面板的 backdrop root，
+    // 面板自带的 `blur(40px)` 会读空 ⇒ 底下转录原样透出（报告 issue #19）。这条断言锁
+    // 「打开面板后，面板的每个祖先 computed backdrop-filter 都是 none」。
+    const composerEditor = page.locator("[data-composer-card] [contenteditable='true']").first()
+    if ((await composerEditor.count()) === 0) {
+      results.push({ name: '指令面板无 filtered 祖先', ok: true, skipped: true, detail: '本环境没有 composer（无会话）' })
+      log('— 指令面板无 filtered 祖先：跳过（本环境没有 composer）')
+    } else {
+      await composerEditor.click()
+      await page.keyboard.type('/')
+      await page.waitForTimeout(800)
+      const palette = await page.evaluate(() => {
+        const menu = document.querySelector('[data-trigger-menu]')
+        if (!menu) return null
+        const chain = []
+        let el = menu.parentElement
+        while (el && el !== document.documentElement) {
+          chain.push({
+            tag: el.tagName.toLowerCase(),
+            cls: String(el.className || '').slice(0, 28),
+            bf: getComputedStyle(el).backdropFilter,
+          })
+          el = el.parentElement
+        }
+        return { chain, own: getComputedStyle(menu).backdropFilter, plane: getComputedStyle(menu, '::before').backdropFilter }
+      })
+      await page.keyboard.press('Escape')
+      if (palette === null) {
+        results.push({ name: '指令面板无 filtered 祖先', ok: true, skipped: true, detail: '输入 / 后没有弹出 [data-trigger-menu]' })
+        log('— 指令面板无 filtered 祖先：跳过（/ 没有弹出面板）')
+      } else {
+        const offenders = palette.chain.filter((node) => node.bf !== 'none')
+        check(
+          '指令面板的每个祖先都没有 backdrop-filter（issue #19）',
+          offenders.length === 0,
+          offenders.length === 0
+            ? `${palette.chain.length} 层祖先全部 none（面板自身 bf=${palette.own}）`
+            : offenders.map((n) => `${n.tag}.${n.cls} → ${n.bf}`).join(' | '),
+        )
+      }
     }
 
     // ---- 关键区域采样 4：OO 在 compat 模式下给浮动面 rim -----------------

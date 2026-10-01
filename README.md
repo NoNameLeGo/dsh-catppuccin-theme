@@ -251,7 +251,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 | 族 | 锚点 |
 |---|---|
-| 输入框卡片 | `[data-composer-card]`（宿主自己的属性） |
+| 输入框卡片 | `[data-composer-card]`（宿主自己的属性；材质画在它的 `::before` 上，见 issue #19） |
 | 菜单 | `[role='menu']` |
 | 弹出层 | `[class*='popover']` / `[class*='dropdown']`（这两个仍是子串） |
 | 模态框 | `[role='dialog'][aria-modal='true']` |

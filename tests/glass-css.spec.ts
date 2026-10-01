@@ -43,8 +43,11 @@ const CSS = readFileSync(
 /** Selectors known to sit over the flat page ground (issue #13). */
 const GROUND_ONLY = /sidebarCol|bubble|trajectory/
 
-/** Selectors whose backdrop is genuinely moving/heterogeneous content. */
-const VISIBLE = ['header', '[data-composer-card]', "[role='menu']", '[data-dsh-glass-fade]']
+/** Selectors whose backdrop is genuinely moving/heterogeneous content.
+ *  The composer blurs from its `::before` material plane, not from the element
+ *  itself (issue #19) — the element hosts the trigger palette, so a blur on it
+ *  would be that palette's backdrop root. */
+const VISIBLE = ['header', '[data-composer-card]::before', "[role='menu']", '[data-dsh-glass-fade]']
 
 const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
@@ -116,7 +119,12 @@ describe('glass blur budget (issue #13)', () => {
   it('keeps the composer slab erasing the inner card blur (no double read)', () => {
     const erasers = rules.filter((rule) => blurOf(rule.decls) === 'none')
     expect(erasers.length).toBeGreaterThanOrEqual(3)
-    expect(erasers.some((rule) => rule.selector.includes('[data-composer-card]'))).toBe(true)
+    expect(
+      erasers.some(
+        (rule) =>
+          rule.selector.includes('[data-composer-card]') && !rule.selector.includes('::before'),
+      ),
+    ).toBe(true)
   })
 
   it('gives compat surfaces a material, not just a blur over the flat ground (OO)', () => {
@@ -219,9 +227,19 @@ describe('glass blur budget (issue #13)', () => {
     // Narrowing the panel family must not take the other compat surfaces with
     // it. Issue #17 moved the card family onto the composer card's own hook, so
     // that is the surface this checks (a bare `*_card` class is deliberately
-    // NOT frosted any more — see the #17 case below).
-    document.body.innerHTML = '<div data-dsh-glass-compat><div data-composer-card></div></div>'
-    expect(blurred(document.querySelector('[data-composer-card]') as HTMLElement)).toBe(true)
+    // NOT frosted any more — see the #17 case below). Issue #19 moved the blur
+    // onto the card's `::before` plane, and jsdom's `querySelectorAll` cannot
+    // address pseudo-elements — so this locks the RULE MATCH shape instead: the
+    // compat material must still name the composer card, on a plane.
+    expect(
+      rules.some(
+        (rule) =>
+          rule.selector.includes('[data-dsh-glass-compat]') &&
+          rule.selector.includes('[data-composer-card]::before') &&
+          blurOf(rule.decls) === 'blur(12px)',
+      ),
+      'the compat composer lost its material plane',
+    ).toBe(true)
     document.body.innerHTML = ''
   })
 
@@ -323,6 +341,90 @@ describe('glass blur budget (issue #13)', () => {
       expect(rule.selector, 'reduced motion still keys off the mode gate').not.toContain(
         'data-dsh-glass-float',
       )
+    }
+  })
+})
+
+describe('backdrop-root hygiene: the trigger-palette host stays filter-free (issue #19)', () => {
+  // Why this is a hard rule and not a taste call.
+  //
+  // DSH mounts the slash-command palette (`div[data-trigger-menu]`,
+  // `dsh-client-ui-input-trigger`) into the `conversation.input.overlay` slot,
+  // and `InputBar` renders that slot as the FIRST CHILD of `[data-composer-card]`
+  // (`.overlayAnchor`, `height:0; position:absolute`) — verified in 0.1.7-alpha.2,
+  // -rc.2 and 0.2.0-rc.2. The palette itself is `bottom: calc(100% + 4px)`, so it
+  // hangs ENTIRELY ABOVE the card's box, over the transcript.
+  //
+  // A `backdrop-filter` on the card (mica) — or on `[data-dsh-glass-inputbar]`,
+  // the wrapper around it (slab) — makes that element the palette's BACKDROP
+  // ROOT. A backdrop root's descendants may only read their ancestor's own
+  // paint; the page is not in it, and the palette's own region is outside the
+  // card's box anyway, so the region reads EMPTY. The palette's
+  // `backdrop-filter: var(--dsw-menu-backdrop-filter)` (`blur(40px)
+  // saturate(150%)`, upstream ui-theme) then paints nothing while its 58%/45%
+  // fill stays — the reporter's issue #19 (transcript legible straight through
+  // the command menu).
+  //
+  // Measured in Chromium against this exact structure (`.debug/issue-19/`):
+  //  - stripe stdev inside the palette, filtered ancestor vs not: 100.41 vs 7.04
+  //    (the first value is byte-identical to the same crop with the palette's own
+  //    blur removed — an identity read);
+  //  - full-page A/B with the shipped sheet, reporter settings (mica, blur 2,
+  //    frost 20, Latte): palette band 31.58 (before) → 0.00 (after), while the
+  //    bare-transcript control stayed 76.32 and removing the palette's own blur
+  //    put it back to 32.06.
+  const HOSTS = ['[data-composer-card]', '[data-dsh-glass-inputbar]']
+
+  it('never puts a backdrop-filter on a container that hosts a floating overlay', () => {
+    const offenders = blurring.filter((rule) =>
+      HOSTS.some((host) => rule.selector.includes(host) && !rule.selector.includes('::before')),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'issue #19: this element hosts the trigger palette, so a blur on it is the palette\'s backdrop root — move the material to its ::before plane',
+    ).toEqual([])
+  })
+
+  it('keeps the composer material on a ::before plane that owns the fill too', () => {
+    // The plane must carry the FILL, not just the blur: anything the host paints
+    // below the plane (a background, an inset shadow) becomes what the plane
+    // reads. One active plane per mode (mica card, mica slab, compat card), plus
+    // exactly one eraser — the mica slab hides the inner card's plane so that a
+    // single plane paints (two would stack two fills and two backdrop reads).
+    const planeRules = rules.filter(
+      (rule) =>
+        rule.selector.includes('::before') && HOSTS.some((host) => rule.selector.includes(host)),
+    )
+    const active = planeRules.filter((rule) => {
+      const blur = blurOf(rule.decls)
+      return blur !== undefined && blur !== 'none'
+    })
+    const erased = planeRules.filter((rule) => /(?:^|;)\s*display\s*:\s*none/.test(rule.decls))
+    expect(active.map((rule) => rule.selector)).toHaveLength(3)
+    expect(erased.map((rule) => rule.selector)).toEqual([
+      '[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card]::before',
+    ])
+    for (const plane of active) {
+      expect(
+        /(?:^|;)\s*background\s*:/.test(plane.decls),
+        `${plane.selector} must own the fill (a fill left on the host enters the plane's backdrop)`,
+      ).toBe(true)
+    }
+    // …and the hosts themselves must not paint a fill either, for the same
+    // reason. `none` / `transparent` are the required erasers of the host's own
+    // `--dsw-specific-input-major`; anything opaque would hide the plane.
+    for (const host of HOSTS) {
+      const hostRules = rules.filter(
+        (rule) => rule.selector.includes(host) && !rule.selector.includes('::before'),
+      )
+      for (const rule of hostRules) {
+        const background = /(?:^|;)\s*background\s*:\s*([^;]+)/.exec(rule.decls)?.[1]?.trim()
+        if (background === undefined) continue
+        expect(
+          background,
+          `${rule.selector} paints a fill under its own material plane`,
+        ).toMatch(/^(?:none|transparent)$/)
+      }
     }
   })
 })
