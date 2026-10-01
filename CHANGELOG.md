@@ -8,12 +8,32 @@
 
 ## [Unreleased]
 
-> 本节两批（2026-09-30 官方桌面壳 0.2.0 线适配 + 2026-10-01 玻璃模式切换两条修复）随
-> **`0.5.9-beta.0`** 发到 npm 的 `beta` 渠道（`latest` 仍是 `0.5.8`）：
-> 补齐 18 个漏映射 token 并退役一条已被上游修掉的浅色偏离、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐，
-> 以及「设置里切云母/兼容会闪一下」与「切得快时第二次被回滚」两条修复。
+> 本节三批内容全部走 `beta` 渠道（`latest` 仍是 `0.5.8`）：前两批（2026-09-30 官方桌面壳 0.2.0 线适配 +
+> 2026-10-01 玻璃模式切换两条修复）随 **`0.5.9-beta.0`**，第三批（2026-10-01 命令面板毛玻璃修复，issue #19）
+> 随 **`0.5.9-beta.1`**：补齐 18 个漏映射 token 并退役一条已被上游修掉的浅色偏离、兼容声明跟进 0.2.0、
+> Windows 标题栏顶部渐隐、「设置里切云母/兼容会闪一下」与「切得快时第二次被回滚」两条修复，
+> 以及命令面板恢复毛玻璃。
 
 ### 修复
+
+- **命令面板（敲 `/` 弹出的候选菜单）恢复毛玻璃**（2026-10-01 报告，issue #19）。面板 `[data-trigger-menu]`
+  挂在 `[data-composer-card]` 的 `conversation.input.overlay` 锚点里，而它整块**悬在卡片盒子之外**
+  （`bottom: calc(100% + 4px)`，只盖转录）。本皮肤给 composer 卡（云母）或 `[data-dsh-glass-inputbar]`
+  （分栏态）加了 `backdrop-filter` ⇒ 那个祖先成为面板的 **backdrop root**，面板自带的上游
+  `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)` 只能读到祖先自己画的那层、而面板区域在卡盒之外
+  **什么都没画** ⇒ 读空 = 恒等，于是剩下 58%/45% 的透明填充，底下转录原样透出。
+  改法照抄上游 `MenuSurface` 自己的做法（其注释原话就是「keeps nested menus free of an ancestor backdrop root」）：
+  把材质整体搬到 **`::before` 材质面**（填充 + blur + 内侧高光都搬，容器本体改成零绘制 + `isolation: isolate`），
+  云母卡 / 云母分栏态输入栏 / 兼容模式卡三处各一份。实测（真实样式表 + 上游菜单 CSS 的整页 fixture，
+  报告人配置 mica + blur 2 + frost 20 + Latte）：面板区条纹 stdev **31.58 → 0.00**（分栏态 33.03 → 0.54），
+  同页裸转录对照恒为 **76.32**，把面板自身的 blur 关掉则回弹 **32.06**（证明是模糊在画，不是不透明填充）；
+  面板的祖先链 computed `backdrop-filter` 全部为 `none`。顺带把 `[data-trigger-menu]` 纳入 14px 浮层圆角族
+  （它没有 `role`，此前落在家族之外）。护栏：`tests/glass-css.spec.ts` 新增 `backdrop-root hygiene` 一组
+  （容器不得自带 blur、材质面必须同时拥有填充），真机脚本新增「面板的每个祖先都不得有 backdrop-filter」。
+  全文见 `docs/issue-19-palette-blur.md`。
+  （EN: move the composer's material onto a `::before` plane so the trigger palette is not under a backdrop root —
+  a filtered ancestor silently turns the palette's own `blur(40px)` into an identity read. Measured 31.58 → 0.00
+  stripe stdev inside the palette, with the bare-transcript control unchanged at 76.32.）
 
 - **设置里切换「云母效果 / 兼容模式」不再闪一下**（2026-10-01 报告）：入口动画原本挂在
   `[data-dsh-glass-float]` 上，而模式切换正好会增删这个属性——属性一回来，屏幕上**已经存在**的元素其
@@ -658,7 +678,7 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9-beta.1...HEAD
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6
