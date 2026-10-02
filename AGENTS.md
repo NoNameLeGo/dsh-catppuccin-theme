@@ -230,7 +230,16 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.9-beta.1`**（0.5.9 的最后一个预发布，2026-10-01）。
+> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.10-beta.0`**（2026-10-03；
+> Publish run `37032787040` success，日志 `+ @nonamelego/dsh-catppuccin@0.5.10-beta.0` 带 provenance；CI `37032777295`
+> check + boot-e2e 双绿；dist-tags 约 40 s 内生效）。
+> **`0.5.10-beta.0`（内容在 CHANGELOG 的 `[Unreleased]`，按仓库惯例预发布不单独落节）= 插件卡片图标 + 「检查更新」按宿主分流**：
+> 前者给仓库根加 `icon.png`（`package.json` 的 `icon` + 进 `files`；Host 读包元数据内联成 data URI，
+> 卡片容器 48×48 + 内部 `<img>` 36×36 + `object-fit:contain`）；后者新增 `classifyShell()` 把宿主判成
+> `web` / `community-desktop` / `official-desktop`，官方桌面版不再给**无处可跑**的
+> `dsh plugin --profile desktop …`，改给 `包名@渠道` + 「插件界面里先删除再重新安装」。**测试 260 全绿**，
+> 三条分流支路均变异验证过。⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）。
+> 上一版 `beta` = **`0.5.9-beta.1`**（0.5.9 的最后一个预发布，2026-10-01）。
 > **`0.5.9`（2026-10-02，当前 latest）= 上游 0.2.0 线适配 + 玻璃模式切换两条修复 + 命令面板毛玻璃**：前两项随 `0.5.9-beta.0`
 > （补 18 个漏映射 token 至 190/190 全覆盖、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐、「切云母/兼容会闪一下」
 > 与「切得快时第二次被回滚」），第三项随 `0.5.9-beta.1`（issue #19：composer 的材质搬到 `::before` 材质面，
