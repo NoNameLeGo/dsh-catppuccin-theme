@@ -122,8 +122,10 @@
 >   | `process.versions.electron` | ✅ | ✅ | ✅ | ❌ |
 >   | **⇒ 判定** | `official-desktop` | `community-desktop` | `community-desktop` | `web` |
 >
->   官方侧证据（2026-10-03，`resources/app.asar` 直接 grep）：host 子进程的 env 由
->   `desktopNodeEnvironment(this.node, void 0, this.environment)` 生成 —— `bin === undefined` 走
+>   官方侧证据（2026-10-03，`resources/app.asar` 直接 grep）：该变量在壳内**只有 3 处命中，且全部在
+>   `packageManager.env` 里**——即交给 **pnpm 包安装 / CLI 子进程**的那份 env
+>   （`runCli({ manageDesktopProfile: true, packageManager: { env } })`）——host 子进程走的是
+>   `desktopNodeEnvironment(this.node, void 0, this.environment)`，`bin === undefined` 取
 >   `{...壳 env, ELECTRON_RUN_AS_NODE: '1'}`，**不设**那个 marker；`desktopProfiles` 在官方 0.2.0-rc.2
 >   出厂包集合里 **0 命中**。社区侧：`dsh-desktop-next/src/host/index.ts` 给 host 设
 >   `DSH_DESKTOP_NODE_EXECUTABLE`，`dsh-plugin-desktop/src/profile-service.ts` 注册 `desktopProfiles`。

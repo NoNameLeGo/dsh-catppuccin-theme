@@ -116,8 +116,11 @@ export function isDesktopShellEnv(
   env: Record<string, string | undefined>,
   versions: Record<string, string | undefined> = process.versions,
 ): boolean {
-  if (hasCommunityMarker(env)) return true
-  return isElectronRuntime(versions)
+  // Coarse OR, expressed through the single source of truth so the two can
+  // never drift: the `desktopProfiles` signal is the caller's (host-side) input
+  // and is simply absent here. Prefer `classifyShell` when the copy must
+  // distinguish the two shells.
+  return classifyShell({ env, versions }) !== 'web'
 }
 
 /** The DSH home the running process owns — `$DSH_HOME` when set, else
