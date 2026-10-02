@@ -129,7 +129,7 @@ Use the profile name of your choice in place of `web` (e.g. `headless`).
 `$DSH_HOME/profiles/desktop`, but **they install/upgrade plugins in completely different, non-interchangeable
 ways** — pick the column that matches your shell:
 
-| | Official desktop shell (DeepSeek Harness app) | Community shell (DSH Desktop) |
+| | Official desktop shell ([DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) app) | Community shell ([DSH Desktop](https://github.com/anywhere-labs/dsh-desktop)) |
 |---|---|---|
 | **Install** | Its **plugin UI** → add plugin → enter the package name `@nonamelego/dsh-catppuccin` (Git URLs / tarballs / local paths are accepted too) | In the app's own **DSH terminal**:<br>`dsh plugin --profile desktop add @nonamelego/dsh-catppuccin` |
 | **Upgrade** | **Remove the plugin in the plugin UI, then enter the same package name again to reinstall it** (v0.2.0 has no upgrade entry point and no version picker) | The same `update` command as web:<br>`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin` |

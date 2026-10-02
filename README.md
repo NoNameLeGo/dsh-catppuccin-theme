@@ -120,10 +120,10 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 **桌面版**：官方桌面壳与社区桌面壳都读**同一个 profile** `$DSH_HOME/profiles/desktop`，但
 **两者装/升插件的方式完全不同、也不通用**——按你用的壳选一列：
 
-| | 官方桌面壳（DeepSeek Harness 客户端） | 社区桌面壳（DSH Desktop） |
+| | 官方桌面壳（[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 客户端） | 社区桌面壳（[DSH Desktop](https://github.com/anywhere-labs/dsh-desktop)） |
 |---|---|---|
-| **安装** | 应用内的**插件界面** → 添加插件 → 填包名 `@nonamelego/dsh-catppuccin`（也接受 Git 地址 / 压缩包 / 本地路径） | 在应用打开的 **DSH 终端**里执行命令：<br>`dsh plugin --profile desktop add @nonamelego/dsh-catppuccin` |
-| **升级** | **先在插件界面里把插件删除，再重新填一遍同一个包名安装**（v0.2.0 没有升级入口，也没有版本选择器） | 与 web 同一条更新命令：<br>`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin` |
+| **安装** | 应用内的**插件界面** → 添加插件 → 填包名 `@nonamelego/dsh-catppuccin`（也接受 Git 地址 / 压缩包 / 本地路径） | 在打开的 **终端**里执行命令：<br>`dsh plugin --profile desktop add @nonamelego/dsh-catppuccin` |
+| **升级** | **先在插件界面里把插件删除，再重新填一遍同一个包名安装**（v0.2.0 没有升级入口，也没有版本选择器） | 与 web 类似的更新命令：<br>`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin` |
 | 谁执行 pnpm | 应用自带的 pnpm | 应用自带的 pnpm |
 
 两种方式改完都要**重启桌面应用**才会加载新版本。
@@ -133,10 +133,7 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 > profile，会直接报 `error: profile "desktop" is managed exclusively by the Electron application`。
 > 想用 CLI 管就用别的 profile 名（`web`、`headless`、`dsh-tui`）。
 
-> **两个桌面壳，同一个 profile**：官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-> 的 `apps/desktop` / `apps/desktop-host`（Electron）与社区的
-> [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 都启动
-> `$DSH_HOME/profiles/desktop`，所以装好的插件两边都能用。本插件的桌面支持以
+> 本插件的桌面支持以
 > **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留。
 > 但官方壳的 profile 进程**没有**专用的环境标记（它的 `DSH_DESKTOP_NODE_EXECUTABLE` 只注入给
 > 包安装子进程），所以本插件改为识别 **Electron-as-node 运行时**（`process.versions.electron`）
