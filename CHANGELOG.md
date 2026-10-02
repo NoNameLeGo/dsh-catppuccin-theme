@@ -8,6 +8,22 @@
 
 ## [Unreleased]
 
+### 新增
+
+- **插件卡片有了自己的图标**（2026-10-02）。此前 Plugins 页我们那张卡片画的是默认图案，而 `dsh-context` 等插件
+  已有专属图标——差异的原因是**我们没在 `package.json` 里声明 `icon`**，不是上游不支持。
+  - 机制（在 `0.2.0-rc.2` 上取证）：Host 的 `@deepseek-ai/dsh-app-boot` 读包元数据，把 `icon` 指向的
+    **相对路径**文件内联成 `data:` URI 交给客户端（`dsh-client-ui-plugin-manager` 消费 `pkg.meta.icon`）。
+    准入规则：仅限相对路径、扩展名限 `.svg` / `.png` / `.jpg` / `.jpeg` / `.webp`、原始字节 **≤ 256 KiB**、
+    且必须留在 manifest 目录内；任一条不满足直接 throw（不是降级渲染）。
+  - 本次先按**圆形**试：`icon: "icon.png"` 指向 README 首图那张 Catppuccin 官方圆标
+    （`1544x1544_circle.png`，**103.8 KiB**，在 256 KiB 之内），原图直接用、未做二次处理。
+  - 一条已知的观感权衡：卡片容器是「48×48 圆角方 + `.5px` 描边」，但内部图片只有 **36×36 且 `object-fit:contain`**
+    ⇒ 透明四角的圆图读起来是「描边方框里悬着一枚圆」（距框边 6px）。想要 `dsh-context` 那种「实色方块」读感，
+    得让资源**本身**是满幅方形。四种候选的牌面复刻见 `.debug/icon-preview/gen.mjs`（本地脚本，不入库）。
+  - 护栏新增 `tests/plugin-icon.spec.ts`，镜像 Host 的五条准入规则（相对路径 / 扩展名白名单 / ≤256 KiB /
+    `files` 收录 / PNG 魔数）；「从 `files` 移除」与「扩展名改 `.bmp`」两条变异实测会红。用例数 245 → 250。
+
 ### 文档
 
 - **README 精简：把内部取证与开发向内容搬出用户文档**（2026-10-02，`README.md` 469 → 394 行、

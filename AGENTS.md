@@ -134,6 +134,27 @@
 **推论**：新增依赖上游形状的判断时，上游的 `apps/*` 是唯一事实来源——用 `gh api repos/deepseek-ai/deepseek-harness/contents/<path>`
 直接读源码（`desktopProfiles` 这类服务名就是这么做出来的对照），别按印象写。
 
+## 插件卡片图标契约（Plugins 页，2026-10-02 在 0.2.0-rc.2 上取证）
+
+Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，不是客户端自带资源——没声明就回落成默认图案。
+判定链全部落在 `@deepseek-ai/dsh-app-boot`（`lib/index.js` 的 `package-meta.js` 区段 → `iconOf()`）：
+
+| 环节 | 位置 | 规则 |
+|---|---|---|
+| 声明 | `package.json` 的 **`icon`** 字段 | 必须是**相对路径**（绝对路径或带 `scheme:` 一律 throw），且必须留在 manifest 目录内 |
+| 格式 | 同上 | 扩展名白名单：`.svg` `.png` `.jpg` `.jpeg` `.webp` |
+| 体量 | `MAX_ICON_BYTES` | 原始字节 **≤ 256 KiB**（超了 throw，不是降级渲染） |
+| 读取 | `iconOf()` | `readFileSync` → `data:<mime>;base64,…` 内联；**不缩放、不裁切、不改色** |
+| 渲染 | `dsh-client-ui-plugin-manager` 的 `.cardIcon` | 容器 **48×48**、`.5px solid var(--dsw-alias-border-l3)`、`border-radius: var(--dsw-radius-lg)`（16px）；内部 `<img class="packageImage">` 是 **36×36 + `object-fit:contain`** |
+
+- **`files` 必须带上图标文件**：Host 读的是**安装后**的包目录，漏进 `files` 就是「仓库里有、tarball 里没有」。
+- 取值路径：`metaOf(name, base)` → `pluginPackages` 服务（`dsh-app-boot` 注册）；客户端只消费 `pkg.meta.icon`。
+- **别指望圆角是圆形的**：容器恒为「圆角方 + 描边」。透明四角的 PNG ⇒ 读感是「方框里悬着一枚圆」（36px，距框边 6px）；
+  想要「方形满幅」得让**资源本身**是满幅方形——`dsh-context` 的 `icon.svg` 就是 1024×1024 满幅图形，所以它看起来是实色方块。
+- 护栏：`tests/plugin-icon.spec.ts` 逐条镜像上面五条（相对路径 / 白名单扩展名 / ≤256 KiB / `files` 收录 / PNG 魔数）。
+  两条变异（从 `files` 移除、扩展名改 `.bmp`）都实测会红。
+- 选型对照脚本：`.debug/icon-preview/gen.mjs`（按**真实 `cardIcon` 取值**渲染候选牌面 + 3× 放大图）。**不入库**。
+
 ## DSH STORE 上架状态与契约（2026-09-24 核实，issue #1106）
 
 商城（[`AI-Scarlett/DSH-Store`](https://github.com/AI-Scarlett/DSH-Store)）里我们的条目 `id = dsh-catppuccin` 是
