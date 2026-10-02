@@ -229,6 +229,11 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
   命令，会提示改用 `git pull` 或重新构建。
 - 通道策略：正式版只跟随 `latest` 标签；预发布版同时跟随 `beta`（升级命令
   自动带 `@beta`）。离线或网络失败时显示原因并可重试。
+- 升级路径按**宿主**分流：**官方桌面版**（DeepSeek Harness 客户端）不给命令行——
+  它没有可达的终端入口，所以这一行改为给出 **`包名@渠道`** 并提示在
+  **插件界面**里先删除、再重新安装（与上面「桌面版」段的升级路径一致）；
+  **社区桌面壳**与 **web** 仍照常给出可复制的 `dsh plugin …` 命令。
+  判定由宿主完成（`web` / `community-desktop` / `official-desktop`），无需你选。
 
 ## 玻璃拟态（Glassmorphism）
 

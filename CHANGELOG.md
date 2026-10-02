@@ -24,6 +24,33 @@
   - 护栏新增 `tests/plugin-icon.spec.ts`，镜像 Host 的五条准入规则（相对路径 / 扩展名白名单 / ≤256 KiB /
     `files` 收录 / PNG 魔数）；「从 `files` 移除」与「扩展名改 `.bmp`」两条变异实测会红。用例数 245 → 250。
 
+### 修复
+
+- **「检查更新」在官方桌面版里给出的命令无效 —— 改为按宿主分流**（2026-10-03）。此前无论跑在哪个壳里，
+  这一行都照发 `dsh plugin --profile <profile> add …`，但**官方 Electron 壳**（DeepSeek Harness 客户端）
+  的用户没有可达的终端入口，那条命令复制出来无处可跑。
+  - **判别方法（新增 `classifyShell()`，`src/profile-detect.ts`）**：**先判两条社区信号**——社区启动器的
+    `desktopProfiles` 服务（Stable / Beta 通道）与 host env 里的 `DSH_DESKTOP_NODE_EXECUTABLE`
+    （Next 通道）——**剩下的 Electron 运行时就判为官方壳**；两条都不中且非 Electron 才是纯 node 的 `web`。
+    顺序本身就是判据：社区信号先判，否则跑新版 Electron 的社区壳会被官方分支吃掉。
+  - 取证（2026-10-03，`resources/app.asar` 直接 grep）：官方壳 host 子进程的 env 由
+    `desktopNodeEnvironment(this.node, void 0, this.environment)` 生成，走 `bin === undefined` 分支 ⇒
+    只有 `{...壳 env, ELECTRON_RUN_AS_NODE: '1'}`，**不设**那个 marker；`desktopProfiles` 在官方
+    0.2.0-rc.2 出厂包集合里 **0 命中**。社区侧：`dsh-desktop-next/src/host/index.ts` 给 host 设 marker，
+    `dsh-plugin-desktop/src/profile-service.ts` 注册 `desktopProfiles`。
+  - **文案分流**：`web` / `community-desktop` 仍给 CLI 命令（`updateCommand`）；
+    `official-desktop` 改给 `包名@渠道`（新字段 `updateSpec`，由 `pluginSpecFor()` 生成）+
+    「在**插件界面**里先删除、再重新安装」的指引（= README「桌面版」那条官方升级路径），
+    复制按钮相应改名为「复制包名」。payload 新增 `shell` 字段供界面判断。
+  - 顺带纠正一处**错误叙述**：`tests/e2e/update-check.e2e.spec.ts` 曾把
+    `DSH_DESKTOP_NODE_EXECUTABLE` 说成「官方壳的信号」（2026-09-22 的假设），它其实是**社区壳**的信号
+    —— 已按 2026-09-24 的取证改名，并补上三种壳各自的真路由断言。
+  - 用例 250 → **260**（`profile-detect` +6 / e2e +1 / 客户端渲染 +3）。三条支路都做过变异验证
+    （删 `desktopProfiles` 分支 → 2 条红；Electron 分支恒返回 `web` → 3 条红；客户端忽略
+    `official-desktop` → 1 条红）。另记一条 e2e 坑：三条壳断言共用一个 cache bucket，mock 时钟必须
+    **递增**推进（30 / 60 / 90 分钟），推同样的量会落在上一条自己 stamp 的未来时间点上、静默复用它的
+    裁决 ⇒ 即使把分支删掉断言也绿。
+
 ### 文档
 
 - **README 精简：把内部取证与开发向内容搬出用户文档**（2026-10-02，`README.md` 469 → 394 行、

@@ -139,6 +139,8 @@ describe('e2e: host plugin on a real cordis app', () => {
     expect(body.outdated).toBe(true)
     expect(body.channel).toBe(preRelease ? 'beta' : 'latest')
     expect(typeof body.updateCommand).toBe('string')
+    expect(body.shell).toBe('web')
+    expect(body.updateSpec).toBeUndefined()
     expect(typeof body.profile).toBe('string')
     expect(typeof body.checkedAt).toBe('string')
   })
@@ -197,14 +199,17 @@ describe('e2e: host plugin on a real cordis app', () => {
     expect(body.code).toBe('registry-http')
   })
 
-  // Deliberately LAST: it warms the (default) cache bucket with a verdict stamped
-  // under a far-advanced mocked clock, which would shadow the web-mode cases
-  // above if it ran earlier.
-  it('recognizes the OFFICIAL desktop shell by its env marker (2026-09-22)', async () => {
-    // The official Electron shell (deepseek-harness/apps/desktop-host) boots the
-    // `desktop` profile with DSH_DESKTOP_NODE_EXECUTABLE set and does NOT expose
-    // the third-party launcher's `desktopProfiles` service — without this branch
-    // the row falls back to the plain-web copy in official desktop builds.
+  // Deliberately LAST: the three cases below warm the (default) cache bucket with
+  // verdicts stamped under far-advanced mocked clocks, which would shadow the
+  // web-mode cases above if they ran earlier. Keep them in ASCENDING advance
+  // order (30 / 60 / 90 minutes) — see the note on the official-shell case.
+  it('classifies the COMMUNITY shell by its DSH_DESKTOP_NODE_EXECUTABLE host marker', async () => {
+    // `dsh-desktop-next` puts that variable on the host process itself
+    // (`dsh-desktop-next/src/host/index.ts`); the Stable/Beta channels instead
+    // expose the launcher's `desktopProfiles` service (last case). ⚠️ It is NOT
+    // the official shell's signal: the 2026-09-22 title claimed so, and the
+    // 2026-10-03 `app.asar` evidence (`desktopNodeEnvironment(this.node, void 0,
+    // …)` skips that branch for the host) overturned it.
     registry.reset()
     registry.setStatus(200)
     const previous = process.env.DSH_DESKTOP_NODE_EXECUTABLE
@@ -218,7 +223,10 @@ describe('e2e: host plugin on a real cordis app', () => {
       const { status, body } = await getJson(UPDATE_ROUTE_PATH)
       expect(status).toBe(200)
       expect(body.env).toBe('desktop')
+      expect(body.shell).toBe('community-desktop')
+      // The community shell HAS a reachable in-app DSH terminal ⇒ the CLI command stays.
       expect(typeof body.updateCommand).toBe('string')
+      expect(body.updateSpec).toBeUndefined()
       expect(typeof body.profile).toBe('string')
     } finally {
       vi.useRealTimers()
@@ -227,33 +235,59 @@ describe('e2e: host plugin on a real cordis app', () => {
     }
   })
 
-  // Same cache-warming caveat as the case above — keep both last.
-  it('recognizes the OFFICIAL desktop shell through the Electron runtime (2026-09-24)', async () => {
-    // The official shell injects DSH_DESKTOP_NODE_EXECUTABLE into package-install
-    // children ONLY, so its profile process carries no marker at all; Electron-as-node
-    // is the signal that survives. `process.versions.electron` is a writable extra
-    // property on plain Node (verified 2026-09-24), which is how it is faked here.
+  // The official Electron shell's ONLY trace is Electron-as-node: its host env is
+  // `{...shell env, ELECTRON_RUN_AS_NODE: '1'}` (`desktopNodeEnvironment(this.node,
+  // void 0, this.environment)` takes the `bin === undefined` branch and never sets
+  // DSH_DESKTOP_NODE_EXECUTABLE), and it registers no cordis service at all (0 hits
+  // for `desktopProfiles` across the shipped 0.2.0-rc.2 packages). The shell has no
+  // reachable terminal either, so the row must offer the Plugins-page spec, not a
+  // command. `process.versions.electron` is a writable extra property on plain Node
+  // (verified 2026-09-24), which is how the runtime is faked here.
+  it('classifies the OFFICIAL shell as Electron-without-community-signals and offers the package spec', async () => {
     registry.reset()
     registry.setStatus(200)
     const hadOwn = Object.prototype.hasOwnProperty.call(process.versions, 'electron')
     const previous = process.versions.electron
-    process.versions.electron = '37.10.3'
+    process.versions.electron = '44.0.0'
     vi.useFakeTimers()
     try {
       // 60 minutes, NOT the 30 used above: that case stamped its own cache entry
       // 30 minutes into the future (mocked clocks), so advancing the same amount
-      // would land exactly on it and silently serve ITS verdict — this assertion
-      // then passes even with the Electron branch ripped out (measured).
+      // would land exactly on it and silently serve ITS verdict — the assertion
+      // then passes even with the official-shell branch ripped out (measured).
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       const { status, body } = await getJson(UPDATE_ROUTE_PATH)
       expect(status).toBe(200)
       expect(body.env).toBe('desktop')
-      expect(typeof body.updateCommand).toBe('string')
+      expect(body.shell).toBe('official-desktop')
+      expect(body.updateCommand).toBeUndefined()
+      expect(typeof body.updateSpec).toBe('string')
+      expect(body.updateSpec).toMatch(/^@nonamelego\/dsh-catppuccin@(latest|beta)$/u)
       expect(typeof body.profile).toBe('string')
     } finally {
       vi.useRealTimers()
       if (hadOwn) process.versions.electron = previous
       else Reflect.deleteProperty(process.versions, 'electron')
+    }
+  })
+
+  // Same cache-warming caveat; 90 minutes because the two cases above stamped
+  // entries 30 and 60 minutes ahead. Provides the community launcher's service —
+  // which is why it runs dead last (the service stays on the context).
+  it('classifies the COMMUNITY shell by the launcher desktopProfiles service', async () => {
+    registry.reset()
+    registry.setStatus(200)
+    root.provide('desktopProfiles', { current: { name: 'desktop', dir: process.cwd() } })
+    vi.useFakeTimers()
+    try {
+      await vi.advanceTimersByTimeAsync(90 * 60 * 1000)
+      const { status, body } = await getJson(UPDATE_ROUTE_PATH)
+      expect(status).toBe(200)
+      expect(body.env).toBe('desktop')
+      expect(body.shell).toBe('community-desktop')
+      expect(typeof body.updateCommand).toBe('string')
+    } finally {
+      vi.useRealTimers()
     }
   })
 })

@@ -22,6 +22,58 @@ import { PACKAGE_NAME } from './update-check.ts'
 /** Fallback profile name when nothing can be probed (keeps the command valid). */
 export const FALLBACK_PROFILE = 'web'
 
+/** Which host owns the running profile process. Decides whether a CLI upgrade
+ *  command applies at all (the official Electron shell has no CLI path a user
+ *  can reach — see `docs/`/`AGENTS.md`「两个壳两条路」).
+ *
+ *  - `'web'` — plain Node (`dsh web` / CLI / headless).
+ *  - `'official-desktop'` — `deepseek-ai/deepseek-harness` 的 `apps/desktop`：
+ *    取证（2026-10-03，`resources/app.asar` 内 `desktopNodeEnvironment`）——
+ *    host 子进程的 env 只被写成 `{...壳自己的 env, ELECTRON_RUN_AS_NODE: '1'}`，
+ *    **不设** `DSH_DESKTOP_NODE_EXECUTABLE`（那段在 `bin === undefined` 时被跳过：
+ *    `desktopNodeEnvironment(this.node, void 0, this.environment)`），
+ *    `apps/desktop-host` 也不注册任何 cordis 服务（官方 0.2.0-rc.2 全套包里
+ *    `desktopProfiles` 命中 **0**）⇒ 它在 profile 进程里只剩
+ *    「Electron-as-node 运行时」这一条痕迹。
+ *  - `'community-desktop'` — `anywhere-labs/dsh-desktop`：Stable/Beta 通道的 launcher
+ *    注册 `desktopProfiles` 服务（`dsh-plugin-desktop/src/profile-service.ts`），
+ *    Next 通道的 host env 里放 `DSH_DESKTOP_NODE_EXECUTABLE`
+ *    （`dsh-desktop-next/src/host/index.ts`）——任一命中即可。
+ *
+ *  ⚠️ 判定顺序：**先两条社区信号，再拿 Electron 运行时尚余的当官方**。
+ *  代价与 `isDesktopShellEnv` 相同——「用 Electron 壳跑 dsh web」这类少见组合会落到
+ *  `official-desktop`，而误判只影响提示文案（不出现 CLI 命令），不出现危险动作。
+ */
+export type ShellKind = 'web' | 'official-desktop' | 'community-desktop'
+
+/** The community launcher's env marker (`dsh-desktop-next` sets it on the host,
+ *  and both community channels set it on package-install children). */
+function hasCommunityMarker(env: Record<string, string | undefined>): boolean {
+  const marker = env.DSH_DESKTOP_NODE_EXECUTABLE
+  return typeof marker === 'string' && marker.trim() !== ''
+}
+
+/**
+ * Classify the host that owns this profile process (see {@link ShellKind} for
+ * the evidence behind each branch).
+ * @param options - the inputs to classify on, all injectable for tests.
+ * @param options.env - the process environment to inspect.
+ * @param options.versions - `process.versions` to inspect (defaults to the running process's).
+ * @param options.desktopProfilesCurrent - `desktopProfiles.current.name` when the
+ *   community launcher exposes that service; `undefined` on the official shell.
+ * @returns the host kind.
+ */
+export function classifyShell(options: {
+  env: Record<string, string | undefined>
+  versions?: Record<string, string | undefined>
+  desktopProfilesCurrent?: string | undefined
+}): ShellKind {
+  const current = options.desktopProfilesCurrent
+  if (typeof current === 'string' && current.trim() !== '') return 'community-desktop'
+  if (hasCommunityMarker(options.env)) return 'community-desktop'
+  return isElectronRuntime(options.versions ?? process.versions) ? 'official-desktop' : 'web'
+}
+
 /** Whether this process runs inside Electron (Node mode included).
  *
  * Electron-as-node（`ELECTRON_RUN_AS_NODE=1`）**仍然**填 `process.versions.electron`
@@ -64,8 +116,7 @@ export function isDesktopShellEnv(
   env: Record<string, string | undefined>,
   versions: Record<string, string | undefined> = process.versions,
 ): boolean {
-  const marker = env.DSH_DESKTOP_NODE_EXECUTABLE
-  if (typeof marker === 'string' && marker.trim() !== '') return true
+  if (hasCommunityMarker(env)) return true
   return isElectronRuntime(versions)
 }
 

@@ -239,6 +239,13 @@ export function UpdateRow({
   // service and the hint/restart text says so, while standard dsh web keeps
   // the terminal copy.
   const isDesktop = payload?.ok === true && payload.env === 'desktop'
+  // The official Electron shell has no CLI path a user can reach (its Plugins
+  // page is the only way: delete → re-add the package name), so it gets the
+  // bare `pkg@tag` spec plus the page instructions instead of a shell command.
+  const officialDesktop = payload?.ok === true && payload.shell === 'official-desktop'
+  const upgradeValue = payload?.ok === true
+    ? (officialDesktop ? payload.updateSpec : payload.updateCommand)
+    : undefined
   const showConflict = conflicts > dismissedConflicts
 
   return (
@@ -371,14 +378,16 @@ export function UpdateRow({
                   <div style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 12, lineHeight: '18px' }}>
                     {t('update.available')} <strong>{payload.latest}</strong>
                   </div>
-                  {payload.updateCommand !== undefined && (
+                  {upgradeValue !== undefined && (
                     <>
                       <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                        {isDesktop
-                          ? t('update.commandHintDesktop').replace('{profile}', payload.profile ?? '')
-                          : payload.profileDetected === true && payload.profile !== undefined
-                            ? t('update.commandHintDetected').replace('{profile}', payload.profile)
-                            : t('update.commandHint')}
+                        {officialDesktop
+                          ? t('update.commandHintOfficialDesktop')
+                          : isDesktop
+                            ? t('update.commandHintDesktop').replace('{profile}', payload.profile ?? '')
+                            : payload.profileDetected === true && payload.profile !== undefined
+                              ? t('update.commandHintDetected').replace('{profile}', payload.profile)
+                              : t('update.commandHint')}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                         <code style={{
@@ -395,14 +404,14 @@ export function UpdateRow({
                           textOverflow: 'ellipsis',
                           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
                         }}>
-                          {payload.updateCommand}
+                          {upgradeValue}
                         </code>
                         <button
                           type="button"
-                          onClick={() => { void copyCommand(payload.updateCommand ?? '').then(setCopied) }}
+                          onClick={() => { void copyCommand(upgradeValue).then(setCopied) }}
                           style={{ ...buttonStyle, cursor: 'pointer' }}
                         >
-                          {copied ? t('update.copied') : t('update.copy')}
+                          {copied ? t('update.copied') : t(officialDesktop ? 'update.copySpec' : 'update.copy')}
                         </button>
                       </div>
                       {localInstall && (

@@ -257,6 +257,12 @@ In **Settings → General**, right below the **Glass** row:
 - Channel policy: stable builds follow the `latest` tag; prereleases follow both `latest`
   and `beta` (the upgrade command automatically carries `@beta`). Offline or network
   failures show the reason and offer a retry.
+- The upgrade path follows the **host**: the **official desktop build** (DeepSeek Harness
+  client) gets no command line — it has no reachable terminal — so this row shows the
+  **`package@channel`** spec and tells you to delete the plugin on the **Plugins** page and
+  reinstall it (the same path as the desktop section above). The **community desktop shell**
+  and **web** keep the copyable `dsh plugin …` command. The host classifies itself
+  (`web` / `community-desktop` / `official-desktop`); you do not pick.
 
 ## Glassmorphism
 

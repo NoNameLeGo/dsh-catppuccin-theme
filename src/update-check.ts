@@ -6,8 +6,12 @@
  */
 import { compareVersions, parseVersion } from './versions.ts'
 import type { UpdateChannel } from './state.ts'
+// Type-only (erased at build time): `update-check.ts` stays dependency-free for
+// both bundles while the payload can still name the host kind.
+import type { ShellKind } from './profile-detect.ts'
 
 export type { UpdateChannel } from './state.ts'
+export type { ShellKind } from './profile-detect.ts'
 
 /** The plugin's own npm name (the registry lookup key). */
 export const PACKAGE_NAME = '@nonamelego/dsh-catppuccin'
@@ -44,11 +48,27 @@ export interface NewestRelease {
  * pnpm forwarder). The profile name comes from the Host's runtime probe
  * (`src/profile-detect.ts`), never hard-coded, so the command works on any
  * deployment out of the box.
+ *
+ * ⚠️ **只适用于 `web` 与 `community-desktop`**（社区壳的应用内 DSH 终端里有效）。
+ * 官方 Electron 壳的用户没有可达的终端入口（`resources/runtime/cli/bin/dsh.cmd`
+ * 在代码上允许 `manageDesktopProfile: true`，但官方壳 UI 不提供终端），那条路改用
+ * {@link pluginSpecFor} + 应用内「插件」页重装。
  * @param channel - the dist-tag to chase.
  * @param profile - the DSH profile name to target.
  */
 export function updateCommandFor(channel: UpdateChannel, profile: string): string {
   return `dsh plugin --profile ${profile} add ${PACKAGE_NAME}@${channel}`
+}
+
+/**
+ * The value to paste into a plugin manager's "add plugin" field — the shape the
+ * official Electron shell's Plugins page accepts. Its 升级 path is
+ * 「先删除、再重新安装同一个包名」, so the spec (not a CLI command) is the
+ * copyable artefact there.
+ * @param channel - the dist-tag to chase.
+ */
+export function pluginSpecFor(channel: UpdateChannel): string {
+  return `${PACKAGE_NAME}@${channel}`
 }
 
 /**
@@ -131,8 +151,14 @@ export interface UpdateCheckPayload {
   outdated?: boolean
   /** The dist-tag the newest release came from. */
   channel?: UpdateChannel
-  /** Copyable CLI upgrade command (present when outdated). */
+  /** Copyable CLI upgrade command (present when outdated). Only on `web` and
+   *  `community-desktop` — the official shell has no reachable CLI path. */
   updateCommand?: string
+  /** `pkg@tag` spec for the Plugins page's "add plugin" field. Present instead
+   *  of {@link updateCommand} on the official desktop shell. */
+  updateSpec?: string
+  /** Which host answered the check (drives the copy). */
+  shell?: ShellKind
   /** DSH profile name the upgrade command targets (probed, not guessed). */
   profile?: string
   /** Whether the profile probe actually found the install (false = fallback). */

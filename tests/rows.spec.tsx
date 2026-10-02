@@ -205,6 +205,90 @@ describe('UpdateRow timestamp formatting', () => {
   })
 })
 
+/**
+ * Copy selection by host kind (2026-10-03). The official Electron shell has no
+ * CLI path a user can reach — its env carries no community marker and it
+ * registers no `desktopProfiles` service, so the Host classifies it as
+ * `official-desktop` and sends `updateSpec` (`pkg@tag`) INSTEAD of
+ * `updateCommand`. The row must then show the Plugins-page route (delete →
+ * re-add) rather than a command nobody there can run.
+ */
+describe('UpdateRow copy by host kind', () => {
+  function propsFor(payload: Record<string, unknown>) {
+    return {
+      t,
+      check: async () => payload,
+      autoCheck: () => false,
+      setAutoCheck: vi.fn(),
+      channel: () => 'latest',
+      setChannel: vi.fn(),
+      subscribePrefs: () => () => {},
+      lastAutoResult: () => null,
+      subscribeConflict: () => () => {},
+      conflictCount: () => 0,
+      activeLocale: () => 'zh',
+      subscribeLocale: () => () => {},
+    } as unknown as UpdateRowProps
+  }
+
+  const base = {
+    ok: true,
+    current: '0.5.9',
+    latest: '0.5.10-beta.0',
+    outdated: true,
+    channel: 'beta',
+    profile: 'desktop',
+    profileDetected: true,
+    installSource: 'registry',
+    code: 'ok',
+  } as const
+
+  it('offers the package spec + Plugins-page route on the official shell, never a CLI command', async () => {
+    render(<UpdateRow {...propsFor({
+      ...base,
+      shell: 'official-desktop',
+      env: 'desktop',
+      updateSpec: '@nonamelego/dsh-catppuccin@beta',
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: t('update.check') }))
+    await waitFor(() => { expect(screen.getByText('@nonamelego/dsh-catppuccin@beta')).toBeDefined() })
+    expect(screen.getByText(t('update.commandHintOfficialDesktop'))).toBeDefined()
+    // The copy button names what it actually copies.
+    expect(screen.getByRole('button', { name: t('update.copySpec') })).toBeDefined()
+    expect(screen.queryByRole('button', { name: t('update.copy') })).toBeNull()
+    // No CLI shape may leak into a shell where nobody can run it.
+    expect(screen.queryByText(/dsh plugin --profile/u)).toBeNull()
+  })
+
+  it('keeps the CLI command on the community shell (it has an in-app terminal)', async () => {
+    const command = 'dsh plugin --profile desktop add @nonamelego/dsh-catppuccin@beta'
+    render(<UpdateRow {...propsFor({
+      ...base,
+      shell: 'community-desktop',
+      env: 'desktop',
+      updateCommand: command,
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: t('update.check') }))
+    await waitFor(() => { expect(screen.getByText(command)).toBeDefined() })
+    // The hint interpolates the probed profile, so assert on the interpolated text.
+    expect(screen.getByText(t('update.commandHintDesktop').replace('{profile}', 'desktop'))).toBeDefined()
+    expect(screen.getByRole('button', { name: t('update.copy') })).toBeDefined()
+  })
+
+  it('keeps the terminal hint on plain web', async () => {
+    render(<UpdateRow {...propsFor({
+      ...base,
+      shell: 'web',
+      env: 'web',
+      profile: 'web',
+      updateCommand: 'dsh plugin --profile web add @nonamelego/dsh-catppuccin@beta',
+    })} />)
+    fireEvent.click(screen.getByRole('button', { name: t('update.check') }))
+    await waitFor(() => { expect(screen.getByText(t('update.commandHintDetected').replace('{profile}', 'web'))).toBeDefined() })
+    expect(screen.getByRole('button', { name: t('update.copy') })).toBeDefined()
+  })
+})
+
 /** GlassRow props with a fake injected face over one fixed snapshot. */
 function makeGlassRow(state: {
   enabled: boolean

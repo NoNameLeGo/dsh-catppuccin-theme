@@ -15,6 +15,7 @@ import {
   REGISTRY_PACKUMENT_URL,
   UPDATE_FETCH_TIMEOUT_MS,
   UPDATE_ROUTE_PATH,
+  pluginSpecFor,
   selectNewest,
   updateCommandFor,
   type UpdateChannel,
@@ -22,7 +23,7 @@ import {
   type UpdateEnv,
 } from '../update-check.ts'
 import { isUpdateAvailable } from '../versions.ts'
-import { detectProfile, isDesktopShellEnv } from '../profile-detect.ts'
+import { classifyShell, detectProfile, type ShellKind } from '../profile-detect.ts'
 
 // Minimal structural types for the parts of node:http and the webServer
 // service this plugin touches. The host bundle resolves cordis and friends
@@ -88,6 +89,11 @@ type FetchResult =
  *  `desktopProfiles.current` (launcher-resolved, authoritative), so the
  *  copied command targets the right profile there too.
  *
+ *  The `shell` decides WHICH artefact is copyable: `web` / `community-desktop`
+ *  get the CLI command (`dsh plugin --profile … add …`), the official Electron
+ *  shell gets the bare `pkg@tag` spec, because its 升级 path is the in-app
+ *  Plugins page (delete → re-add) and its users have no reachable terminal.
+ *
  * Failure classification (item U): a timed-out lookup (the abort fired) is
  *  `network.upstream` — the npm registry is temporarily unavailable; a
  *  fetch that throws outright (DNS / connection refused) stays
@@ -95,6 +101,7 @@ type FetchResult =
  *  the cached verdict without pulling the full packument again. */
 async function fetchLatestVersion(options: {
   env: UpdateEnv
+  shell: ShellKind
   channel?: UpdateChannel
   etag?: string
   desktopProfile?: DesktopProfilesLike['current']
@@ -106,6 +113,7 @@ async function fetchLatestVersion(options: {
   const base = {
     current,
     env: options.env,
+    shell: options.shell,
     profile: probe.name,
     profileDetected: probe.detected,
     installSource: probe.installSource,
@@ -179,7 +187,11 @@ async function fetchLatestVersion(options: {
       latest: newest.version,
       outdated,
       channel: newest.channel,
-      ...(outdated ? { updateCommand: updateCommandFor(newest.channel, probe.name) } : {}),
+      ...(outdated
+        ? options.shell === 'official-desktop'
+          ? { updateSpec: pluginSpecFor(newest.channel) }
+          : { updateCommand: updateCommandFor(newest.channel, probe.name) }
+        : {}),
     },
   }
 }
@@ -214,11 +226,11 @@ function cacheKeyOf(channel: UpdateChannel | undefined): CacheBucket {
 }
 
 /** Answer the update-check route with the JSON contract from update-check.ts.
- *  Recognizes BOTH desktop shells: the third-party launcher's optional
- *  `desktopProfiles` service (target profile = `desktopProfiles.current`,
- *  Desktop-flavoured hints) and the official Electron shell's environment
- *  marker (`DSH_DESKTOP_NODE_EXECUTABLE`, see `isDesktopShellEnv`). Otherwise
- *  it is the standard dsh web/CLI route and the web copy + profile scan apply.
+ *  Classifies the host into `web` / `community-desktop` / `official-desktop`
+ *  (see `classifyShell`) and shapes the upgrade copy accordingly: a CLI command
+ *  for the first two, the `pkg@tag` spec for the official Electron shell —
+ *  whose env marker is **absent** by construction, and where an in-app
+ *  Plugins-page reinstall is the only path a user can actually take.
  *
  *  The route itself is stateless about retries: item V's 30s auto-retry is
  *  scheduled by the settings row (an immediate route retry would just hang
@@ -234,19 +246,17 @@ async function handleUpdateCheck(ctx: Context, req: HttpRequestLike, res: HttpRe
   }
   const desktopProfiles = ctx.get('desktopProfiles') as DesktopProfilesLike | undefined
   const current = desktopProfiles?.current
-  // Three desktop signals, any one of them is enough (2026-09-24):
-  //  - the third-party launcher's `desktopProfiles` service;
-  //  - its `DSH_DESKTOP_NODE_EXECUTABLE` env marker (the `dsh-desktop-next`
-  //    rewrite sets that one too);
-  //  - the OFFICIAL Electron shell, which sets NEITHER — upstream injects that
-  //    variable into package-install children only, so its profile process is
-  //    recognized through the Electron runtime instead. Missing this last one
-  //    made official desktop builds fall back to the plain web copy while the
-  //    probed profile name was already correct.
-  const isDesktop = isDesktopShellEnv(process.env)
-    || (current?.name !== undefined && current.name !== '')
+  // Classify the host (see `classifyShell` for the evidence): two community
+  // signals first — the launcher's `desktopProfiles` service and its
+  // `DSH_DESKTOP_NODE_EXECUTABLE` host marker — then Electron-as-node as the
+  // official shell's only trace. The kind decides WHICH artefact is copyable:
+  // web / community get the CLI command, the official shell gets the `pkg@tag`
+  // spec for its in-app Plugins page.
+  const shell = classifyShell({ env: process.env, desktopProfilesCurrent: current?.name })
+  const isDesktop = shell !== 'web'
   const result = await fetchLatestVersion({
     env: isDesktop ? 'desktop' : 'web',
+    shell,
     channel,
     ...(entry?.etag !== undefined ? { etag: entry.etag } : {}),
     ...(isDesktop ? { desktopProfile: current } : {}),

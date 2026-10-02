@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   FALLBACK_PROFILE,
+  classifyShell,
   detectProfile,
   installSourceOf,
   isDesktopShellEnv,
@@ -81,6 +82,60 @@ describe('isDesktopShellEnv (both desktop signals)', () => {
   it('falls back to the real process environment when nothing is injected', () => {
     // vitest runs on plain Node.js: no launcher marker, no Electron runtime.
     expect(isDesktopShellEnv({})).toBe(false)
+  })
+})
+
+describe('classifyShell (which host owns this profile process)', () => {
+  it('classifies plain Node as web', () => {
+    expect(classifyShell({ env: { DSH_HOME: '/home/u/.dsh' }, versions: { node: '22.22.2' } })).toBe('web')
+    expect(classifyShell({ env: {}, versions: {} })).toBe('web')
+  })
+
+  it('classifies the community launcher by its desktopProfiles service', () => {
+    // `dsh-plugin-desktop` / `-beta` register `desktopProfiles`; its
+    // `current.name` is already what the profile probe consumes.
+    expect(classifyShell({
+      env: { DSH_HOME: '/home/u/.dsh' },
+      versions: { electron: '44.0.0' },
+      desktopProfilesCurrent: 'desktop',
+    })).toBe('community-desktop')
+  })
+
+  it('classifies the community launcher by its host env marker', () => {
+    // `dsh-desktop-next` sets DSH_DESKTOP_NODE_EXECUTABLE on the host process
+    // itself (`dsh-desktop-next/src/host/index.ts`).
+    expect(classifyShell({
+      env: { DSH_DESKTOP_NODE_EXECUTABLE: '/opt/dsh/electron' },
+      versions: { electron: '44.0.0' },
+    })).toBe('community-desktop')
+  })
+
+  it('classifies Electron WITHOUT either community signal as the official shell', () => {
+    // `apps/desktop-host`: the host env is `{...shell env, ELECTRON_RUN_AS_NODE: '1'}`
+    // (`desktopNodeEnvironment(this.node, void 0, …)` takes the `bin === undefined`
+    // branch and never sets the marker) and nothing is registered as a service, so
+    // Electron-as-node is the only trace left in the profile process.
+    expect(classifyShell({
+      env: { DSH_HOME: '/home/u/.dsh', ELECTRON_RUN_AS_NODE: '1' },
+      versions: { electron: '44.0.0', node: '24.18.1' },
+    })).toBe('official-desktop')
+  })
+
+  it('prefers the community branch when both kinds of signal are present', () => {
+    // Order matters: community signals are tested FIRST, otherwise a community
+    // shell that runs a modern Electron would be eaten by the official branch.
+    expect(classifyShell({
+      env: { DSH_DESKTOP_NODE_EXECUTABLE: '/opt/dsh/electron' },
+      versions: { electron: '44.0.0' },
+      desktopProfilesCurrent: 'desktop',
+    })).toBe('community-desktop')
+  })
+
+  it('treats a blank service name or blank marker as absent', () => {
+    expect(classifyShell({ env: {}, versions: { electron: '44.0.0' }, desktopProfilesCurrent: '' })).toBe('official-desktop')
+    expect(classifyShell({ env: {}, versions: { electron: '44.0.0' }, desktopProfilesCurrent: '   ' })).toBe('official-desktop')
+    // Blank marker + plain Node = web (no Electron, no community).
+    expect(classifyShell({ env: { DSH_DESKTOP_NODE_EXECUTABLE: '  ' }, versions: {} })).toBe('web')
   })
 })
 

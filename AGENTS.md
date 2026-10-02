@@ -111,11 +111,34 @@
 >   （官方壳 = `resources/runtime/cli/bin/dsh.cmd` → `dsh-desktop-host/lib/cli.js` 的 `runDesktopCli()`，
 >   同时把自带的 pnpm 11.7.0 作为 `packageManager` 传下去）。⚠️ **但维护者实测两个壳的路径互不通用**，
 >   所以 README 里**不要**给官方壳写 CLI 指令、也不要给社区壳写「删掉重装」。
-> - **⚠️ 已知未修（待维护者定文案）**：设置页「检查更新」给出的升级命令是
->   `dsh plugin --profile <profile> add @nonamelego/dsh-catppuccin@<channel>`
->   （`src/update-check.ts` 的 `updateCommandFor()`）——**社区壳终端里有效，官方壳里无效**。
->   插件**分辨不出是哪个壳**（两者都跑 Electron，profile 名都是 `desktop`），所以文案层没法自动分流；
->   要么改成一句同时覆盖两壳的话，要么在 `profile === 'desktop'` 时干脆不提 CLI（只写「在插件界面卸载后重装」）。
+> - **壳的判别（2026-10-03 定，取代早先「插件分辨不出是哪个壳」那句）**：`classifyShell()`
+>   （`src/profile-detect.ts`）把宿主分成 `web` / `community-desktop` / `official-desktop`——
+>   **先判两条社区信号，剩下的 Electron 运行时就当官方**：
+>
+>   | 信号（在 profile / host 进程里） | 官方壳 | 社区壳 Stable/Beta | 社区壳 Next | 纯 node |
+>   |---|---|---|---|---|
+>   | `DSH_DESKTOP_NODE_EXECUTABLE`（host env） | ❌ | ❌ | ✅ | ❌ |
+>   | `desktopProfiles` 服务（`current.name`） | ❌ | ✅ | ❌ | ❌ |
+>   | `process.versions.electron` | ✅ | ✅ | ✅ | ❌ |
+>   | **⇒ 判定** | `official-desktop` | `community-desktop` | `community-desktop` | `web` |
+>
+>   官方侧证据（2026-10-03，`resources/app.asar` 直接 grep）：host 子进程的 env 由
+>   `desktopNodeEnvironment(this.node, void 0, this.environment)` 生成 —— `bin === undefined` 走
+>   `{...壳 env, ELECTRON_RUN_AS_NODE: '1'}`，**不设**那个 marker；`desktopProfiles` 在官方 0.2.0-rc.2
+>   出厂包集合里 **0 命中**。社区侧：`dsh-desktop-next/src/host/index.ts` 给 host 设
+>   `DSH_DESKTOP_NODE_EXECUTABLE`，`dsh-plugin-desktop/src/profile-service.ts` 注册 `desktopProfiles`。
+>   顺序是判据的一部分：社区信号先判，否则跑新版 Electron 的社区壳会被官方分支吃掉。
+> - **升级文案按壳分流**（设置页「检查更新」）：`web` / `community-desktop` 给 CLI 命令
+>   （`updateCommandFor()` → payload 的 `updateCommand`）；`official-desktop` **不给命令**，
+>   改给 `pkg@tag` 包名（`pluginSpecFor()` → payload 的 `updateSpec`）+ 「插件界面里先删除、再重装」
+>   的指引（= README「桌面版」那条官方升级路径）。理由：官方壳用户**没有可达的终端入口**
+>   （`resources/runtime/cli/bin/dsh.cmd` 代码上允许 `manageDesktopProfile: true`，但壳 UI 不给终端）。
+>   护栏：`tests/profile-detect.spec.ts`（6 条判定）、`tests/e2e/update-check.e2e.spec.ts`（三种壳各一条
+>   真路由断言，含 `updateCommand`/`updateSpec` 的互斥）、`tests/rows.spec.tsx`（三种壳的渲染文案与按钮名）。
+>   三条支路都做过变异验证（删 desktopProfiles 分支 / Electron 恒返回 web / 客户端忽略 `official-desktop`）⇒ 会红。
+> - ⚠️ 缓存陷阱：e2e 里那三条壳断言**共用一个 cache bucket**，必须按 mock 时钟**递增**推进
+>   （30 / 60 / 90 分钟）。推同样的量会正好落在上一条自己 stamp 的未来时间点上，静默复用它的裁决 ⇒
+>   即使把分支删掉断言也绿（2026-09-24 实测到这个假绿，2026-10-03 把顺序写进注释）。
 > - 回答用户「升到最新版了吗」之前，先问清是哪个壳 + 走的哪条路。
 
 **⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
