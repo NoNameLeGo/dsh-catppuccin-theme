@@ -10,6 +10,18 @@
 
 ### 文档
 
+- **README 精简：把内部取证与开发向内容搬出用户文档**（2026-10-02，`README.md` 469 → 394 行、
+  `README.en.md` 500 → 429 行）。搬走的只有维护者才需要的东西，**用户须知一字未动**：
+  - 新建 **`docs/glass-mis-hits.md`**：兼容模式误命中的成因、只读取证探针脚本、临时止血的
+    `!important` 方案、反馈口径，以及 #16 / #17 / #19 三次收窄的历史表。README 的对应小节
+    压成「命中族表格 + 三步索引」（60 → 17 行），小节标题改为「兼容模式误命中了别的面？」。
+  - `## 开发` 与 `### 本地链接调试` 的命令清单、生成器（`generate-palettes.mjs` / `changelog:gen`）、
+    typedoc、本地 `link:` 调试步骤并入 **`CONTRIBUTING.md`** 新增的「常用命令」「本地链接调试」两节；
+    README 只留 5 条命令 + 两个指针（49 → 14 行）。
+  - 取舍说明：`package.json.files` 只含 `lib / themes / cordis.patch.yml / README.md / LICENSE`，
+    所以 `docs/` 与 `CONTRIBUTING.md` **不进 npm 包**——搬走的必须是开发者/取证类内容，
+    用户须知不能挪出 README。中英两版逐节对齐。
+
 - **重写「桌面版」段：官方桌面壳与社区桌面壳的安装/升级是两条互不通用的路径**（2026-10-02）。
   原段落写的是「把 `web` 换成 `desktop` 即可」，那是官方壳还没发布时读 monorepo 源码得出的结论，**已作废**：
   - **官方壳（DeepSeek Harness 客户端）**：安装 = 应用内**插件界面**填包名 `@nonamelego/dsh-catppuccin`；

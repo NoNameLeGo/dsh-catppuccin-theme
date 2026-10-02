@@ -249,65 +249,24 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
   变色；页面底色取当前主题纯色，背景亮度旋钮直接往纯色里调和白/黑；
 - **一键开关**：关闭即完全还原原生界面，插件卸载不留任何残留。
 
-### 兼容模式会命中哪些面
+### 兼容模式误命中了别的面？
 
-兼容模式靠**类名子串与语义属性**给宿主与第三方插件的悬浮面加玻璃，不需要任何插件配合——
+兼容模式靠**类名子串与语义属性**给宿主与第三方插件的悬浮面加玻璃，不需要插件配合——
 代价是子串匹配**无法区分「面」与「面里的行级容器」**。自 `0.5.8` 起，明确会被命中的族只剩这些：
 
 | 族 | 锚点 |
 |---|---|
-| 输入框卡片 | `[data-composer-card]`（宿主自己的属性；材质画在它的 `::before` 上，见 issue #19） |
+| 输入框卡片 | `[data-composer-card]`（材质画在它的 `::before` 上，见 issue #19） |
 | 菜单 | `[role='menu']` |
-| 弹出层 | `[class*='popover']` / `[class*='dropdown']`（这两个仍是子串） |
+| 弹出层 | `[class*='popover']` / `[class*='dropdown']`（仍是子串） |
 | 模态框 | `[role='dialog'][aria-modal='true']` |
 | 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |
 
-`0.5.8` 按证据把最宽的三族收窄掉了（宽泛的 `card` 子串、`panel` 子串、行级 tooltip，详见
-issue #17），但**第三方插件里新出现的类名仍可能被误命中**。默认收窄要讲证据，遇到时走下面三步。
-
-#### 1. 取证（只读，粘进浏览器控制台）
-
-列出当前所有被玻璃规则命中的元素、命中的规则原文与 computed 值：
-
-```js
-(() => {
-  const rules = []
-  for (const ss of document.styleSheets) {
-    let rs; try { rs = ss.cssRules } catch { continue }
-    for (const r of rs) if (r.selectorText && r.selectorText.includes('dsh-glass')) rules.push(r)
-  }
-  const out = []
-  for (const el of document.querySelectorAll('[class*="card"],[class*="panel"],[role="tooltip"]')) {
-    const hit = rules.filter(r => { try { return el.matches(r.selectorText) } catch { return false } })
-    if (!hit.length) continue
-    const cs = getComputedStyle(el), b = el.getBoundingClientRect()
-    if (b.width < 8 || b.height < 8) continue
-    out.push({ cls: String(el.className).slice(0, 48), w: Math.round(b.width), h: Math.round(b.height),
-               bf: cs.backdropFilter, bg: cs.backgroundColor,
-               rule: hit.map(x => x.style.cssText).join(' | ').slice(0, 60) })
-  }
-  console.table(out.slice(0, 40))
-})()
-```
-
-#### 2. 临时止血
-
-本插件**没有**「自定义 CSS」配置项（DSH 的 profile patch 层只能给插件写 `config`，没有通用样式入口；
-但**个别第三方插件自带样式入口**，例如 `dsh-better-sidebar@0.21.1` 的 `customCss`——它 gate 在自身的
-`titleBarScheme: 'custom'` 上、以 `data-dsh-custom-css` 注入，装了这类插件时也可以直接写在它的 `config` 里），
-所以这一步要用外部注入——浏览器扩展（Stylus / 暴力猴）或 DevTools 的 Overrides——加一条
-`!important` 规则把该族还原，例如：
-
-```css
-[class*='yourRow'] { backdrop-filter: none !important; background: none !important; outline: none !important; }
-```
-
-#### 3. 反馈
-
-把第 1 步的表格输出连同 DSH 与插件版本贴到
-[issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues)。`0.5.8` 就是这么修出来的：
-报告人给了逐元素的 computed 对照，我们据此收窄**默认**规则——这也是为什么没有「自定义 CSS」
-配置项：默认行为应该先是对的，配置项只能当补充。
+**第三方插件里新出现的类名仍可能被误命中**。遇到时走三步：**① 只读取证**（一段粘进控制台的探针脚本，
+列出命中的元素与规则）→ **② 临时止血**（外部注入一条 `!important` 还原；本插件**不**提供
+「自定义 CSS」配置项）→ **③ 反馈**（把取证输出连同 DSH 与插件版本提到
+[issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues)）。
+三步的完整说明、探针脚本与历史（#16 / #17 / #19）见 [docs/glass-mis-hits.md](docs/glass-mis-hits.md)。
 
 ### 环境限制：玻璃需要宿主提供可透出的底色
 
@@ -369,51 +328,17 @@ alias 101 / specific 11 / 非三族 1）全覆盖，含 0.2.0 新增的 17 个 a
 ## 开发
 
 ```sh
-pnpm install
-pnpm typecheck       # tsc --noEmit：src 的类型检查
-pnpm typecheck:tests # tsc --noEmit：tests 的类型检查（vitest 跑 esbuild，不做类型检查）
-pnpm test            # vitest 跑配色表 / 契约 / e2e 覆盖测试
-pnpm build           # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js（浏览器）
+pnpm install          # 装依赖
+pnpm typecheck        # tsc --noEmit：src 的类型检查
+pnpm typecheck:tests  # tsc --noEmit：tests 的类型检查
+pnpm test             # vitest
+pnpm build            # tsdown -> lib/index.js（服务端）+ lib/client.js（浏览器）
 ```
 
-配色表由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑
-（`--pin <sha>` 可把上游 commit SHA 写进 `palettes.ts` 头部，见
-`docs/plugin-improvements.md` 的 L 项）：
-
-```sh
-node scripts/generate-palettes.mjs [--pin <upstream-sha>]
-```
-
-CHANGELOG 草稿由 conventional 提交生成（提交正文里的 `EN:` 行会被渲染成英文摘要）：
-
-```sh
-pnpm changelog:gen            # 打印上一 tag 之后的草稿
-pnpm changelog:gen -- --write # 直接写入 [Unreleased] 节
-```
-
-对外 API（`./client`、`./tui-themes` 子路径导出）的 typedoc 文档**按需本地生成**到
-`docs/api/`（该目录不入库、已进 `.gitignore`；哪天真需要在线版本再接 CI 发布）：
-
-```sh
-pnpm docs:api
-```
-
-贡献指南见 [CONTRIBUTING.md](CONTRIBUTING.md)；状态契约的版本迁移约定见
-[docs/state-migrations.md](docs/state-migrations.md)。
-
-### 本地链接调试
-
-克隆到本地后，把包链接进 profile（把路径换成你自己的；`$DSH_HOME` 默认是 `~/.dsh`）：
-
-```sh
-pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
-# Windows 例：
-# pnpm --dir C:\Users\<you>\.dsh\profiles\web add link:D:\dev\dsh-catppuccin
-```
-
-再把 `@nonamelego/dsh-catppuccin` 加进 profile `package.json` 的
-`dsh.profile.bundles`，重启 `dsh web`。DSH Desktop 用
-`~/.dsh/profiles/desktop` 对应路径。
+配色表由 `scripts/generate-palettes.mjs` 生成，**不要手改** `src/client/palettes.ts`；
+CHANGELOG 草稿由 `pnpm changelog:gen` 从 conventional 提交里产出。
+完整命令清单、生成器与 typedoc、本地 link 调试见 [CONTRIBUTING.md](CONTRIBUTING.md)；
+状态契约的版本迁移约定见 [docs/state-migrations.md](docs/state-migrations.md)。
 
 ## 🙋 常见问题
 

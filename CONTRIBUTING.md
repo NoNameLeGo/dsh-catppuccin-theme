@@ -19,7 +19,52 @@ Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取�
 | 契约 | `src/state.ts`、`src/update-check.ts` | 两个 half 共享、无运行时依赖 |
 | 持久化写侧 | `src/client/state-sync.ts` | settings 文档的 revision-fenced 原子写 + 多标签页读侧一致性 |
 
-开发命令：`pnpm install` → `pnpm typecheck` → `pnpm test` → `pnpm build`。
+## 常用命令
+
+```sh
+pnpm install
+pnpm typecheck       # tsc --noEmit：src 的类型检查
+pnpm typecheck:tests # tsc --noEmit：tests 的类型检查（vitest 跑 esbuild，不做类型检查）
+pnpm test            # vitest 跑配色表 / 契约 / e2e 覆盖测试
+pnpm build           # tsdown 构建 -> lib/index.js（服务端）+ lib/client.js（浏览器）
+```
+
+配色表由生成器脚本产出——修改 `scripts/generate-palettes.mjs` 后重跑
+（`--pin <sha>` 可把上游 commit SHA 写进 `palettes.ts` 头部，见
+`docs/plugin-improvements.md` 的 L 项）：
+
+```sh
+node scripts/generate-palettes.mjs [--pin <upstream-sha>]
+```
+
+CHANGELOG 草稿由 conventional 提交生成（提交正文里的 `EN:` 行会被渲染成英文摘要）：
+
+```sh
+pnpm changelog:gen            # 打印上一 tag 之后的草稿
+pnpm changelog:gen -- --write # 直接写入 [Unreleased] 节
+```
+
+对外 API（`./client`、`./tui-themes` 子路径导出）的 typedoc 文档**按需本地生成**到
+`docs/api/`（该目录不入库、已进 `.gitignore`；哪天真需要在线版本再接 CI 发布）：
+
+```sh
+pnpm docs:api
+```
+
+## 本地链接调试
+
+克隆到本地后，把包链接进 profile（把路径换成你自己的；`$DSH_HOME` 默认是 `~/.dsh`）：
+
+```sh
+pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
+# Windows 例：
+# pnpm --dir C:\Users\<you>\.dsh\profiles\web add link:D:\dev\dsh-catppuccin
+```
+
+再把 `@nonamelego/dsh-catppuccin` 加进 profile `package.json` 的
+`dsh.profile.bundles`，重启 `dsh web`。两个桌面壳用 `~/.dsh/profiles/desktop` 对应路径
+（装/升方式见 README 的「安装 → 桌面版」表；注意 `desktop` 这个 profile 名**不能**用系统
+PATH 上的 `dsh` 管理）。
 
 ## 怎么加一个风味（flavor）
 

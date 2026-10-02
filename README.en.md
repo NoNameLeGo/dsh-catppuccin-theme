@@ -280,7 +280,7 @@ What this plugin does:
 - **One-click toggle**: off restores the stock UI exactly; uninstalling the plugin leaves
   nothing behind.
 
-### What Compatibility mode matches
+### When Compatibility mode matches the wrong surface
 
 Compatibility mode frosts host and third-party floating surfaces through **class substrings and
 semantic attributes**, needing no cooperation from other plugins — the price is that a substring
@@ -289,54 +289,19 @@ matches are exactly these:
 
 | Family | Anchor |
 |---|---|
-| Composer card | `[data-composer-card]` (the host's own attribute) |
+| Composer card | `[data-composer-card]` (the material is painted on its `::before`, see issue #19) |
 | Menus | `[role='menu']` |
 | Popovers | `[class*='popover']` / `[class*='dropdown']` (still substrings) |
 | Modal dialogs | `[role='dialog'][aria-modal='true']` |
 | Host right sidebar (open state only) | `[data-sidebar-right-panel][data-sidebar-right-open]` |
 
-`0.5.8` narrowed the three widest families out of the sheet on evidence (the `card` substring, the
-`panel` substring and row-level tooltips — see issue #17), but a **new class name in a third-party
-plugin can still be misread**. Defaults only change with evidence, so when you hit one:
-
-**1. Collect evidence** (read-only — paste into the browser console). Lists every element the glass
-rules match, the matched rule text and its computed values:
-
-```js
-(() => {
-  const rules = []
-  for (const ss of document.styleSheets) {
-    let rs; try { rs = ss.cssRules } catch { continue }
-    for (const r of rs) if (r.selectorText && r.selectorText.includes('dsh-glass')) rules.push(r)
-  }
-  const out = []
-  for (const el of document.querySelectorAll('[class*="card"],[class*="panel"],[role="tooltip"]')) {
-    const hit = rules.filter(r => { try { return el.matches(r.selectorText) } catch { return false } })
-    if (!hit.length) continue
-    const cs = getComputedStyle(el), b = el.getBoundingClientRect()
-    if (b.width < 8 || b.height < 8) continue
-    out.push({ cls: String(el.className).slice(0, 48), w: Math.round(b.width), h: Math.round(b.height),
-               bf: cs.backdropFilter, bg: cs.backgroundColor,
-               rule: hit.map(x => x.style.cssText).join(' | ').slice(0, 60) })
-  }
-  console.table(out.slice(0, 40))
-})()
-```
-
-**2. Stop the bleeding locally.** The plugin has **no** "custom CSS" option (DSH's profile patch
-layer can only write plugin `config` — there is no generic style entry point), so this needs an
-external injector: a browser extension (Stylus / Violentmonkey) or DevTools Overrides with an
-`!important` rule, e.g.
-
-```css
-[class*='yourRow'] { backdrop-filter: none !important; background: none !important; outline: none !important; }
-```
-
-**3. Report it.** Paste step 1's output plus your DSH and plugin versions into
-[issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues). That is how `0.5.8` was built:
-the reporter supplied per-element computed values and we narrowed the **defaults** — which is also
-why there is no "custom CSS" option: the default should be right first, an escape hatch is only a
-supplement.
+**A new class name in a third-party plugin can still be misread.** When you hit one, work through three
+steps: **① collect evidence** (a probe snippet you paste into the console, listing every matched element
+and rule) → **② temporary relief** (inject an `!important` override from outside; this plugin
+deliberately ships **no** "custom CSS" option) → **③ report** (attach the evidence plus your DSH and
+plugin versions to [issues](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues)).
+The full write-up, the probe snippet and the history (#16 / #17 / #19) live in
+[docs/glass-mis-hits.md](docs/glass-mis-hits.md).
 
 ### Environment limit: glass needs a see-through base from the host
 
@@ -404,53 +369,18 @@ The machine-readable form of the above is `dsh.compatibility` (`dsh` / `dshRelea
 ## Development
 
 ```sh
-pnpm install
-pnpm typecheck       # tsc --noEmit: type check for src
-pnpm typecheck:tests # tsc --noEmit: type check for the specs (vitest transpiles, it never type checks)
-pnpm test            # vitest palette-coverage tests
-pnpm build           # tsdown build -> lib/index.js (host) + lib/client.js (browser)
+pnpm install          # install dependencies
+pnpm typecheck        # tsc --noEmit for src
+pnpm typecheck:tests  # tsc --noEmit for tests
+pnpm test             # vitest
+pnpm build            # tsdown -> lib/index.js (host) + lib/client.js (browser)
 ```
 
-Palettes are produced by a generator script — after editing
-`scripts/generate-palettes.mjs`, rerun:
-
-```sh
-node scripts/generate-palettes.mjs
-```
-
-The changelog draft is generated from your conventional commits (bilingual `EN:` support
-in commit bodies):
-
-```sh
-pnpm changelog:gen            # print the draft since the last tag
-pnpm changelog:gen -- --write # write it into the [Unreleased] section
-```
-
-TypeDoc docs for the public API (`./client`, `./tui-themes` subpath exports) are generated
-locally on demand into `docs/api/` (that directory is **not** committed — it's in
-`.gitignore`; wire up CI Pages publishing later if an online copy is ever wanted):
-
-```sh
-pnpm docs:api
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guide and
-[docs/state-migrations.md](docs/state-migrations.md) for the state versioning contract.
-
-### Local link debugging
-
-Clone the repo, link it into a profile and add it to the bundles (use your own paths;
-`$DSH_HOME` defaults to `~/.dsh`):
-
-```sh
-pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
-# Windows example:
-# pnpm --dir C:\Users\<you>\.dsh\profiles\web add link:D:\dev\dsh-catppuccin
-```
-
-Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`
-`dsh.profile.bundles` and restart `dsh web`. For DSH Desktop use
-`~/.dsh/profiles/desktop` instead.
+The palette table is generated by `scripts/generate-palettes.mjs` — **never hand-edit**
+`src/client/palettes.ts`; CHANGELOG drafts come from `pnpm changelog:gen`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full command list, the generators, typedoc and local
+link debugging; state-contract migration rules are in
+[docs/state-migrations.md](docs/state-migrations.md).
 
 ## 🙋 FAQ
 
