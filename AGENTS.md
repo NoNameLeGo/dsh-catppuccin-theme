@@ -111,6 +111,11 @@
 >   （官方壳 = `resources/runtime/cli/bin/dsh.cmd` → `dsh-desktop-host/lib/cli.js` 的 `runDesktopCli()`，
 >   同时把自带的 pnpm 11.7.0 作为 `packageManager` 传下去）。⚠️ **但维护者实测两个壳的路径互不通用**，
 >   所以 README 里**不要**给官方壳写 CLI 指令、也不要给社区壳写「删掉重装」。
+> - **⚠️ 已知未修（待维护者定文案）**：设置页「检查更新」给出的升级命令是
+>   `dsh plugin --profile <profile> add @nonamelego/dsh-catppuccin@<channel>`
+>   （`src/update-check.ts` 的 `updateCommandFor()`）——**社区壳终端里有效，官方壳里无效**。
+>   插件**分辨不出是哪个壳**（两者都跑 Electron，profile 名都是 `desktop`），所以文案层没法自动分流；
+>   要么改成一句同时覆盖两壳的话，要么在 `profile === 'desktop'` 时干脆不提 CLI（只写「在插件界面卸载后重装」）。
 > - 回答用户「升到最新版了吗」之前，先问清是哪个壳 + 走的哪条路。
 
 **⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
