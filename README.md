@@ -117,29 +117,30 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 装完重启 `dsh web` 即可，`dsh plugin` 会自动把它加进 profile 的 bundles。
 其他 profile 把命令里的 `web` 换成对应名字即可（如 `headless`）。
 
-**桌面版**：桌面端默认激活的 profile 就叫 `desktop`（`$DSH_HOME/profiles/desktop`），
-把命令里的 `web` 换成 `desktop` 即可：
+**桌面版**：官方桌面壳与社区桌面壳都读**同一个 profile** `$DSH_HOME/profiles/desktop`，但
+**两者装/升插件的方式完全不同、也不通用**——按你用的壳选一列：
 
-```sh
-dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
-```
+| | 官方桌面壳（DeepSeek Harness 客户端） | 社区桌面壳（DSH Desktop） |
+|---|---|---|
+| **安装** | 应用内的**插件界面** → 添加插件 → 填包名 `@nonamelego/dsh-catppuccin`（也接受 Git 地址 / 压缩包 / 本地路径） | 在应用打开的 **DSH 终端**里执行命令：<br>`dsh plugin --profile desktop add @nonamelego/dsh-catppuccin` |
+| **升级** | **先在插件界面里把插件删除，再重新填一遍同一个包名安装**（v0.2.0 没有升级入口，也没有版本选择器） | 与 web 同一条更新命令：<br>`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin` |
+| 谁执行 pnpm | 应用自带的 pnpm | 应用自带的 pnpm |
 
-在桌面的 **DSH 终端**里运行即可（`dsh plugin` 默认作用于当前激活的 profile，
-若在托盘里选了别的 profile 就换成那个名字），装完**重启桌面应用**生效。
-从仓库安装的方式同理：`dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`。
+两种方式改完都要**重启桌面应用**才会加载新版本。
 
-> ⚠️ **官方桌面版（Electron 壳）怎么升级**：壳里不走 CLI 那条路——请在**插件管理界面里先把本插件删除，
-> 再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用才会加载新版本。
-> 直接 `dsh plugin --profile desktop update` 或重新 `add` 在壳里不会生效。
+> ⚠️ **两列别混用**：官方壳的插件界面不执行命令；社区壳那条 `update` 命令对官方壳也不适用。
+> 另外，**系统 PATH 上那个普通 `dsh` 两个壳都管不了 `desktop`**——上游把 `desktop` 当自己保留的
+> profile，会直接报 `error: profile "desktop" is managed exclusively by the Electron application`。
+> 想用 CLI 管就用别的 profile 名（`web`、`headless`、`dsh-tui`）。
 
 > **两个桌面壳，同一个 profile**：官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-> 仓库里的 `apps/desktop` / `apps/desktop-host`（Electron，仍在开发中）与社区的
-> [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 都启动
-> `$DSH_HOME/profiles/desktop`，所以**上面的命令对两者都成立**。本插件的桌面支持以
+> 的 `apps/desktop` / `apps/desktop-host`（Electron）与社区的
+> [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 都启动
+> `$DSH_HOME/profiles/desktop`，所以装好的插件两边都能用。本插件的桌面支持以
 > **官方 web + 官方 desktop** 为维护核心；社区壳的 `desktopProfiles` 服务探测也保留。
 > 但官方壳的 profile 进程**没有**专用的环境标记（它的 `DSH_DESKTOP_NODE_EXECUTABLE` 只注入给
 > 包安装子进程），所以本插件改为识别 **Electron-as-node 运行时**（`process.versions.electron`）
-> 来判定官方桌面版——升级提示里的 profile 名与文案因此是对的；设置的读写不受影响。
+> 来判定官方桌面版；设置的读写不受影响。
 
 ### 方式二：从仓库安装
 
@@ -149,6 +150,9 @@ dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 
 从 git 安装时 pnpm 可能要求允许构建脚本——按 pnpm 的提示把对应包加进 profile
 `pnpm-workspace.yaml` 的 `allowBuilds` 后重跑一次即可。
+
+桌面版同理，但按上面的表走：**官方壳**在插件界面里直接填 Git 地址；**社区壳**把这条命令的
+`dsh plugin --profile web add …` 换成 `dsh plugin --profile desktop add …`。
 
 ### dsh-TUI（终端版）主题
 
@@ -179,7 +183,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 ## 使用
 
-1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）；在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中则直接打开桌面应用即可。
+1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）；在 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 中则直接打开桌面应用即可。
 2. 进入 **设置 → 常规**。
 3. 在 **外观** 区域下方找到 **Catppuccin** 行，选择主题：
    **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
@@ -440,11 +444,11 @@ pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
   A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
   发现新版会给出可复制的升级命令；也可以随时手动执行
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin`
-  （或重新 `add` 最新版）。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中，把 `web` 换成 `desktop`
-  （`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin`），
-  或者直接在 DSH 终端里运行 `dsh plugin update`（默认作用于当前 profile）。
-  ⚠️ **官方桌面版例外**：壳里请走插件管理界面——**先把本插件删除，再重新输入 npm 包名
-  `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用；壳不认 `dsh plugin update` 这条路径。
+  （或重新 `add` 最新版）。
+  **桌面版要分壳**：社区壳 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 在应用内的
+  DSH 终端里用同一条命令（把 `web` 换成 `desktop`）；**官方壳没有升级入口**——要在插件界面里
+  **先删掉本插件，再重新填一遍包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启应用。
+  两种方式不通用，详见上面「安装 → 桌面版」的对照表。
 
 ## 💝 致谢
 

@@ -60,9 +60,9 @@
 | 上游位置 | 是什么 | 与本插件的关系 |
 |---|---|---|
 | `apps/web` | Web GUI（`dsh web` / `web` profile） | **核心**：`--dsw-*` token 体系与玻璃层的适配对象 |
-| `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`，0.1.7-alpha.1，**尚未发 npm**），启动 `$DSH_HOME/profiles/desktop` | **核心**：装法与本插件支持同社区桌面壳一致（`--profile desktop`） |
-| `apps/cli` → npm `@deepseek-ai/dsh` | CLI：profile 启动 / `dsh plugin` 转发 pnpm | 安装与更新检查的宿主 |
-| （社区）`anywhere-labs/dsh-desktop`（原名 `deepseek-harness-desktop`） | 第三方桌面壳，**同一个 `profiles/desktop` 路径**；`dsh-desktop-next/` 是它的重写版 | 兼容保留，非核心 |
+| `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`；**已作为客户端发行**，2026-10-02 本机装机版 = `@deepseek-ai/dsh-desktop@0.2.0-rc.2`，仍在开发迭代），启动 `$DSH_HOME/profiles/desktop` | **核心**：装/升走**应用内插件界面**（见下「两个壳两条路」），**不是** `--profile desktop` 那条命令 |
+| `apps/cli` → npm `@deepseek-ai/dsh` | CLI：profile 启动 / `dsh plugin` 转发 pnpm | 安装与更新检查的宿主；⚠️ **对 `desktop` 这个 profile 名会硬拒**（见下） |
+| （社区）`anywhere-labs/dsh-desktop`（原名 `deepseek-harness-desktop`） | 第三方桌面壳，**同一个 `profiles/desktop` 路径**；yarn workspace 含 `dsh-plugin-desktop` / `dsh-desktop-next` / `dsh-community-market`（内置插件市场）等 | 兼容保留，非核心；装/升**走应用内 DSH 终端的命令**（见下） |
 
 **两个桌面壳都不是「另一个 DSH」**（2026-09-24 核对，别按印象写）：
 
@@ -95,11 +95,23 @@
 > 另：`cordis_inspect_query` 的 client Service **目录不是全集**（`configForms` 就不在里面，但 0.2.0 里一堆官方包在用它）
 > ⇒ 别拿目录当「服务不存在」的证据。
 >
-> **⚠️ 官方桌面壳里升级插件不走 CLI（维护者 2026-10-02 报告）**：壳的插件管理界面自带安装/卸载，
-> 但**不认** `dsh plugin --profile desktop update` 或重新 `add`。升级路径 = **在插件界面里先删除本插件，
-> 再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后**重启桌面应用**才加载新版本。
-> README / README.en 的「桌面版」段与 FAQ「怎么升级」两处都写明了这条；回答用户「升到最新版了吗」之前
-> 先确认他走的是哪条路（CLI profile 还是壳内界面）。
+> **⚠️ 桌面版装/升插件：两个壳两条路，互不通用（2026-10-02 复核 + 维护者实测）**
+> - **官方壳（Electron）**：**安装** = 应用内**插件界面**填包名 `@nonamelego/dsh-catppuccin`；
+>   **升级** = 在插件界面里**先删除、再重新填一遍同一个包名安装**（v0.2.0 既无升级入口也无版本选择器，
+>   上游 UI 自己的话是「插件安装后暂不支持自动更新：升级需先卸载再安装新版」）。
+> - **社区壳（`anywhere-labs/dsh-desktop`，仓库已从 `deepseek-harness-desktop` 改名）**：
+>   **安装/升级都走命令**——应用内 **Open DSH Terminal** 里 `dsh plugin --profile desktop add|update @nonamelego/dsh-catppuccin`
+>   （壳在终端里生成私有 `dsh`/`pnpm`/`node` shim，PATH 只对该终端生效）；图形侧还有内置的
+>   Community Market（只有「安装/卸载」，没有升级）。
+> - **系统 PATH 上的普通 `dsh` 两个壳都管不了 `desktop`**：`@deepseek-ai/dsh/lib/bin.js` 的
+>   `parseDshArgs(argv, version, manageDesktopProfile = false)` 在 `manageDesktopProfile` 为 false 时调
+>   `rejectElectronProfile()` → `error: profile "desktop" is managed exclusively by the Electron application`
+>   （按名字硬拒、大小写不敏感）。实测：`node <0.2.0-rc.2>/lib/bin.js plugin --profile desktop list` 报上面这句，
+>   `--profile web list` 正常。**只有桌面壳自己的 CLI 入口会传 `manageDesktopProfile: true`**
+>   （官方壳 = `resources/runtime/cli/bin/dsh.cmd` → `dsh-desktop-host/lib/cli.js` 的 `runDesktopCli()`，
+>   同时把自带的 pnpm 11.7.0 作为 `packageManager` 传下去）。⚠️ **但维护者实测两个壳的路径互不通用**，
+>   所以 README 里**不要**给官方壳写 CLI 指令、也不要给社区壳写「删掉重装」。
+> - 回答用户「升到最新版了吗」之前，先问清是哪个壳 + 走的哪条路。
 
 **⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
 「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」（多浏览器、清站点数据、第二个实例落到 43121 这类

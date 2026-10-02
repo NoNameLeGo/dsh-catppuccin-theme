@@ -10,11 +10,20 @@
 
 ### 文档
 
-- 补「官方桌面版（Electron 壳）升级要走插件界面」这条（2026-10-02，维护者报告）：壳里**不认**
-  `dsh plugin --profile desktop update`，也不认重新 `add`；升级路径 = **在插件管理界面里先删除本插件，
-  再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用才会加载新版本。
-  `README.md` / `README.en.md` 的「桌面版」段与 FAQ「怎么升级」两处都写明了；`AGENTS.md` 的
-  「官方桌面壳的插件相关契约」节也记了一条，避免以后再拿 CLI 的升级路径去回答壳里的用户。
+- **重写「桌面版」段：官方桌面壳与社区桌面壳的安装/升级是两条互不通用的路径**（2026-10-02）。
+  原段落写的是「把 `web` 换成 `desktop` 即可」，那是官方壳还没发布时读 monorepo 源码得出的结论，**已作废**：
+  - **官方壳（DeepSeek Harness 客户端）**：安装 = 应用内**插件界面**填包名 `@nonamelego/dsh-catppuccin`；
+    升级 = 在界面里**先删除、再重新填一遍包名安装**（v0.2.0 没有升级入口、也没有版本选择器，上游 UI 原话
+    「插件安装后暂不支持自动更新：升级需先卸载再安装新版」）。
+  - **社区壳（[DSH Desktop](https://github.com/anywhere-labs/dsh-desktop)，仓库已从 `deepseek-harness-desktop` 改名）**：
+    安装/升级都走命令 —— 应用内 **Open DSH Terminal** 里 `dsh plugin --profile desktop add|update @nonamelego/dsh-catppuccin`。
+  - 补充一条避免踩坑的事实：**系统 PATH 上的普通 `dsh` 两个壳都管不了 `desktop`**，会直接报
+    `error: profile "desktop" is managed exclusively by the Electron application`
+    （`@deepseek-ai/dsh/lib/bin.js` 的 `rejectElectronProfile()`，只有桌面壳自己的 CLI 入口才传
+    `manageDesktopProfile: true`）；想用 CLI 就用 `web` / `headless` / `dsh-tui` 等其他 profile 名。
+  `README.md` / `README.en.md` 的安装段（两壳对照表）与 FAQ「怎么升级」都已改写；`AGENTS.md` 的
+  「官方桌面壳的插件相关契约」节记下了完整判定链与取证方法。顺带把仓库里 5 处指向社区壳旧仓库名的链接
+  改到 `anywhere-labs/dsh-desktop`。
 
 ## [0.5.9] - 2026-10-02
 

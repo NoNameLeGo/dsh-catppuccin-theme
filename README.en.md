@@ -125,27 +125,29 @@ dsh plugin --profile web add @nonamelego/dsh-catppuccin
 Restart `dsh web` after installing — `dsh plugin` adds it to the profile's bundles.
 Use the profile name of your choice in place of `web` (e.g. `headless`).
 
-**Desktop**: the desktop build's active profile is named `desktop`
-(`$DSH_HOME/profiles/desktop`), so run:
+**Desktop**: the official desktop shell and the community desktop shell both read the **same profile**
+`$DSH_HOME/profiles/desktop`, but **they install/upgrade plugins in completely different, non-interchangeable
+ways** — pick the column that matches your shell:
 
-```sh
-dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
-```
+| | Official desktop shell (DeepSeek Harness app) | Community shell (DSH Desktop) |
+|---|---|---|
+| **Install** | Its **plugin UI** → add plugin → enter the package name `@nonamelego/dsh-catppuccin` (Git URLs / tarballs / local paths are accepted too) | In the app's own **DSH terminal**:<br>`dsh plugin --profile desktop add @nonamelego/dsh-catppuccin` |
+| **Upgrade** | **Remove the plugin in the plugin UI, then enter the same package name again to reinstall it** (v0.2.0 has no upgrade entry point and no version picker) | The same `update` command as web:<br>`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin` |
+| Runs pnpm | The app's bundled pnpm | The app's bundled pnpm |
 
-Run it in the DSH terminal of the desktop app (`dsh plugin` defaults to the active profile),
-then restart the app.
-Installing from the repo works the same way: `dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`.
+Either way, **restart the desktop app** to load the new version.
 
-> ⚠️ **Upgrading on the official desktop build (the Electron shell)** does not go through the CLI:
-> open the **plugin manager UI, remove this plugin, then re-enter the npm package name
-> `@nonamelego/dsh-catppuccin` to install it**, and restart the app to load the new version.
-> `dsh plugin --profile desktop update` (or re-`add`) has no effect inside the shell.
+> ⚠️ **Do not mix the columns**: the official shell's plugin UI does not run commands, and the community
+> shell's `update` command does not apply to the official shell. Also, **the plain `dsh` on your system PATH
+> cannot manage `desktop` in either shell** — upstream reserves that profile name and rejects it with
+> `error: profile "desktop" is managed exclusively by the Electron application`. To use the CLI, use another
+> profile name (`web`, `headless`, `dsh-tui`).
 
 > **Two desktop shells, one profile**: the official
 > [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) monorepo ships
-> `apps/desktop` / `apps/desktop-host` (Electron, still in development), and the community
-> [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) does the same — both boot
-> `$DSH_HOME/profiles/desktop`, so the command above works for either. This plugin's desktop support
+> `apps/desktop` / `apps/desktop-host` (Electron), and the community
+> [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) does the same — both boot
+> `$DSH_HOME/profiles/desktop`, so a plugin installed once works in either. This plugin's desktop support
 > targets the **official web + desktop** builds; the community shell's `desktopProfiles` service probe
 > is kept. The official shell's profile process carries **no** dedicated env marker (its
 > `DSH_DESKTOP_NODE_EXECUTABLE` is injected only into its package-install children), so the plugin
@@ -161,6 +163,10 @@ dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 
 When installing from git, pnpm may ask you to allow build scripts — follow pnpm's prompt
 and add the package to the profile's `pnpm-workspace.yaml` `allowBuilds`, then run it again.
+
+On desktop, follow the table above instead: the **official shell** takes the Git URL directly in its
+plugin UI, while the **community shell** runs the same command with
+`dsh plugin --profile desktop add …`.
 
 ### dsh-TUI (terminal) themes
 
@@ -464,11 +470,12 @@ Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`
   A: Settings → General → **Check Catppuccin plugin updates** compares against npm in one
   click and gives a copyable upgrade command; or run
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin` manually (re-`add` the
-  latest version works too). In [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop),
-  use `desktop` as the profile name, or just run `dsh plugin update` in the app's DSH terminal.
-  ⚠️ **Exception — the official desktop build**: upgrade from its **plugin manager UI** instead
-  (**remove this plugin, then re-enter the npm package name `@nonamelego/dsh-catppuccin`**),
-  then restart the app; the shell does not honour `dsh plugin update`.
+  latest version works too). **Desktop depends on which shell you use**: the community
+  [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) runs that same command in the app's own
+  DSH terminal (with `desktop` as the profile name), while the **official shell has no upgrade entry
+  point** — **remove the plugin in its plugin UI, then enter the package name
+  `@nonamelego/dsh-catppuccin` again to reinstall**, and restart the app. The two routes are not
+  interchangeable; see the table under Install → Desktop.
 
 ## 💝 Credits
 
