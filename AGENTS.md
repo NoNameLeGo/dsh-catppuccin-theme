@@ -161,14 +161,18 @@
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.5.8`**（2026-09-28），`beta` = **`0.5.9-beta.1`**（2026-10-01）。
-> **`0.5.9-beta.0/1` = 上游 0.2.0 线适配 + 玻璃模式切换两条修复 + 命令面板毛玻璃**：前两项随 `-beta.0`
+> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.9-beta.1`**（0.5.9 的最后一个预发布，2026-10-01）。
+> **`0.5.9`（2026-10-02，当前 latest）= 上游 0.2.0 线适配 + 玻璃模式切换两条修复 + 命令面板毛玻璃**：前两项随 `0.5.9-beta.0`
 > （补 18 个漏映射 token 至 190/190 全覆盖、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐、「切云母/兼容会闪一下」
-> 与「切得快时第二次被回滚」），第三项随 `-beta.1`（issue #19：composer 的材质搬到 `::before` 材质面，
-> 让 `[data-trigger-menu]` 脱离 backdrop root，实测面板区 stdev 31.58 → 0.00）。前身 `beta` = **`0.5.7-beta.0`**（2026-09-24 下半场，内容为 `0.5.7` 的真子集：
+> 与「切得快时第二次被回滚」），第三项随 `0.5.9-beta.1`（issue #19：composer 的材质搬到 `::before` 材质面，
+> 让 `[data-trigger-menu]` 脱离 backdrop root，实测面板区 stdev 31.58 → 0.00）。**转正时与 `0.5.9-beta.1` 零代码差异**，
+> 唯一新增改动是 `vitest.config.ts` 的 `hookTimeout: 60_000`（本机满载时 `tests/tui-themes.spec.ts` 的 `afterAll`
+> 清临时目录会超默认 10s，把整轮 `pnpm test` 的退出码弄成非零）。⚠️ **issue #19 那条的真机 e2e 未跑**
+> （`docs/issue-19-palette-blur.md` §10 列了三条待补）；维护者自测口径 = 敲 `/` 看面板毛玻璃 + 分栏态（右侧栏打开）
+> 再敲一次看输入栏内有无位移。上一版 `beta` = **`0.5.7-beta.0`**（2026-09-24 下半场，内容为 `0.5.7` 的真子集：
 > **官方桌面壳改用 Electron 运行时识别**——`process.versions.electron`，因为上游明确「`DSH_DESKTOP_NODE_EXECUTABLE`
 > 仅为包安装注入」；+5 断言 / 231 用例，单元与 e2e 两条路径都做了变异验证，另附一批文档与仓库卫生修正）。
-> **`0.5.8`（2026-09-28，当前 latest）= issue #17 的三族子串选择器退场**：`[class*='panel']` 与 `[role='tooltip']`
+> **`0.5.8`（2026-09-28，上一版 latest）= issue #17 的三族子串选择器退场**：`[class*='panel']` 与 `[role='tooltip']`
 > 从 compat 的三条规则里移除，`[class*='card']` 收窄到 `[data-composer-card]`（离线扫描 `0.1.7-rc.2` 全套客户端包
 > 957 个文件里的 **20 个 `*_card` 类名**：18 个自绘 `background` ⇒ blur 被自己的底色盖住、我们的填充等于替换设计 token；
 > 2 个无任何 `background` 声明 ⇒ 规则是唯一把它们画出来的东西，正是报告人的灰纹与孤线）。**未采纳**「加 `compatExclude`

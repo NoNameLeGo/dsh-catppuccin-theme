@@ -21,6 +21,9 @@ awesome-dsh-plugin/
 # Agent scratch / working directories
 .workbuddy/
 .dsh-vision-toolkit/
+# Local plugin runtime state — the meow-memory plugin writes its sqlite db into
+# whatever cwd it is launched from, which is this repo when running the shell here.
+.dsh-meow/
 # Agent tool config. On this machine it is already covered by the GLOBAL git
 # ignore (~/.config/git/ignore), but that is not portable — keep it here too.
 .claude/

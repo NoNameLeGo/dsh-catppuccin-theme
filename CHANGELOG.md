@@ -6,13 +6,15 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.5.9] - 2026-10-02
 
-> 本节三批内容全部走 `beta` 渠道（`latest` 仍是 `0.5.8`）：前两批（2026-09-30 官方桌面壳 0.2.0 线适配 +
-> 2026-10-01 玻璃模式切换两条修复）随 **`0.5.9-beta.0`**，第三批（2026-10-01 命令面板毛玻璃修复，issue #19）
-> 随 **`0.5.9-beta.1`**：补齐 18 个漏映射 token 并退役一条已被上游修掉的浅色偏离、兼容声明跟进 0.2.0、
-> Windows 标题栏顶部渐隐、「设置里切云母/兼容会闪一下」与「切得快时第二次被回滚」两条修复，
-> 以及命令面板恢复毛玻璃。
+> 与 **`0.5.9-beta.1` 零代码差异**（只改了版本号与本 CHANGELOG 落节）：预发布阶段走了 `beta` 渠道，
+> 本版转正进 `latest`。三批内容——前两批（2026-09-30 官方桌面壳 0.2.0 线适配 + 2026-10-01 玻璃模式切换
+> 两条修复）随 **`0.5.9-beta.0`**，第三批（2026-10-01 命令面板毛玻璃修复，issue #19）随 **`0.5.9-beta.1`**：
+> 补齐 18 个漏映射 token 并退役一条已被上游修掉的浅色偏离、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐、
+> 「设置里切云母/兼容会闪一下」与「切得快时第二次被回滚」两条修复，以及命令面板恢复毛玻璃。
+> ⚠️ 命令面板那条的**真机 e2e 仍未跑**（离线整页 A/B 已给出实测数字，见该条与
+> `docs/issue-19-palette-blur.md` §10 列的三条待补）。
 
 ### 修复
 
@@ -77,6 +79,9 @@
 
 ### 其他
 
+- 测试基建（2026-10-02）：`vitest.config.ts` 显式设 `hookTimeout: 60_000`。默认 10s 在本机满载时不够用——
+  `tests/tui-themes.spec.ts` 的 `afterAll` 清理临时目录超时会让**整轮 `pnpm test` 退出码非零**（该文件单独跑
+  2.9s 通过、紧接着复跑整轮 7.97s 全绿，属清理慢而非用例失败），放宽后不再把这种情况记成失败。
 - 测试（2026-10-01 两条修复的护栏，**均做过变异验证**）：`tests/glass-css.spec.ts` 新增一条——五条入口
   动画不得再挂 `data-dsh-glass-float`、compat 必须把时钟归零、reduced-motion 必须落在同一门控上（把任一
   条改回 float 即红）；`tests/client.spec.ts` 新增两条，`fencedScopeDouble` 按 0.1.7 `ConfigFormController`
@@ -108,6 +113,16 @@
   （`npm i --prefix <tmp> @deepseek-ai/dsh@0.1.5-rc.1 --before=2026-09-21`，不动全局树）复跑也 **19/19**。
   ⚠️ 本机**全局** `dsh`（0.1.5-rc.2）当前自己起不来（干净 `DSH_HOME`、不装插件也报
   `@deepseek-ai/dsh-sandbox-local` 解析失败），与本次改动无关，已记进审计文档。
+- **文档：补一节「环境限制：玻璃需要宿主提供可透出的底色」**（2026-10-02，issue #18 报告人自行排查到根因）。
+  `README.md` / `README.en.md` 的玻璃拟文章节各加一个小节：玻璃层的 `backdrop-filter` 读的是**背后真被画出来的像素**，
+  本插件只加材质、不给宿主造透明底；宿主若把窗口与自绘容器刷成不透明色，玻璃只能退化为**半透明叠色**（无悬浮层次）。
+  已知触发面 = 第三方 `dsh-plugin-desktop` `2.0.17`：Windows 上**静默把窗口材质强制为 `off`**（设置里的 Mica/纯色选项
+  选了不生效），同时把侧栏表面与自绘容器刷成不透明面板色（`--dsh-desktop-frame-fill` / `.dshDesktopSidebarSurface`
+  取 `--dsw-alias-bg-layer-1`）。文档同时写明**本插件不为此加 `!important` 覆写**（那等于让插件接管宿主容器结构，
+  宿主一改就碎，且偏离「只改材质」定位），并保留「宿主将来提供 `backgroundMaterial: mica/acrylic` 时本实现无需改动
+  即可受益」。附自查脚本，且点明一个反直觉点：**「正常」与「观感平」两种环境返回的 computed 值可能完全相同**
+  （`blur(12px)` / 带 alpha 的背景 / `14px` / roots 含 `data-dsh-glass-float`），该脚本只能证明插件侧规则生效，
+  透明底只能靠肉眼层次或对宿主容器取 `backgroundColor` 的 alpha 判断。更早的第三方壳版本无可靠对照，不下结论。
 
 ## [0.5.8] - 2026-09-28
 
@@ -678,7 +693,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9-beta.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.5...v0.5.6

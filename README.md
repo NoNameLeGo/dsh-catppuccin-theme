@@ -304,6 +304,32 @@ issue #17），但**第三方插件里新出现的类名仍可能被误命中**�
 报告人给了逐元素的 computed 对照，我们据此收窄**默认**规则——这也是为什么没有「自定义 CSS」
 配置项：默认行为应该先是对的，配置项只能当补充。
 
+### 环境限制：玻璃需要宿主提供可透出的底色
+
+玻璃层用 `backdrop-filter` 读取**它背后实际被画出来的像素**。本插件只负责给面加材质，
+**不负责给宿主造透明底**：宿主若把窗口与自绘容器刷成不透明色，玻璃面背后就没有可柔化的
+内容，效果退化为**半透明叠色**——能看到色调，看不到悬浮/磨砂层次。
+
+| 宿主 | 表现 | 原因 |
+|---|---|---|
+| 官方 Web GUI / 官方桌面壳 | 正常 | 窗口与容器提供可透出的底 |
+| 第三方 DSH Desktop（`dsh-plugin-desktop` `2.0.17`） | 仅半透明叠色 | Windows 上静默把窗口材质强制为 `off`（设置里的 Mica/纯色选项选了不生效）；同时把侧栏表面与自绘容器刷成不透明面板色（`--dsh-desktop-frame-fill` / `.dshDesktopSidebarSurface` 取 `--dsw-alias-bg-layer-1`） |
+
+**本插件不会为此加 `!important` 覆写**：那等于让插件去接宿主的容器结构，宿主一改就碎，
+也偏离「只改材质」的定位。宿主将来若能提供 Windows 原生窗口材质（`backgroundMaterial: mica/acrylic`），
+本套实现无需改动即可受益。
+
+自查（玻璃「正常」与「观感平」返回的 computed 值可能**完全相同**，差别只在宿主有没有给出透明底）：
+
+```js
+const s = document.querySelector('[data-dsh-glass-surface]'), cs = getComputedStyle(s)
+console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColor,
+  radius: cs.borderRadius, roots: [...document.documentElement.attributes]
+    .map(a => a.name).filter(n => n.includes('glass')).join(', ') })
+```
+
+更早的第三方壳版本尚无可靠对照（无法确认当时主题/玻璃是否真的作用到侧栏），暂不下结论。
+
 ## 兼容性、权限与失败边界
 
 ### 兼容范围

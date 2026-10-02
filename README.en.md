@@ -327,6 +327,36 @@ the reporter supplied per-element computed values and we narrowed the **defaults
 why there is no "custom CSS" option: the default should be right first, an escape hatch is only a
 supplement.
 
+### Environment limit: glass needs a see-through base from the host
+
+The glass layer reads, via `backdrop-filter`, **the pixels actually painted behind it**. The plugin
+only adds material to a surface — it does **not** create a transparent base for the host. If the host
+paints the window and its own containers opaque, there is nothing behind the glass to soften and the
+effect degrades to a **translucent tint**: you see the hue, but no floating/frosted depth.
+
+| Host | Result | Cause |
+|---|---|---|
+| Official Web GUI / official desktop shell | normal | window and containers provide a see-through base |
+| Third-party DSH Desktop (`dsh-plugin-desktop` `2.0.17`) | translucent tint only | on Windows it silently forces window material to `off` (the Mica / solid-colour setting has no effect), and paints the sidebar surface and its self-drawn containers with an opaque panel colour (`--dsh-desktop-frame-fill` / `.dshDesktopSidebarSurface`, both sourced from `--dsw-alias-bg-layer-1`) |
+
+**The plugin will not add `!important` overrides for this**: that would make the plugin responsible for
+the host's container structure, break whenever the host changes, and step outside its "material only"
+scope. If a host later exposes native window material on Windows (`backgroundMaterial: mica/acrylic`),
+this implementation benefits with no changes.
+
+Self-check (computed values may be **identical** between a "working" and a "flat" environment — the only
+difference is whether the host provides a transparent base):
+
+```js
+const s = document.querySelector('[data-dsh-glass-surface]'), cs = getComputedStyle(s)
+console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColor,
+  radius: cs.borderRadius, roots: [...document.documentElement.attributes]
+    .map(a => a.name).filter(n => n.includes('glass')).join(', ') })
+```
+
+Earlier versions of the third-party shell have no reliable comparison yet (we could not confirm the
+theme/glass actually reached the sidebar in that run), so no conclusion is drawn for them.
+
 ## Compatibility, permissions and failure bounds
 
 ### Compatibility
