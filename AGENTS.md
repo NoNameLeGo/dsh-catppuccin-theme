@@ -94,6 +94,12 @@
 > ⇒ **不需要插件映射**（2026-09-30 由出厂包逐文件扫描确认）。
 > 另：`cordis_inspect_query` 的 client Service **目录不是全集**（`configForms` 就不在里面，但 0.2.0 里一堆官方包在用它）
 > ⇒ 别拿目录当「服务不存在」的证据。
+>
+> **⚠️ 官方桌面壳里升级插件不走 CLI（维护者 2026-10-02 报告）**：壳的插件管理界面自带安装/卸载，
+> 但**不认** `dsh plugin --profile desktop update` 或重新 `add`。升级路径 = **在插件界面里先删除本插件，
+> 再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后**重启桌面应用**才加载新版本。
+> README / README.en 的「桌面版」段与 FAQ「怎么升级」两处都写明了这条；回答用户「升到最新版了吗」之前
+> 先确认他走的是哪条路（CLI profile 还是壳内界面）。
 
 **⚠️ 别再写「Desktop 每次启动用随机端口」**：两个壳都是固定端口，localStorage 的 origin 跨重启稳定。持久存储的理由是
 「localStorage 是 per-browser / per-origin，DSH home 才是机器级真源」（多浏览器、清站点数据、第二个实例落到 43121 这类

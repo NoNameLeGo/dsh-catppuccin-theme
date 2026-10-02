@@ -128,6 +128,10 @@ dsh plugin --profile desktop add @nonamelego/dsh-catppuccin
 若在托盘里选了别的 profile 就换成那个名字），装完**重启桌面应用**生效。
 从仓库安装的方式同理：`dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`。
 
+> ⚠️ **官方桌面版（Electron 壳）怎么升级**：壳里不走 CLI 那条路——请在**插件管理界面里先把本插件删除，
+> 再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用才会加载新版本。
+> 直接 `dsh plugin --profile desktop update` 或重新 `add` 在壳里不会生效。
+
 > **两个桌面壳，同一个 profile**：官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > 仓库里的 `apps/desktop` / `apps/desktop-host`（Electron，仍在开发中）与社区的
 > [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 都启动
@@ -439,6 +443,8 @@ pnpm --dir ~/.dsh/profiles/web add link:/path/to/dsh-catppuccin
   （或重新 `add` 最新版）。在 [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) 中，把 `web` 换成 `desktop`
   （`dsh plugin --profile desktop update @nonamelego/dsh-catppuccin`），
   或者直接在 DSH 终端里运行 `dsh plugin update`（默认作用于当前 profile）。
+  ⚠️ **官方桌面版例外**：壳里请走插件管理界面——**先把本插件删除，再重新输入 npm 包名
+  `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用；壳不认 `dsh plugin update` 这条路径。
 
 ## 💝 致谢
 

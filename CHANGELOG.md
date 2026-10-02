@@ -6,6 +6,16 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 文档
+
+- 补「官方桌面版（Electron 壳）升级要走插件界面」这条（2026-10-02，维护者报告）：壳里**不认**
+  `dsh plugin --profile desktop update`，也不认重新 `add`；升级路径 = **在插件管理界面里先删除本插件，
+  再重新输入 npm 包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启桌面应用才会加载新版本。
+  `README.md` / `README.en.md` 的「桌面版」段与 FAQ「怎么升级」两处都写明了；`AGENTS.md` 的
+  「官方桌面壳的插件相关契约」节也记了一条，避免以后再拿 CLI 的升级路径去回答壳里的用户。
+
 ## [0.5.9] - 2026-10-02
 
 > 与 **`0.5.9-beta.1` 零代码差异**（只改了版本号与本 CHANGELOG 落节）：预发布阶段走了 `beta` 渠道，

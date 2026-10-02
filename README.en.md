@@ -136,6 +136,11 @@ Run it in the DSH terminal of the desktop app (`dsh plugin` defaults to the acti
 then restart the app.
 Installing from the repo works the same way: `dsh plugin --profile desktop add https://github.com/NoNameLeGo/dsh-catppuccin-theme`.
 
+> ⚠️ **Upgrading on the official desktop build (the Electron shell)** does not go through the CLI:
+> open the **plugin manager UI, remove this plugin, then re-enter the npm package name
+> `@nonamelego/dsh-catppuccin` to install it**, and restart the app to load the new version.
+> `dsh plugin --profile desktop update` (or re-`add`) has no effect inside the shell.
+
 > **Two desktop shells, one profile**: the official
 > [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) monorepo ships
 > `apps/desktop` / `apps/desktop-host` (Electron, still in development), and the community
@@ -461,6 +466,9 @@ Then add `@nonamelego/dsh-catppuccin` to the profile's `package.json`
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin` manually (re-`add` the
   latest version works too). In [DSH Desktop](https://github.com/anywhere-labs/deepseek-harness-desktop),
   use `desktop` as the profile name, or just run `dsh plugin update` in the app's DSH terminal.
+  ⚠️ **Exception — the official desktop build**: upgrade from its **plugin manager UI** instead
+  (**remove this plugin, then re-enter the npm package name `@nonamelego/dsh-catppuccin`**),
+  then restart the app; the shell does not honour `dsh plugin update`.
 
 ## 💝 Credits
 
