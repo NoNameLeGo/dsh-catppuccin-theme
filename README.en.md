@@ -412,6 +412,19 @@ link debugging; state-contract migration rules are in
   point** — **remove the plugin in its plugin UI, then enter the package name
   `@nonamelego/dsh-catppuccin` again to reinstall**, and restart the app. The two routes are not
   interchangeable; see the table under Install → Desktop.
+- **Q: "I ran the upgrade but the version did not change (the desktop app still shows the old one)?"**
+  A: Most likely pnpm 11's built-in **minimum release age** (`minimumReleaseAge`, default **24 hours**)
+  silently filtered the fresh release out: `pnpm add` resolves to the **previous** version inside the
+  window (installing `@beta` on release day lands on the previous beta) while the UI keeps showing the
+  target version. Three ways out, pick one:
+  ① **name the exact version** (easiest) — `@nonamelego/dsh-catppuccin@0.5.10-beta.0`; pnpm then records
+  that version in the profile's `minimumReleaseAgeExclude` automatically;
+  ② give this package a **whole-package exemption** in the profile's `pnpm-workspace.yaml` (configure once,
+  every future beta installs immediately): `minimumReleaseAgeExclude:` then a new line with
+  `  - '@nonamelego/dsh-catppuccin'`; ③ wait until the release is 24 hours old.
+  To confirm: check `version` in the profile's
+  `node_modules/@nonamelego/dsh-catppuccin/package.json` and the `specifier:` for that package in
+  `pnpm-lock.yaml`.
 
 ## 💝 Credits
 

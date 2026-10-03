@@ -291,6 +291,19 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - `git push` 偶发 GitHub **502**，直接重试即可（不要改 remote、不要 `--force`）。
 
 ### 4. 发布后
+- **⚠️ 刚发完版，自己（或用户）立刻去装会发现「装到的是上一个版本」——这不是没发出去，是 pnpm 11 的
+  `minimumReleaseAge`。** 2026-10-03 实测：pnpm 11.7.0 的配置 schema 里内置
+  `"minimum-release-age": 24 * 60`（**= 24 小时**，`pnpm config get` 查不到，因为它来自默认值而非配置），
+  `pnpm add <pkg>@beta` 会把窗口内的新版本**静默过滤**掉、解析到**上一个**符合窗口的版本
+  （实测 `@beta` → 装到 `0.5.9-beta.1`，而镜像元数据里 `beta` 明明是 `0.5.10-beta.0`），
+  而插件界面自己查 tag 得到的是新版本 ⇒ **界面显示新版本、实际装的是旧版本**（本次的症状就是
+  「0.5.10-beta.0 装上了但卡片没有图标」，因为旧版本没有 `icon` 字段）。
+  三条出路：① **指名精确版本**（`@nonamelego/dsh-catppuccin@0.5.10-beta.0`）——pnpm 会自动把该版本写进
+  profile 的 `minimumReleaseAgeExclude`；② 在该 profile 的 `pnpm-workspace.yaml` 里给本包**整包豁免**
+  （`minimumReleaseAgeExclude:` + `  - '@nonamelego/dsh-catppuccin'`，本次已给
+  `~/.dsh/profiles/desktop` 加上，之后每个 beta 都能立刻装）；③ 等发布满 24 小时。
+  诊断口诀：**先看 lockfile 的 `specifier:` 与已装 `package.json` 的版本，再看 `pnpm view <pkg>@<tag>`**——
+  两者不一致就是撞上了这个窗口，别去查「是不是没发出去」。
 - **把上面 `> ⚠️ 发版版本号` 那句的版本号改掉**（历史：写 0.5.1 时已到 0.5.2/0.5.3、写 0.5.3 时已到 0.5.4 —— 所以把它当成发版流程的最后一步，别指望“下次顺手”）。
 - **CHANGELOG 底部的链接引用**也要顺手维护：`[Unreleased]` 指向新 tag（`compare/v<new>...HEAD`），并给新版本补一行 `[<version>]: compare/v<prev>...v<new>`。上个版本漏了，导致它停在 `v0.5.1...HEAD`。
 - 若插件已收录于 awesome-dsh-plugin，收录条目无需随发版改动。

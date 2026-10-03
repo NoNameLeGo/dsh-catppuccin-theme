@@ -376,6 +376,16 @@ CHANGELOG 草稿由 `pnpm changelog:gen` 从 conventional 提交里产出。
   DSH 终端里用同一条命令（把 `web` 换成 `desktop`）；**官方壳没有升级入口**——要在插件界面里
   **先删掉本插件，再重新填一遍包名 `@nonamelego/dsh-catppuccin` 安装**，然后重启应用。
   两种方式不通用，详见上面「安装 → 桌面版」的对照表。
+- Q: **_"升级命令跑了，但版本没变（桌面版重启后也还是旧的）？"_**\
+  A: 大概率是 pnpm 11 内置的**最小发布年龄**（`minimumReleaseAge`，默认 **24 小时**）把刚发布的版本
+  静默过滤掉了：`pnpm add` 会解析到**上一个**符合窗口的版本（例如新 beta 发布当天去装 `@beta`，
+  实际装到的仍是上一个 beta），而界面显示的却是目标版本。三条出路，任选其一：
+  ① **指名精确版本**（最省事）——`@nonamelego/dsh-catppuccin@0.5.10-beta.0`，pnpm 会自动把该版本
+  写进当前 profile 的 `minimumReleaseAgeExclude`；② 在当前 profile 的 `pnpm-workspace.yaml` 里
+  给本包**整包豁免**（一次配置，之后每个新 beta 都能立刻装）：
+  `minimumReleaseAgeExclude:` 换行再加 `  - '@nonamelego/dsh-catppuccin'`；③ 等版本发布满 24 小时。
+  判断方法：看 profile 里 `node_modules/@nonamelego/dsh-catppuccin/package.json` 的 `version`,
+  以及 `pnpm-lock.yaml` 里那个包的 `specifier:`。
 
 ## 💝 致谢
 

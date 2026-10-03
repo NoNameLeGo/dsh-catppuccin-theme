@@ -53,6 +53,19 @@
 
 ### 文档
 
+- **补一条「刚发版后装到的是上一个版本」的排查指南**（2026-10-03）。现象：发 `0.5.10-beta.0` 当天
+  在官方壳插件界面升级，界面显示 `0.5.10-beta.0`，实际装上的却是 `0.5.9-beta.1`（因此卡片没有图标——
+  旧版本没有 `icon` 字段），容易误判成「没发出去」或「图标没生效」。
+  根因 = **pnpm 11 内置的最小发布年龄**：`dist/pnpm.mjs` 的配置 schema 里写着
+  `"minimum-release-age": 24 * 60`（**默认 24 小时**，`pnpm config get` 查不到，因为它来自默认值），
+  `pnpm add <pkg>@beta` 会把窗口内的新版本**静默过滤**、解析到上一个符合窗口的版本。
+  实测三条出路：① 指名精确版本（`@0.5.10-beta.0`）——pnpm 会把该版本自动写进 profile 的
+  `minimumReleaseAgeExclude`；② 在该 profile 的 `pnpm-workspace.yaml` 里给本包整包豁免
+  （本次已给 `~/.dsh/profiles/desktop` 加上，之后每个 beta 都能立刻装）；③ 等发布满 24 小时。
+  `README.md` / `README.en.md` 的 FAQ 各加一条（含自查方法），`AGENTS.md` 的「4. 发布后」记下诊断口诀
+  （先看 lockfile 的 `specifier:` 与已装包版本，再对 `pnpm view <pkg>@<tag>`）。
+  顺带把 CHANGELOG 的 `[Unreleased]` 比较基线指到新 tag（SOP 的发布后步骤）。
+
 - **README 精简：把内部取证与开发向内容搬出用户文档**（2026-10-02，`README.md` 469 → 394 行、
   `README.en.md` 500 → 429 行）。搬走的只有维护者才需要的东西，**用户须知一字未动**：
   - 新建 **`docs/glass-mis-hits.md`**：兼容模式误命中的成因、只读取证探针脚本、临时止血的
@@ -767,7 +780,7 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.10-beta.0...HEAD
 [0.5.9]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
