@@ -253,10 +253,15 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.10-beta.0`**（2026-10-03；
-> Publish run `37032787040` success，日志 `+ @nonamelego/dsh-catppuccin@0.5.10-beta.0` 带 provenance；CI `37032777295`
-> check + boot-e2e 双绿；dist-tags 约 40 s 内生效）。
-> **`0.5.10-beta.0`（内容在 CHANGELOG 的 `[Unreleased]`，按仓库惯例预发布不单独落节）= 插件卡片图标 + 「检查更新」按宿主分流**：
+> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.10-beta.1`**（2026-10-04；
+> Publish run `37179583576` success，日志 `+ @nonamelego/dsh-catppuccin@0.5.10-beta.1` 带 provenance；CI `37179583423`
+> check + boot-e2e 双绿；dist-tags 约 45 s 内生效）。
+> **`0.5.10-beta.1`（内容在 CHANGELOG 的 `[Unreleased]`，按仓库惯例预发布不单独落节）= 插件详情页加上设置区**：
+> 新增 `src/client/detail-card.tsx` + `plugins.bundle.config` 插槽注册（key = **npm 包名**），把「设置 → 通用」
+> 那三条行也挂到插件自己的详情页上；数据层零改动（两个入口共用 `CATPPUCCIN_ENTRY_ID` 那份 section）。
+> 机制取证与护栏见「## 插件详情页的设置区」一节。**测试 267 全绿**，三条变异实测会红（key 换成条目 id /
+> 去掉 `whileServed` / 卡片里删掉更新行）。⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）。
+> 上一版 `beta` = **`0.5.10-beta.0`**（2026-10-03）= 插件卡片图标 + 「检查更新」按宿主分流：
 > 前者给仓库根加 `icon.png`（`package.json` 的 `icon` + 进 `files`；Host 读包元数据内联成 data URI，
 > 卡片容器 48×48 + 内部 `<img>` 36×36 + `object-fit:contain`）；后者新增 `classifyShell()` 把宿主判成
 > `web` / `community-desktop` / `official-desktop`，官方桌面版不再给**无处可跑**的
