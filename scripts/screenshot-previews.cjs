@@ -5,6 +5,13 @@
 // screenshot. Ends with a hero shot of the main view under Mocha, then
 // restores whatever flavour preference the user actually had.
 //
+// The glass skin is forced OFF for these four shots: they document the PURE
+// theme, and the glass skin has its own previews (`glass-latte` / `glass-mocha`,
+// from scripts/screenshot-glass.cjs). The script used to inherit whatever glass
+// state the machine happened to have — on 2026-10-04 that produced four
+// "flavour" previews shot with Mica mode on, i.e. duplicating the glass shots.
+// The user's own glass state is restored at the end.
+//
 // The web host requires a token: the bare origin answers 401 and the run then
 // dies later with a confusing 90s `openSettings` timeout. Pass the token that
 // `dsh web` prints (stdout), or set DSH_WEB_TOKEN:
@@ -15,6 +22,11 @@
 // Run with NODE_PATH pointing at the global playwright:
 //   $env:NODE_PATH = "$env:APPDATA\npm\node_modules\@playwright\cli\node_modules"
 //   node scripts/screenshot-previews.cjs <token>
+//
+// NOTE (2026-10-04): Playwright cannot launch a browser on this machine — Node
+// is barred from spawning children (EBUSY even for cmd.exe), so `chromium.launch()`
+// fails. The four flavour shots were re-taken through CDP against a manually
+// started headless Chrome; see the `dsh-preview-shots-cdp` skill.
 const { chromium } = require('playwright')
 const fs = require('fs')
 const os = require('os')
@@ -167,6 +179,29 @@ async function pickFlavor(page, label, expectedBase) {
   }
 }
 
+/** Glass state is published on <html> as `data-dsh-glass*` attributes
+ *  (same probe screenshot-glass.cjs asserts against). */
+function glassOn(page) {
+  return page.evaluate(() => document.documentElement.hasAttribute('data-dsh-glass'))
+}
+
+/** Drive the glass master switch (settings → 玻璃质感 → 总开关) and return the
+ *  state it had BEFORE. Same control screenshot-glass.cjs uses. The four
+ *  flavour previews must be shot with glass off — see the header. */
+async function setGlass(page, enabled) {
+  const sw = page.getByRole('switch', { name: '总开关' }).first()
+  await sw.waitFor({ timeout: 15000 })
+  const was = (await sw.getAttribute('aria-checked')) === 'true'
+  if (was !== enabled) {
+    await sw.click()
+    await page.waitForTimeout(1200)
+  }
+  if ((await glassOn(page)) !== enabled) {
+    throw new Error(`glass switch did not reach ${enabled ? 'on' : 'off'} — refusing to shoot`)
+  }
+  return was
+}
+
 ;(async () => {
   const browser = await chromium.launch({ executablePath: findChromiumExe(), headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })
@@ -196,6 +231,11 @@ async function pickFlavor(page, label, expectedBase) {
     .trim()
   console.log('original flavour preference:', originalLabel)
 
+  // The flavour shots document the pure theme — glass off (the skin has its own
+  // previews). Remember what the machine had so it can be put back.
+  const hadGlass = await setGlass(page, false)
+  console.log('glass forced off (was', hadGlass ? 'on' : 'off', ')')
+
   for (const f of FLAVORS) {
     await pickFlavor(page, f.label, BASE[f.name])
     const t = await probeTheme(page)
@@ -204,6 +244,9 @@ async function pickFlavor(page, label, expectedBase) {
     // for the next flavour.
     await closeSettings(page)
     await page.waitForTimeout(600)
+    if (await glassOn(page)) {
+      throw new Error('glass turned back on — this shot would not show the pure theme')
+    }
     await shot(page, `${f.name}.png`)
     await openSettings(page)
   }
@@ -221,7 +264,11 @@ async function pickFlavor(page, label, expectedBase) {
   await openSettings(page)
   await pickFlavor(page, originalLabel, LABEL_BASE[originalLabel] ?? null)
   await page.waitForTimeout(2500)
-  console.log('restored:', originalLabel)
+  if (hadGlass) {
+    await setGlass(page, true)
+    await page.waitForTimeout(1200)
+  }
+  console.log('restored:', originalLabel, hadGlass ? '+ glass on' : '+ glass off')
   const restored = await probeTheme(page)
   console.log('after restore:', JSON.stringify(restored))
 

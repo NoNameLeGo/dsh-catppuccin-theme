@@ -17,30 +17,39 @@
 
 ## 目录
 
-- [简介](#简介)
-- [特性](#特性)
-- [预览](#预览)
-- [安装](#安装)
-- [使用](#使用)
-- [玻璃拟态（Glassmorphism）](#玻璃拟态glassmorphism)
-- [兼容性、权限与失败边界](#兼容性权限与失败边界)
-- [开发](#开发)
-- [🙋 常见问题](#常见问题)
-- [💝 致谢](#致谢)
+<p align="center">
+	<a href="#简介">简介</a> ·
+	<a href="#特性">特性</a> ·
+	<a href="#预览">预览</a> ·
+	<a href="#安装">安装</a> ·
+	<a href="#使用">使用</a> ·
+	<a href="#玻璃拟态glassmorphism">玻璃拟态</a> ·
+	<a href="#兼容性权限与失败边界">兼容性</a> ·
+	<a href="#开发">开发</a> ·
+	<a href="#-常见问题">🙋 常见问题</a> ·
+	<a href="#-致谢">💝 致谢</a>
+</p>
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/combined.png" width="100%" alt="Catppuccin 四主题下的 DeepSeek Harness"/>
-	<br/><br/>
+</p>
+
+<details>
+<summary> 关键字高亮 · Latte &amp; Mocha</summary>
+
+<p align="center">
 	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-combined.png" width="100%" alt="玻璃质感 · Latte & Mocha"/>
 </p>
+
+</details>
 
 ## 简介
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的
 [Catppuccin](https://github.com/catppuccin/catppuccin) 主题插件——一个包同时适配
 **Web GUI**（`dsh web`）、**桌面版**（官方 Electron 壳 `apps/desktop` 与社区 DSH Desktop，
-共用 `desktop` profile）与 **dsh-TUI** 终端：Web / 桌面端做全界面换色与玻璃质感，
-TUI 端自动同步四套官方主题色板。
+共用 `desktop` profile）与 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)** 终端：
+Web / 桌面端做全界面换色与玻璃质感，TUI 端自动同步四套官方主题色板。
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
 把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
@@ -68,7 +77,7 @@ Catppuccin 主题。
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色自动跟随当前 Catppuccin 主题
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令；**默认开启自动检查**（启动后一次 + 每 6 小时），更新渠道可选稳定版 / Beta
-- 💻 **dsh-TUI 终端主题**：一条安装命令装进 dsh-TUI，四套主题自动同步到 `~/.dsh-tui/themes/`，见[安装 · dsh-TUI](#dsh-tui-终端版主题)
+- 💻 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) 终端主题**：一条安装命令装进 dsh-TUI，四套主题自动同步到 `~/.dsh-tui/themes/`，见[安装 · dsh-TUI](#dsh-tui终端版主题)
 
 ## 预览
 
@@ -151,9 +160,10 @@ dsh plugin --profile web add https://github.com/NoNameLeGo/dsh-catppuccin-theme
 桌面版同理，但按上面的表走：**官方壳**在插件界面里直接填 Git 地址；**社区壳**把这条命令的
 `dsh plugin --profile web add …` 换成 `dsh plugin --profile desktop add …`。
 
-### dsh-TUI（终端版）主题
+### **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)**（终端版）主题
 
-与 Web GUI 插件同一个包。用标准的插件安装命令装进 dsh-tui profile：
+本节针对第三方终端前端 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)**（需先自行装好它）。
+与 Web GUI 插件同一个包，用标准的插件安装命令装进 dsh-tui profile：
 
 ```sh
 dsh plugin --profile dsh-tui add @nonamelego/dsh-catppuccin

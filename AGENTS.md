@@ -253,10 +253,15 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.5.9`**（2026-10-02），`beta` = **`0.5.10-beta.1`**（2026-10-04；
-> Publish run `37179583576` success，日志 `+ @nonamelego/dsh-catppuccin@0.5.10-beta.1` 带 provenance；CI `37179583423`
-> check + boot-e2e 双绿；dist-tags 约 45 s 内生效）。
-> **`0.5.10-beta.1`（内容在 CHANGELOG 的 `[Unreleased]`，按仓库惯例预发布不单独落节）= 插件详情页加上设置区**：
+> ⚠️ **发版版本号**：`latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**），
+> `beta` = **`0.5.10-beta.1`**（2026-10-04）。
+> **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
+> 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
+> （本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
+> 上一版 `latest` = **`0.5.9`**（2026-10-02）。
+> 上一版 `beta` = **`0.5.10-beta.1`**（2026-10-04；Publish run `37179583576` success，日志
+> `+ @nonamelego/dsh-catppuccin@0.5.10-beta.1` 带 provenance；CI `37179583423` check + boot-e2e 双绿；
+> dist-tags 约 45 s 内生效）= 插件详情页加上设置区（预发布按仓库惯例不单独落节，转正后落成 `## [0.6.0]`）：
 > 新增 `src/client/detail-card.tsx` + `plugins.bundle.config` 插槽注册（key = **npm 包名**），把「设置 → 通用」
 > 那三条行也挂到插件自己的详情页上；数据层零改动（两个入口共用 `CATPPUCCIN_ENTRY_ID` 那份 section）。
 > 机制取证与护栏见「## 插件详情页的设置区」一节。**测试 267 全绿**，三条变异实测会红（key 换成条目 id /

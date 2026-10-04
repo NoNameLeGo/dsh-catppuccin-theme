@@ -19,29 +19,39 @@
 
 ## Contents
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Previews](#previews)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Glassmorphism](#glassmorphism)
-- [Compatibility, permissions and failure bounds](#compatibility-permissions-and-failure-bounds)
-- [Development](#development)
-- [🙋 FAQ](#-faq)
-- [💝 Credits](#-credits)
+<p align="center">
+	<a href="#introduction">Introduction</a> ·
+	<a href="#features">Features</a> ·
+	<a href="#previews">Previews</a> ·
+	<a href="#installation">Installation</a> ·
+	<a href="#usage">Usage</a> ·
+	<a href="#glassmorphism">Glassmorphism</a> ·
+	<a href="#compatibility-permissions-and-failure-bounds">Compatibility</a> ·
+	<a href="#development">Development</a> ·
+	<a href="#-faq">🙋 FAQ</a> ·
+	<a href="#-credits">💝 Credits</a>
+</p>
 
 <p align="center">
 	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/combined.png" width="100%" alt="DeepSeek Harness under the four Catppuccin flavours"/>
-	<br/><br/>
+</p>
+
+<details>
+<summary>🪟 Glass skin (Mica mode) · Latte &amp; Mocha</summary>
+
+<p align="center">
 	<img src="https://raw.githubusercontent.com/NoNameLeGo/dsh-catppuccin-theme/main/assets/previews/glass-combined.png" width="100%" alt="Glass skin · Latte & Mocha"/>
 </p>
+
+</details>
 
 ## Introduction
 
 A [Catppuccin](https://github.com/catppuccin/catppuccin) theme plugin for
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — one package that fits
 the **Web GUI** (`dsh web`), the **desktop shells** (the official Electron `apps/desktop` and the
-community DSH Desktop — both on the same `desktop` profile) and **dsh-TUI** alike: full recolouring plus a
+community DSH Desktop — both on the same `desktop` profile) and
+**[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)** alike: full recolouring plus a
 glass skin on Web / Desktop, and the four official theme palettes auto-synced to the TUI.
 
 It ships all four Catppuccin flavours — **Latte**, **Frappé**, **Macchiato**, **Mocha** —
@@ -75,8 +85,9 @@ Catppuccin theme automatically.
 - 🔄 **Update check**: one-click "Check for updates" in Settings compares the latest npm
   version and gives you a copyable upgrade command; **auto-check is on by default** (once at
   startup, then every 6 hours) and the release channel switches between stable and beta
-- 💻 **dsh-TUI terminal themes**: one command installs into dsh-TUI; the four themes sync to
-  `~/.dsh-tui/themes/` automatically (see [Installation · dsh-TUI](#dsh-tui-terminal-themes))
+- 💻 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) terminal themes**: one command installs into
+  dsh-TUI; the four themes sync to `~/.dsh-tui/themes/` automatically
+  (see [Installation · dsh-TUI](#dsh-tui-terminal-themes))
 
 ## Previews
 
@@ -170,7 +181,8 @@ plugin UI, while the **community shell** runs the same command with
 
 ### dsh-TUI (terminal) themes
 
-The same package covers the TUI. Install it into the dsh-tui profile:
+This section covers **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)**, a third-party terminal
+front end (install it first). The same package covers the TUI — install it into the dsh-tui profile:
 
 ```sh
 dsh plugin --profile dsh-tui add @nonamelego/dsh-catppuccin

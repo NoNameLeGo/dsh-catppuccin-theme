@@ -6,7 +6,14 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.6.0] - 2026-10-04
+
+> 与 **`0.5.10-beta.1` 零代码差异**（功能代码一行未动；本版新增的是版本号、CHANGELOG 落节、用户文档与预览资产）：
+> 功能分两批走完 `beta` 渠道——**`0.5.10-beta.0`**（插件卡片图标 + 「检查更新」按宿主分流）与
+> **`0.5.10-beta.1`**（插件详情页的设置区，`plugins.bundle.config` 插槽），本版转正进 `latest`。
+> 另含 README 四处修缮与四风味预览图「关玻璃」重拍（见「文档」节第一条：那条同时修掉了一个
+> **资产错误**——旧的四张风味预览其实是在云母模式下拍的）。
+> ⚠️ 这两批的**真机 e2e 均未跑**（本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
 
 ### 新增
 
@@ -69,6 +76,24 @@
     裁决 ⇒ 即使把分支删掉断言也绿。
 
 ### 文档
+
+- **README 修缮 + 四风味预览图重拍为「关玻璃」**（2026-10-04）。维护者一次点了四处，中英两版同步：
+  - **目录改横向**：由竖排 `- [x](#x)` 列表改成居中内联导航（`<p align="center">` + `·` 分隔）。顺带修掉
+    三个**坏锚点**：`#常见问题` → `#-常见问题`、`#致谢` → `#-致谢`、`#dsh-tui-终端版主题` → `#dsh-tui终端版主题`
+    （GitHub 的 slugger 会把全角括号删掉且**不留连字符**，旧链接点了不跳）。
+  - **文首第二张大图默认折叠**：`glass-combined.png`（2 风味玻璃斜切图）包进 `<details>`，
+    `combined.png`（4 风味）保持展开。
+  - **补 dsh-TUI 链接**：`https://github.com/ccch1mneyyy/dsh-TUI` 加到简介、特性行与
+    「安装 · dsh-TUI」小节（并写明需先自行装好 dsh-TUI）。
+  - **四风味预览图重拍为关玻璃——这是资产错误，不是观感**：`scripts/screenshot-previews.cjs`
+    从头到尾**没碰过玻璃开关**，四张图继承了运行机器的玻璃状态（本机常开）⇒ 四张「风味预览」其实全是
+    云母模式，与 `glass-*.png` 重复。判据：旧图侧栏是**内缩圆角卡片**且会话标题被截断成 `…`；关玻璃后
+    侧栏贴边、标题完整。在 `dsh web` 真页上按 1440×900@2x 重拍四张并重建 `combined.png`
+    （校验值 bodyBg：latte `#eff1f5` / frappe `#232634` / macchiato `#181926` / mocha `#11111b`，
+    且 `[data-dsh-glass-surface]` 计数 0、侧栏 `border-radius: 0px`）。
+    顺带修掉根因：脚本新增 `setGlass(page, false)`（复用 `screenshot-glass.cjs` 的 `总开关` 写法）+
+    拍前 `glassOn()` 断言 + 收工还原用户原玻璃状态。⚠️ 这段 patch 在本机**无法执行验证**
+    （Playwright 起不来；重拍实际是走 CDP 完成的），重拍链路已固化为技能 `dsh-preview-shots-cdp`。
 
 - **补一条「刚发版后装到的是上一个版本」的排查指南**（2026-10-03）。现象：发 `0.5.10-beta.0` 当天
   在官方壳插件界面升级，界面显示 `0.5.10-beta.0`，实际装上的却是 `0.5.9-beta.1`（因此卡片没有图标——
@@ -797,7 +822,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.10-beta.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...v0.6.0
 [0.5.9]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.6...v0.5.7
