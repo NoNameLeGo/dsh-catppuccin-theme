@@ -185,6 +185,29 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
   两条变异（从 `files` 移除、扩展名改 `.bmp`）都实测会红。
 - 选型对照脚本：`.debug/icon-preview/gen.mjs`（按**真实 `cardIcon` 取值**渲染候选牌面 + 3× 放大图）。**不入库**。
 
+## 插件详情页的设置区（`plugins.bundle.config`，2026-10-04 在 0.2.0-rc.2 上取证）
+
+插件自身详情页（点开插件卡片那页）中间那块「标签 + 下拉」的设置区**不是自动表单，是插槽**——**谁注册谁显示**，
+不注册整块不渲染（我们此前的状态）。机制全部在 `dsh-client-ui-plugin-manager` 内：
+
+| 环节 | 事实 |
+|---|---|
+| 渲染点 | `PackageDetail`（组合包页）：`renderSlot("plugins.bundle.config", { view: "page" }, { entryKey: pkg.name })`，**仅当** config ledger 的 `bundles` 集合里有该包名；下面才是 `RowsSection`（「包含的组件」） |
+| 另两个兄弟插槽 | `plugins.item`（官方插件卡片 + summary/page，官方 `ui-settings-agent-loop` / `-shell` 走这条）与 `plugins.row.config`（key = `` `${bundle}#${rowId}` ``） |
+| **key 是什么** | **bundle 的 npm 包名**（`entryKey: pkg.name`）。本插件 = `@nonamelego/dsh-catppuccin`（= `update-check.ts` 的 `PACKAGE_NAME`），**不是** profile 条目 id `dsh-catppuccin` |
+| 注册式样 | `configForms.whileServed([ns], () => slots.inject('plugins.bundle.config', () => slots.register({ name, key, locale, inject }, Card)))`；`whileServed` 保证命名空间不再被服务时**撤掉**区块，而不是留一个空块 |
+| 插槽组件拿到什么 | 页面把 `form`（= `configForms.get(entryId)` 控制器）作为 prop 传进来（`plugins.item` 明确带 `form`；本插件自绘，走自己的 `DurableScope`，不依赖该 prop） |
+| `slots.inject` 语义 | 等**插槽被声明**（`subscribeDeclaration` + `declarationEpoch`）；未声明就永不触发，**不抛错也不挂起** ⇒ 没有 Plugin manager 的宿主上天然静默 |
+| ⚠️ `autoGenerate` 是惰性的 | Host 的 `describe()` 只把 `autoGenerate`（`presentations.get(fiber)?.auto ?? true`）写进 descriptor，**不过滤** `namespaces`；客户端唯一消费点是该页的 `formFor(id)`，它只查 `ns` 在不在。⇒ **去掉 `configure({ auto: false })` 不会让详情页长出表单**（上游文档原话：默认开启，供按 schema 生成页面的客户端使用，目前没有已发布的客户端这样做） |
+| 参照实现 | 本机 `~/.dsh/profiles/desktop/node_modules/dsh-context/lib/client.js`（`plugins.bundle.config`，key = 自己的包名）与壳内 `ui-settings-agent-loop`（`plugins.item`） |
+
+- 本插件落地：`src/client/detail-card.tsx`（复用三条行组件）+ `src/client/index.ts` 末尾的注册；**数据层零改动**（两个入口共用
+  `CATPPUCCIN_ENTRY_ID` 那一份 durable section）。SlotMap 成员在 `detail-card.tsx` 内**本地声明**——我们的 devDep 停在 0.1.7 线，
+  早于 Plugin manager；将来升依赖时若上游也声明了它，同形状会合并、异形状会编译报错（那就是删掉本地声明的信号）。
+- 护栏：`tests/reentrancy.spec.ts` 的「Plugins-page card」一组 5 条（key = `PACKAGE_NAME`、`whileServed` 的 gate、无 `whileServed` 的宿主、旧 seam 上不注册、key 等于 manifest `name`）
+  + `tests/rows.spec.tsx` 的组成断言（三条行 + schema 表单渲染不出的那些控件）。
+- 相关配置（Host 侧，别混）：`src/index.ts` 仍 `configure({ auto: false })` —— 它表达的是「本插件自带 UI」，与详情页区块是否出现无关。
+
 ## DSH STORE 上架状态与契约（2026-09-24 核实，issue #1106）
 
 商城（[`AI-Scarlett/DSH-Store`](https://github.com/AI-Scarlett/DSH-Store)）里我们的条目 `id = dsh-catppuccin` 是

@@ -213,6 +213,11 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 4. Choosing **Follow system** reverts to the official theme — it restores the preference
    you had before enabling Catppuccin (light / dark / follow system) instead of forcing a reset.
 
+> **Second entrance**: open this plugin's own card on the **Plugins** page and the middle of
+> its detail page shows the **same settings** (Catppuccin theme / Glass / Check for updates) —
+> both read and write one set of preferences, so either place works. That area comes from the
+> host's plugin detail page (`0.2.0-rc.2` and later); older versions do not have it.
+
 ### Other options in the Catppuccin row
 
 - **Code highlight style**: default / **italic comments** — affects only the shiki colours used

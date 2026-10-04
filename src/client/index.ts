@@ -45,6 +45,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // and, on 0.1.7+, the configForms Context merge the durable scope binds.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
+import { CatppuccinDetailCard, type CatppuccinDetailCardInjected } from './detail-card.tsx'
 import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
 import { SHIKI_TOKENS } from './shiki-tokens.ts'
@@ -52,8 +53,9 @@ import { GlassLayer } from './glass/glass-layer.ts'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
 import type { UpdateCheckPayload } from '../update-check.ts'
-import { UPDATE_ROUTE_PATH } from '../update-check.ts'
+import { PACKAGE_NAME, UPDATE_ROUTE_PATH } from '../update-check.ts'
 import {
+  CATPPUCCIN_ENTRY_ID,
   DEFAULT_AUTO_CHECK,
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
@@ -897,4 +899,37 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: updateInjected,
   }, UpdateRow))
+
+  // Plugins-page card: the settings section on this plugin's OWN detail page in
+  // the Plugin manager (DSH >= 0.2.0-rc.2). Three things about this
+  // registration are contracts, not style (see `src/client/detail-card.tsx`):
+  //  - `key` is the BUNDLE PACKAGE NAME, because the page dispatches with
+  //    `{ entryKey: pkg.name }` — NOT `CATPPUCCIN_ENTRY_ID`, which keys the
+  //    settings namespace;
+  //  - the section exists only while this registration does, so `whileServed`
+  //    withdraws it with the namespace instead of leaving an empty block;
+  //  - the face is the SAME three factories the General rows use, so the second
+  //    home shares the durable section rather than a copy of it.
+  // `whileServed` is guarded because not every host past 0.1.7 serves it, and
+  // `slots.inject` waits for the slot's DECLARATION — a host without the Plugin
+  // manager never fires it (no throw, no pending state).
+  const detailInjected = (): CatppuccinDetailCardInjected => ({
+    flavor: injected(),
+    glass: glassInjected(),
+    update: updateInjected(),
+  })
+
+  ctx.inject(['configForms'], (formsCtx) => {
+    const forms = formsCtx.configForms
+    if (typeof forms.whileServed !== 'function') return
+    return forms.whileServed([CATPPUCCIN_ENTRY_ID], () => ctx.slots.inject(
+      'plugins.bundle.config',
+      () => ctx.slots.register({
+        name: 'plugins.bundle.config',
+        key: PACKAGE_NAME,
+        locale: NS,
+        inject: detailInjected,
+      }, CatppuccinDetailCard),
+    ))
+  })
 }

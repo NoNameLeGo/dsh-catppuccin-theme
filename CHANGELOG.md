@@ -10,6 +10,23 @@
 
 ### 新增
 
+- **插件自己的详情页也有设置区了**（2026-10-04）。此前点开 Plugins 页里我们那张卡片，中间是空的——只有标题、
+  描述和「包含的组件」。现在那块会列出**与「设置 → 通用」相同的三行**：Catppuccin 主题（含代码高亮风格与 token 覆盖）、
+  玻璃质感、检查更新。数据层零改动，两个入口共用同一份持久化 section。
+  - 机制（在 `0.2.0-rc.2` 上取证，全文见 `AGENTS.md`「插件详情页的设置区」）：那块区域**不是自动表单，是插槽**
+    `plugins.bundle.config`，**谁注册谁显示**；渲染点是 `PackageDetail` 的
+    `renderSlot("plugins.bundle.config", { view: "page" }, { entryKey: pkg.name })`，**key = bundle 的 npm 包名**
+    （本插件 = `@nonamelego/dsh-catppuccin`），与我们 `configure({ auto: false })` 抑制的那个 schema 表单无关。
+  - 注册走上游自己的两个守卫：`configForms.whileServed([ns], …)`（命名空间不再被服务时**撤掉**区块，而不是留空块）
+    与 `slots.inject`（等插槽被**声明**，未声明就永不触发、不抛错）⇒ 没有 Plugin manager 的宿主、以及旧
+    `settingsScope` 线上的宿主都天然静默。
+  - 参照实现：本机 `dsh-context` 0.60.0（同一个插槽，key = 自己的包名）与壳内官方 `ui-settings-agent-loop`（改走
+    `plugins.item`）；两者都包在 `whileServed` 里。
+  - 护栏新增：`tests/reentrancy.spec.ts` 的「Plugins-page card」一组 5 条（key = `PACKAGE_NAME`、`served: false` 时撤回、
+    宿主无 `whileServed` 时不注册且不抛错、旧 seam 上不注册、key 必须等于 manifest 的 `name`），
+    `tests/rows.spec.tsx` 2 条组成断言（三条行都在、且保留 schema 表单渲染不出的控件：风味色板按钮、三档预设、检查更新按钮）。
+    三条变异实测会红（key 换成条目 id / 去掉 `whileServed` 门禁 / 卡片里删掉更新行）。用例数 260 → 267。
+
 - **插件卡片有了自己的图标**（2026-10-02）。此前 Plugins 页我们那张卡片画的是默认图案，而 `dsh-context` 等插件
   已有专属图标——差异的原因是**我们没在 `package.json` 里声明 `icon`**，不是上游不支持。
   - 机制（在 `0.2.0-rc.2` 上取证）：Host 的 `@deepseek-ai/dsh-app-boot` 读包元数据，把 `icon` 指向的

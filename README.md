@@ -187,6 +187,10 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 4. 选择 **跟随系统** 则回退到官方主题——会还原你启用 Catppuccin 之前
    的官方偏好（浅色 / 深色 / 跟随系统），而不是强制重置。
 
+> **另一处入口**：在 **插件页**（Plugins）点开本插件自己的卡片，中间会出现**同一组设置**
+> （Catppuccin 主题 / 玻璃质感 / 检查更新）——两处读写的是同一份偏好，改哪边都一样。
+> 该区域由宿主（≥ `0.2.0-rc.2` 的插件详情页）提供，更旧的版本上没有。
+
 ### Catppuccin 行里的其它选项
 
 - **代码高亮风格**：默认 / **注释斜体**（italic-comments）——只影响代码块与 diff 的 shiki 高亮配色。

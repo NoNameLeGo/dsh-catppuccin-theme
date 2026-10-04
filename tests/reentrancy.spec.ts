@@ -10,9 +10,14 @@
  * double and asserts that after adopt(dark) fires post-restore, the LAST
  * snapshot the presenter-like listener sees is the flavour.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FLAVOR_STORAGE_KEY, apply } from '../src/client/index.ts'
+import { CatppuccinDetailCard } from '../src/client/detail-card.tsx'
+import { CATPPUCCIN_ENTRY_ID } from '../src/state.ts'
+import { PACKAGE_NAME } from '../src/update-check.ts'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 interface Snapshot { preference: string; revision: number }
@@ -102,8 +107,34 @@ function makeSettingsScope() {
   return { scope, service: { bind: () => scope } }
 }
 
-/** configForms double (issue #15's seam): the shape `get(entryId)` returns. */
-function makeConfigForms() {
+/** Recording slots double. `inject` runs its callback immediately — the real
+ *  service fires it as soon as the slot is DECLARED (renderer client.js:
+ *  `subscribeDeclaration` + `declarationEpoch`) — and every registration is
+ *  remembered so a test can read the slot name, options and component. */
+function makeSlots() {
+  const registered: { name: string; options: Record<string, unknown>; component: unknown }[] = []
+  return {
+    registered,
+    slots: {
+      inject: (name: string, callback: () => unknown) => {
+        const dispose = callback()
+        return typeof dispose === 'function' ? dispose : () => {}
+      },
+      register: (options: { name: string } & Record<string, unknown>, component: unknown) => {
+        registered.push({ name: options.name, options, component })
+        return () => {}
+      },
+    },
+  }
+}
+
+/**
+ * configForms double (issue #15's seam): the shape `get(entryId)` returns,
+ * plus the `whileServed` gate the Plugins-page card rides.
+ * @param options - `served: false` models a host that never serves the
+ *  namespace; `withWhileServed: false` models a client without the gate.
+ */
+function makeConfigForms(options: { served?: boolean; withWhileServed?: boolean } = {}) {
   const mutations: unknown[][] = []
   const snap = {
     status: 'ready' as const,
@@ -124,7 +155,20 @@ function makeConfigForms() {
     unset: async () => true,
     mutate: async (ops: unknown[]) => { mutations.push(ops); return true },
   }
-  return { form, mutations, service: { get: () => form } }
+  // `whileServed` registers the caller's card only while the namespace is
+  // served and hands back its disposer; the double mirrors that contract, and
+  // `served: false` models the withdrawal path.
+  const whileServed = vi.fn(
+    (namespaces: readonly string[], register: (served: ReadonlySet<string>) => () => void) => {
+      if (options.served === false) return () => {}
+      const dispose = register(new Set(namespaces))
+      return typeof dispose === 'function' ? dispose : () => {}
+    },
+  )
+  const service = options.withWhileServed === false
+    ? { get: () => form }
+    : { get: () => form, whileServed }
+  return { form, mutations, whileServed, service }
 }
 
 describe('issue #10: flavour restore must not re-enter the theme/change dispatch', () => {
@@ -250,5 +294,91 @@ describe('issue #15: the client boots on either settings seam', () => {
     expect(theme.getTheme().preference).toBe('catppuccin-latte')
     // The late bind notified the plugin, so the boot push ran after all.
     expect(forms.mutations).toHaveLength(1)
+  })
+})
+
+/**
+ * The Plugins-page card (the settings section on this plugin's own detail page
+ * in the Plugin manager).
+ *
+ * The page renders `plugins.bundle.config` keyed by the BUNDLE PACKAGE NAME and
+ * paints that section only when an entry is registered (its ledger reads
+ * `ctx.slots.entries(...)`), so the key, the gate and the component are
+ * contracts rather than implementation details. `slots.inject` waits for the
+ * slot's declaration and `whileServed` for the namespace, which is what keeps
+ * hosts without a Plugin manager (and the legacy settings seam) quiet.
+ */
+describe('Plugins-page card', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  const mount = (provide: (ctx: Context) => void) => {
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    const { slots, registered } = makeSlots()
+    ctx.provide('slots', slots as never)
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    provide(ctx)
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
+    apply(ctx)
+    return { ctx, registered }
+  }
+
+  it('registers the card while the host serves the namespace', async () => {
+    const forms = makeConfigForms()
+    const { registered } = mount((ctx) => { ctx.provide('configForms', forms.service as never) })
+    await new Promise((r) => setTimeout(r, 10)) // the inject callback runs on fiber activation
+
+    expect(forms.whileServed).toHaveBeenCalledWith([CATPPUCCIN_ENTRY_ID], expect.any(Function))
+    const card = registered.find((entry) => entry.name === 'plugins.bundle.config')
+    // The page dispatches with `{ entryKey: pkg.name }`, i.e. the PACKAGE name
+    // — NOT the profile entry id that keys the settings namespace.
+    expect(card?.options.key).toBe(PACKAGE_NAME)
+    expect(card?.options.key).not.toBe(CATPPUCCIN_ENTRY_ID)
+    expect(card?.options.locale).toBe('catppuccin')
+    expect(card?.component).toBe(CatppuccinDetailCard)
+    // Additive: the General section keeps its three rows.
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(3)
+  })
+
+  it('keys the card by the manifest package name', () => {
+    // The page dispatches with `entryKey: pkg.name` — the INSTALLED bundle's
+    // name, i.e. the manifest's `name`. A drift here would orphan the section
+    // silently: it would register under a key the page never dispatches.
+    // `process.cwd()` rather than `import.meta.url`: this file runs under
+    // jsdom, where `import.meta.url` is not a file URL.
+    const manifest = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+    ) as { name?: string }
+    expect(PACKAGE_NAME).toBe(manifest.name)
+  })
+
+  it('withdraws the card when the namespace stops being served', async () => {
+    const forms = makeConfigForms({ served: false })
+    const { registered } = mount((ctx) => { ctx.provide('configForms', forms.service as never) })
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(forms.whileServed).toHaveBeenCalled()
+    expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
+  })
+
+  it('registers no card on a client without whileServed, and never throws', async () => {
+    const forms = makeConfigForms({ withWhileServed: false })
+    const { registered } = mount((ctx) => { ctx.provide('configForms', forms.service as never) })
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
+    // The rest of the plugin still registered on this host.
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(3)
+  })
+
+  it('registers no card on the legacy settingsScope seam', async () => {
+    const sss = makeSettingsScope()
+    const { registered } = mount((ctx) => { ctx.provide('settingsScope', sss.service as never) })
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
   })
 })
