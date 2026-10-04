@@ -253,7 +253,9 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**），
+> ⚠️ **发版版本号**：`latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**，
+> Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
+> CI `37181444159` check + boot-e2e 双绿 1 m 49 s；dist-tags 已是 `latest: 0.6.0` / `beta: 0.5.10-beta.1`），
 > `beta` = **`0.5.10-beta.1`**（2026-10-04）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
