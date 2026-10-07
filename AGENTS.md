@@ -253,15 +253,22 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**，
+> ⚠️ **发版版本号**：`latest` = **`0.6.1`**（2026-10-08；Publish run `37651773918` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.1` 带 provenance；CI `37651749540` 的 check + boot-e2e 双绿）
+> = `0.6.1-beta.0` **转正** + **修复 issue #21**（玻璃层三处裸 `header` 元素选择器误命中插件页的页面头，
+> 收窄为 `[data-phase] header`；CDP 真页实测：工具条对卡片的上/下距 **11px / 29px → 0 / 20**，
+> 即恢复上游 stock，且会话顶栏几何不变）。**测试 269 全绿**（267 + 本次新增 2 条护栏）。
+> 上一版 `latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
-> CI `37181444159` check + boot-e2e 双绿 1 m 49 s），
+> CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
+> 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
 > `beta` = **`0.6.1-beta.0`**（2026-10-07；Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s；
 > dist-tags 生效耗时约 **5 分钟**——期间 `latest: 0.6.0` / `beta: 0.5.10-beta.1` 都还在，**别在这段时间断言「没发出去」**，
 > 权威信号是 run 日志里的 `+ @nonamelego/dsh-catppuccin@0.6.1-beta.0`）= 玻璃模式下选中会话行的定位器重设计
 > （旧 `inset 2px 0 0` 暗色竖条 + 16px 外发光 → 1px 风味蓝内环 24% + 12% 柔光；纯 alpha/rim/shadow，
 > 40% 选中填充与 AA 口径不动）。上一版 `beta` = **`0.5.10-beta.1`**（2026-10-04）。
-> 当前 dist-tags = `latest: 0.6.0` / `beta: 0.6.1-beta.0`。
+> 当前 dist-tags = `latest: 0.6.1` / `beta: 0.6.1-beta.0`（2026-10-08 复核；**该次又踩了传播窗口**——
+> 发布后约 2 分钟查 registry 仍是 `latest: 0.6.0`，权威信号始终是 run 日志里的 `+ …@<version>`）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
 > （本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
