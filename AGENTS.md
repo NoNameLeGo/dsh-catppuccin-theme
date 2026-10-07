@@ -14,8 +14,16 @@
 | `<缓存>/.cache/dsh-ref/catppuccin-palette.json` | 官方 Catppuccin 色板 v1.8.0——**默认取色来源**（官方取值在 DSH 下确实不成立时按规则 1 的例外流程偏离） |
 
 > 路径基准：脚本里写的是 `join(__dirname, '..', '..', '.cache', 'dsh-ref')`（**相对 `scripts/`，往上两级**），
-> 本机实测 = `D:\Vibe-Coding\.cache\dsh-ref\`（2026-09-24 校验：目录存在，含 `dsw-tokens.json`、
-> `catppuccin-palette.json` 与各 tag 的 `design-platform-*.css`）。换机器时改成自己的缓存盘即可。
+> 本机实测 = `D:\Vibe-Coding\.cache\dsh-ref\`（含 `dsw-tokens.json`、`catppuccin-palette.json` 与各 tag 的
+> `design-platform-*.css`）。换机器时改成自己的缓存盘即可。
+>
+> ⚠️ **缓存不在仓库里 ⇒ 重建时必须钉住上游 SHA，否则「换了上游 tag」与「正常改配色」在 `git diff` 里长得一样。**
+> 这个目录被清掉过一次（2026-10-08 才发现 `pnpm gen:palettes` 报 ENOENT），重建配方写在 `generate-palettes.mjs`
+> 头部注释里。**重生成一律带 `--pin <上游 commit SHA>`**，它把 `// UPSTREAM_PIN: <sha>` 写进 `palettes.ts` 头部
+> 当审计锚点；⚠️ 这行是**一次性**的——下次不带 `--pin` 再生成就会消失，所以它是个人守的约定，不是持久配置。
+> 当前锚点：**`dsh-v0.2.0-rc.2` = `639ed015397290b3745d163aafe02ffee4aa3f84`**（2026-10-08 重建：190 token/方案，
+> 与出厂包快照交叉校验 380/380 语义一致）。另：上游色板仓库 2.0.0 重组后根目录 `palette.json` 已删，
+> 改从 npm 包 `@catppuccin/palette@1.8.0` 的 `esm/palette.js` 取（同一份 v1.8.0 数据）。
 | 产物 `src/client/palettes.ts` | 生成物；同源产物还有 `themes/`（`pnpm gen:themes`）与 shiki token 表 |
 
 > **两层「官方」不要混淆**：(a) **Catppuccin 源色板** —— 取色来源；(b) **DSH 官方 token 的取值与语义** —— 被适配对象。改 (b) 是本插件存在的理由（例如整族重映射 `brand-primary` 到风味蓝），不需要理由；改 (a) 才需要证据（规则 1）。
@@ -26,7 +34,7 @@
    - ① 有可复核的证据（实测对比度数字 / 用户 issue / 上游设计差异）；
    - ② 已穷尽「不换色相」的手段（混色目标、层级档位）仍不达标；
    - ③ 在代码注释 + CHANGELOG 写明**与官方取值的差异及理由**，并补上锁定该决定的断言。
-2. **改颜色只改映射表。** 调 `scripts/generate-palettes.mjs` → `pnpm gen:palettes` → 提交生成物；手改 `palettes.ts` 下次生成即被覆盖。
+2. **改颜色只改映射表。** 调 `scripts/generate-palettes.mjs` → `node scripts/generate-palettes.mjs --pin <上游 SHA>`（**必须带 `--pin`**，理由见上）→ 提交生成物；手改 `palettes.ts` 下次生成即被覆盖。
 3. **对比度问题先换手段，再换颜色**：第一步永远是不换色相的调整——混色目标（`base` → `crust`）与层级档位（先例：issue #7、issue #11、VV）。仍不达标时按规则 1 的例外流程偏离并记录：已有两个**记录在案的有意偏离**——① Latte `--dsw-static-blue-900`：该步被 DSH 当作浅色徽章（hero「预览版」）上的**文字**用，通用浅色计划把它混向 `base` 会洗成淡色，故改混向 `text`（`generate-palettes.mjs` 内有完整注释）；② `brand-primary` 整族：DSH 官方品牌蓝与 Catppuccin 主题冲突，直接重映射为风味蓝（生成器头部注释说明）。
 4. **玻璃层不得改变配色语义。** 玻璃只动 alpha / blur / rim / shadow；开关关闭时必须回到与官方色板逐 token 一致的纯色形态。**推论（issue #13 实测）**：本皮肤把页面地面强制成**纯色**，所以「背后只有地面」的玻璃面上加 `backdrop-filter` 是**恒等变换**——填充逐像素不变（隐藏该面内容后 A/B：气泡 **0/19184 像素**），代价却是 Chromium 每帧回读 backdrop（**半径不参与**；`will-change` / `contain` 绕不开，只有 `none` 免提升）。**新增 blur 前先问一句「这个面背后是不是只有纯色地面」**，`tests/glass-css.spec.ts` 双向锁定（地面之上的面不得有 blur、覆盖移动内容的必须保留）。唯一已知的可见副作用不是降级：面变成合成层后，**面内文字会重抗锯齿**（≤16/255 侧栏、≤64/255 气泡）。
    **推论二（issue #19 实测，同样必须记）：不要把 blur 加在「托管浮层」的容器上。** 带 `backdrop-filter` 的元素会成为其后代的 **backdrop root**，后代只能读到**该元素自己画的那层**（页面内容不在其中）；命令面板 `[data-trigger-menu]` 就挂在 `[data-composer-card]` 的 `conversation.input.overlay` 锚点里，且整块**悬在卡盒之外**，于是它自带的 `blur(40px)` 读空 ⇒ 底下的转录原样透出。**推论：材质必须整体搬到容器内部的 `::before` 材质面（填充 + blur 都要，别只搬 blur），容器本体保持零绘制**——这正是上游 `MenuSurface.module.css` 的做法（`isolation: isolate` 外壳 + `z-index:-1` 材质面，其注释原话就是「keeps nested menus free of an ancestor backdrop root」）。`isolation: isolate` **不是** backdrop root，可以放心用。护栏 = `tests/glass-css.spec.ts` 的 `backdrop-root hygiene` 一组；判定手法与实测数字见 `skills/css-backdrop-root-probe` 与 `docs/issue-19-palette-blur.md`。
