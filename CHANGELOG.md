@@ -8,6 +8,12 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-08
+
+> 本版 = 预发布 `0.6.1-beta.0`（玻璃模式下选中会话边框重设计）**转正** + 一项新修复（issue #21）。
+> 两条都在下面列出；`beta` 渠道里 `0.6.1-beta.0` 是本版内容的真子集。
+> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；issue #21 的修复另用 CDP 在真页上做了修前/修后对比取证。
+
 ### 修复
 
 - **修复 issue #21：云母模式下插件页顶部的「添加插件」工具条被挤到卡片上边缘**（2026-10-08）。
@@ -853,7 +859,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...v0.6.0
 [0.5.9]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.7...v0.5.8
