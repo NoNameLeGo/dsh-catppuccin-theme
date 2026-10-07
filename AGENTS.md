@@ -255,8 +255,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 
 > ⚠️ **发版版本号**：`latest` = **`0.6.0`**（2026-10-04；与 `0.5.10-beta.1` **零代码差异**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
-> CI `37181444159` check + boot-e2e 双绿 1 m 49 s；dist-tags 已是 `latest: 0.6.0` / `beta: 0.5.10-beta.1`），
-> `beta` = **`0.5.10-beta.1`**（2026-10-04）。
+> CI `37181444159` check + boot-e2e 双绿 1 m 49 s），
+> `beta` = **`0.6.1-beta.0`**（2026-10-07；Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s；
+> dist-tags 生效耗时约 **5 分钟**——期间 `latest: 0.6.0` / `beta: 0.5.10-beta.1` 都还在，**别在这段时间断言「没发出去」**，
+> 权威信号是 run 日志里的 `+ @nonamelego/dsh-catppuccin@0.6.1-beta.0`）= 玻璃模式下选中会话行的定位器重设计
+> （旧 `inset 2px 0 0` 暗色竖条 + 16px 外发光 → 1px 风味蓝内环 24% + 12% 柔光；纯 alpha/rim/shadow，
+> 40% 选中填充与 AA 口径不动）。上一版 `beta` = **`0.5.10-beta.1`**（2026-10-04）。
+> 当前 dist-tags = `latest: 0.6.0` / `beta: 0.6.1-beta.0`。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
 > （本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
