@@ -631,23 +631,37 @@
 
 /* ---------- Sidebar rows: the selected row gets a real fill, because
    upstream gives hover and selected the SAME 6% tint (`rgba(38,49,72,.06)`
-   on both, measured on the live GUI) — a row could only tell you it was
-   picked through the 2px accent bar, and the list had no resting locator.
-   The fill uses DSH's own selected-nav token, not this skin's `card-hover`:
-   that recipe is the SAME colour as the page ground, so over the solid
-   ground it composites to a pixel-identical fill (measured: 0 visible delta,
-   only glyph antialiasing). Hover stays upstream's own 6% tint (227,229,235
-   on Latte); the 40% selected fill composites to (219,221,229) there, a clear
-   step above it while keeping the translucency. 40% is the ceiling, not a
-   taste call: the row's 12px timestamp is `label-secondary` and its contrast
-   against the fill is 4.62 at 40% but 4.41 at 50% — under AA.
+   on both, measured on the live GUI) — without a fill a row could only tell
+   you it was picked through a locator. The fill uses DSH's own selected-nav
+   token, not this skin's `card-hover`: that recipe is the SAME colour as the
+   page ground, so over the solid ground it composites to a pixel-identical
+   fill (measured: 0 visible delta, only glyph antialiasing). Hover stays
+   upstream's own 6% tint (227,229,235 on Latte); the 40% selected fill
+   composites to (219,221,229) there, a clear step above it while keeping the
+   translucency. 40% is the ceiling, not a taste call: the row's 12px
+   timestamp is `label-secondary` and its contrast against the fill is 4.62
+   at 40% but 4.41 at 50% — under AA.
    The row title (14px `label-primary`) measures 5.89 / 8.29 / 10.07 / 11.38
-   across the four flavours (injected A/B on the live GUI, 2026-09-18). ---------- */
+   across the four flavours (injected A/B on the live GUI, 2026-09-18).
+   Selected-row border (2026-10-07 redesign): the old locator was
+   `inset 2px 0 0 accent-bar + 16px brand glow` — the accent token is a
+   near-ground dark in every flavour (#313244 in Mocha), so the bar read as
+   an offcut bracket hugging the row's rounded corner, and the free-floating
+   glow fuzzed the outline. Replaced with the same hover-ring vocabulary the
+   buttons below use (`box-shadow inset ring + soft glow`), one notch up:
+   a 1px inner ring in the flavour's own blue follows the row's own radius
+   as one clean rounded-rect border, and the glow stays behind it. Ring alpha
+   is 24%, not higher: the brand blue is a deep saturated ink (Latte
+   `#1e66f5`), so at 38% the hairline read as a hard dark outline on the
+   light fill — a locator over an already-filled row wants a tint, not a
+   rule. No blur,
+   no backdrop read — pure alpha/rim/shadow, so the off-state (glass off =
+   stock upstream) is untouched. ---------- */
 [data-dsh-glass-float] [role='treeitem'][aria-selected='true'] {
   background: color-mix(in srgb, var(--dsw-specific-sidebar-nav-item-active) 40%, transparent);
   box-shadow:
-    inset 2px 0 0 var(--dsw-specific-sidebar-nav-item-active-accent),
-    0 0 16px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 24%, transparent),
+    0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%, transparent);
 }
 
 /* ---------- Hover light: buttons and menu cells answer with a soft ring. ---------- */
