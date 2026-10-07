@@ -428,3 +428,61 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
     }
   })
 })
+
+describe('the top-bar card selector stays off the page head (issue #21)', () => {
+  // The app ships exactly two <header> elements, and only one of them is a card.
+  //
+  //  - `wSkVaW_header` — the conversation top bar, mounted inside `[data-phase]`
+  //    (`hero` / `active` / `plain`). It is the surface the floating card recipe
+  //    was written for: it floats over the scrolling transcript.
+  //  - `X_2TxG_pageHead` — a PAGE head, e.g. the plugin page's 「添加插件」
+  //    toolbar (dsh-client-ui-plugin-manager; dsh-client-ui-schedule ships the
+  //    same shell under its own hash). Stock declares no border, no fill and
+  //    `padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px))`, and its
+  //    ancestors carry no `[data-phase]`.
+  //
+  // A bare `header` tag selector matched both. On the page head the 12px outer
+  // margin + 10px padding + rim turned an invisible layout box into a card and
+  // pulled the toolbar 11px from the card's top edge against 29px from its
+  // bottom one (live GUI, mocha + mica, 1440x900@2x: card y 12..84, toolbar
+  // y 23..55 — the reporter's issue #21). It also handed the page head the
+  // collapsed-rail `margin-left: 28px` and discarded the Windows/macOS
+  // `--dsh-frame-top-clearance`. `[data-phase]` is the seam: scoping to it
+  // keeps the top bar's geometry byte-identical and gives the page head back
+  // its stock box (measured: stripping `data-dsh-glass*` at runtime reproduces
+  // the same numbers).
+  const gated = rules.filter((rule) => rule.selector.includes('data-dsh-glass-float'))
+
+  it('never selects a bare header tag under the float gate', () => {
+    const offenders = gated.filter((rule) =>
+      rule.selector
+        .split(',')
+        .map((part) => part.trim())
+        .some((part) => /(?:^|\s)header(?![\w-])/.test(part) && !/\[data-phase/.test(part)),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'issue #21: a bare `header` also matches the page head — scope it to [data-phase]',
+    ).toEqual([])
+  })
+
+  it('still styles the conversation top bar as a card, collapse rule included', () => {
+    const card = rules.find(
+      (rule) =>
+        rule.selector === '[data-dsh-glass-float] [data-phase] header' &&
+        /border\s*:\s*1px solid/.test(rule.decls),
+    )
+    expect(card, 'the conversation top bar lost its card recipe').toBeDefined()
+    expect(blurOf(card!.decls), 'the top bar floats over the transcript — it keeps its blur')
+      .toBe('blur(var(--dsh-glass-blur, 14px))')
+    expect(
+      rules.some(
+        (rule) =>
+          rule.selector ===
+            '[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header' &&
+          /margin-left\s*:\s*28px/.test(rule.decls),
+      ),
+      'the collapsed rail must still step the top bar right — and only the top bar',
+    ).toBe(true)
+  })
+})

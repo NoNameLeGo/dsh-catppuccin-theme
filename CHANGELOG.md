@@ -8,6 +8,25 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **修复 issue #21：云母模式下插件页顶部的「添加插件」工具条被挤到卡片上边缘**（2026-10-08）。
+  根因是 `glass.module.css` 里三处**裸 `header` 元素选择器**——会话顶栏的玻璃卡片配方原本写作
+  `[data-dsh-glass-float] header`，而应用里一共只有两个 `<header>`：会话顶栏（`wSkVaW_header`，挂在
+  `[data-phase='hero'|'active'|'plain']` 内）与**页面头**（`X_2TxG_pageHead`，来自
+  `dsh-client-ui-plugin-manager`，`dsh-client-ui-schedule` 的页面壳同理）。页面头是**布局元素**不是卡片，
+  上游只声明 `padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px))`、无边框无底色，也被这套配方
+  打中：`padding` 被换成 `10px 16px 8px`、外加 12px 外边距与 1px 描边。
+  真机实测（mocha + mica，1440×900@2x）：卡片 y 12→84，工具条 y 23→55 ⇒ **上距 11px、下距 29px**。
+  注意上下不对称是上游自身的几何（标题块 52px 高于 32px 的工具条，`align-items: flex-start` 必然在其下方留
+  20px），玻璃加的是**可见的描边**，把这段留白变成了卡片内的空隙——运行时摘掉 `data-dsh-glass*` 复测即为
+  上游原样（y 0、无描边、`padding-top 28px`、按钮与标题齐平）。
+  修法：三处选择器收窄为 `[data-phase] header`（会话顶栏几何逐像素不变）。顺带修掉同源的两个连带问题——
+  侧栏收起时页面头被推 `margin-left: 28px`，以及页面头丢失 `--dsh-frame-top-clearance`
+  （Windows 标题栏 40px / macOS 全屏 48px）的让位。护栏见 `tests/glass-css.spec.ts` 的
+  「the top-bar card selector stays off the page head (issue #21)」两条。
+  用户可见变化：**插件页（以及任何使用同款页面头的页面）在玻璃模式下恢复上游版式**；会话顶栏不受影响。
+
 ### 变更
 
 - **重设计玻璃模式下选中会话的边框**（2026-10-07）。旧样式是 `inset 2px 0 0` 左侧竖条 +
