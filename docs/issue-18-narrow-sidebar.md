@@ -6,6 +6,8 @@
 - 复现环境：DSH `0.1.7-rc.2`（`%APPDATA%\DSH\data\versions\0.1.7-rc.2\node_modules\@deepseek-ai\dsh\lib\bin.js`）+ Chromium（Playwright，`--no-proxy-server`）+ **临时 `DSH_HOME`**（`dsh plugin --profile web add link:<repo>`）+ 视口 501×285 + `locale: zh-CN`。
 - 探针：`.debug/issue18-narrow.cjs`（**不入库**），出图 `.debug/issue18-{off,on}-narrow-{initial,expanded}.png`。
 
+> ⚠️ **本文的 `文件:行号` 是写作当时的快照**（且多半指向上游仓库的某个版本）——代码一动行号就会漂。要按位置找代码，请用**符号名**在当前树 / 对应上游 tag 里检索，别信行号。
+
 ## 1. 结论
 
 `280 / 221` 这组数字与报告人完全一致，但它由**上游**产生：视口 < 1024px 时侧栏默认自动收起；只有**手动点过侧栏开关**（`narrowExpanded`）才会以 280px 展开并挤压主区，主区 = 视口宽 − 280。本插件的样式表里没有任何 `grid-template-columns` 规则，玻璃开/关两轮的轨道值逐字符相同 ⇒ **本插件不在因果链里**。

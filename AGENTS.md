@@ -41,7 +41,7 @@
 
 ### 用这条准绳做过的判定（可引用的先例）
 
-- 2026-09-15 **驳回** MM（暗色主 accent 提亮）：驳回理由**不是「官方色不许动」**，而是它拿不出「官方取值在 DSH 下不成立」的证据（`#89b4fa` / `#8caaee` 在 `crust` 上远高于 AA，属审美偏好而非缺陷），且 `brand-primary` 已被 `tests/palettes.spec.ts:105` 锁成契约。想要更亮的主操作色走 **K（token 覆盖）**，不走 palette。
+- 2026-09-15 **驳回** MM（暗色主 accent 提亮）：驳回理由**不是「官方色不许动」**，而是它拿不出「官方取值在 DSH 下不成立」的证据（`#89b4fa` / `#8caaee` 在 `crust` 上远高于 AA，属审美偏好而非缺陷），且 `brand-primary` 已被 `tests/palettes.spec.ts` 的断言锁成契约（不再写行号——行号会随文件漂）。想要更亮的主操作色走 **K（token 覆盖）**，不走 palette。
 - 2026-09-15 **立项** VV（success / warn tertiary 对比度）：实测 3.18~4.37 低于 AA，就是「官方取值在本项目不成立」的那类证据；修法仍走第一步（只换混色目标、色相不变）——规则 1 与规则 3 各占一半。
 
 两次判定的完整理由见 `docs/plugin-improvements.md`（「六、2026-09-15 复核」）。
@@ -54,7 +54,7 @@
 |---|---|---|
 | GitHub 仓库名 | `NoNameLeGo/dsh-catppuccin-theme` | 已从 `dsh-catppuccin` 301 改名，GitHub 自动跳转旧链接 |
 | npm 包名 | `@nonamelego/dsh-catppuccin` | **不要改成 `-theme`**——安装/更新检查代码都依赖它（`src/update-check.ts` 的 `PACKAGE_NAME`、`cordis.patch.yml` 的 `name`、README 里的安装/升级命令） |
-| 插件 ID / 显示名 | `dsh-catppuccin` | `src/index.ts:54` 的 `export const name`；运行时的 Cordis 插件身份，不可改 |
+| 插件 ID / 显示名 | `dsh-catppuccin` | `src/index.ts` 的 `export const name`；运行时的 Cordis 插件身份，不可改 |
 
 - 代码/配置里 `grep dsh-catppuccin` 命中的大多数**都不该改**。只有**完整的 GitHub URL**（`github.com/NoNameLeGo/dsh-catppuccin`，不带 `-theme`）才需要更新为新仓库名。
 - npm 包名、插件 ID、本地路径 `link:D:\Vibe-Coding\dsh-catppuccin`（README 里的本地开发命令）一律保持原样。
@@ -382,6 +382,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
   ```
 
 ## 其它项目约定
+- **文档里引用代码位置一律用符号名，不写字面行号**（写 `export const name` / `GLASS_PRESETS` / 断言名 / token 名，不写 `index.ts:54`）。行号写完当天就开始腐坏——2026-10-09 体检时 `AGENTS.md` 两处行号已分别漂了 3 行与 58 行。`docs/` 下的历史档（`code-audit-*` / `issue-*` / `locale-review`）已在开头统一标注「行号为写作当时快照」，活文档（本文件 / README）请直接写符号名。
 - 提交信息用中文 conventional 风格：`feat(...)` / `fix(...)` / `chore(release): ...` 等。
 - **CHANGELOG 双语**：希望 changelog 条目附带英文摘要时，在 commit 正文里写一行 `EN: <英文摘要>`（大小写不敏感）；`pnpm changelog:gen` 会自动把它渲染为 `- **中文标题**（EN: 英文）`。没有 `EN:` 行的 commit 只输出中文——双语是可选增强，不强制每条都要写英文。
 - 玻璃质感（玻璃拟态）皮肤代码在 `src/client/glass/`；主题调色板由 `pnpm gen:palettes` 生成（`scripts/generate-palettes.mjs`）。

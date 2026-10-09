@@ -117,10 +117,10 @@
 - 优化方向：在 row 底部加一块 240×60 的"玻璃样本"预览区，按当前 knobs 渲染一个小卡片，复用 `glass-layer.ts` 的样式 token。
 - 实施方法：抽 `<GlassSwatch>` 组件，复用 `glass.module.css`，挂同样的 `data-dsh-glass` 属性。
 - 预期效果：preset 选择无需"先看大效果再退回"。
-- **复核结论（2026-09-21）：❌ 不推进（前提已被取代）**——0.5.1 的设置弹窗玻璃化之后，**这一行本来就坐在一个实时玻璃面板里**：`--dsh-glass-blur` / `--dsh-glass-frost` 挂在 `documentElement`（`glass-layer.ts:375-378`），拖 blur / frost 时弹窗自身跟着变，`[data-dsh-glass-settings]` 下的卡片与选择器也都是半透明的。再加一块 240×60 swatch 是重复能力；而 brightness（改的是页面地面）与 mode（改的是布局）本来就无法在一张 swatch 里表达。⇒ 与 `D`（插件适配 DSH，不改变 DSH）同一思路：不自己造一套预览。**重开条件**：若维护者或用户指出「设置弹窗里的实时玻璃预览哪里不够用」（例如想在不改动页面 / 不写设置的前提下比较两套参数），按那个具体场景重开。
+- **复核结论（2026-09-21）：❌ 不推进（前提已被取代）**——0.5.1 的设置弹窗玻璃化之后，**这一行本来就坐在一个实时玻璃面板里**：`--dsh-glass-blur` / `--dsh-glass-frost` 挂在 `documentElement`（`glass-layer.ts` 的 `publish()`），拖 blur / frost 时弹窗自身跟着变，`[data-dsh-glass-settings]` 下的卡片与选择器也都是半透明的。再加一块 240×60 swatch 是重复能力；而 brightness（改的是页面地面）与 mode（改的是布局）本来就无法在一张 swatch 里表达。⇒ 与 `D`（插件适配 DSH，不改变 DSH）同一思路：不自己造一套预览。**重开条件**：若维护者或用户指出「设置弹窗里的实时玻璃预览哪里不够用」（例如想在不改动页面 / 不写设置的前提下比较两套参数），按那个具体场景重开。
 
 **SS. `GlassRow` 缺预设档位** — 优先级 **P1**（✅ **已实施（ca979ba），本条可关闭**）
-- **现状修正（2026-09-15）**：`src/client/glass/glass-row.tsx:152-159` 的 `GLASS_PRESETS` 已提供**清透 / 标准 / 磨砂**三档（id `clear` / `standard` / `frosted`），:241-247 渲染为单选，且「当前旋钮值恰好等于某档时该档高亮」（:178-179）；README「使用」已记载。**重做即白干。**（注：同日的审计块曾误把它列进视觉批次，已更正——见六、复核节。）
+- **现状修正（2026-09-15）**：`src/client/glass/glass-row.tsx` 的 `GLASS_PRESETS` 已提供**清透 / 标准 / 磨砂**三档（id `clear` / `standard` / `frosted`），渲染为单选，且「当前旋钮值恰好等于某档时该档高亮」；README「使用」已记载。**重做即白干。**（注：同日的审计块曾误把它列进视觉批次，已更正——见六、复核节。）
 - 现象：blur / frost / brightness 三个滑杆全手动，新用户没有"什么叫好看"的参照，只能盲目试。
 - 优化方向：row 内加三个预设按钮（清透 / 标准 / 浓雾），一键写入调校好的数值组合；滑杆仍可在此基础上微调。
 - 实施方法：在 `glass-row.tsx` 定义 `GLASS_PRESETS: Record<string, GlassSettings>`；点击即走现有 setter + durable persist 链路。
@@ -188,7 +188,7 @@
 - 预期效果：上游改色不会被"悄悄同步"；升级可审计。
 
 **LL. 次级文字 token 映射过暗** — 优先级 **P1**（✅ **已实施（issue #7 批次），本条可关闭**）
-- **复核结论（2026-09-15）**：本文「优化方向」所要求的映射**已经在树里**——`src/client/palettes.ts:326` 暗色 `--dsw-alias-label-secondary` = `bluish-150`（= `subtext0`）、`:327` `label-tertiary` = `bluish-200`（= `overlay2`），逐字符合提案；`tests/palettes.spec.ts:197` 已用 WCAG floors 锁死（菜单 secondary 4.0 / tertiary 3.0，页面 6.0 / 5.0）。**重做即白干，勿再排期。**
+- **复核结论（2026-09-15）**：本文「优化方向」所要求的映射**已经在树里**——`src/client/palettes.ts` 里暗色 `--dsw-alias-label-secondary` = `bluish-150`（= `subtext0`）、`label-tertiary` = `bluish-200`（= `overlay2`），逐字符合提案；`tests/palettes.spec.ts` 的「dark label hierarchy stays monotonic on the menu surface (issue #7)」用例已用 WCAG floors 锁死（菜单 secondary 4.0 / tertiary 3.0，页面 6.0 / 5.0）。**重做即白干，勿再排期。**
 - 现象：暗色风味下侧边栏分组标签、会话时间戳、底部入口等次级文字对比度目测 < 3:1（实测截图可见）。根因是 `generate-palettes.mjs` 把 `--dsw-alias-label-secondary/tertiary` 映到了 Catppuccin 较暗的 overlay 层级。
 - 优化方向：暗色三风味 secondary 提一档到 `subtext0`、tertiary 到 `overlay2`；Latte 同步核对。
 - 实施方法：改 `scripts/generate-palettes.mjs` 的映射表后 `pnpm gen:palettes` 重生成，勿手改 `palettes.ts`。
@@ -197,7 +197,7 @@
 **MM. 暗色下主 accent 可读性不足** — 优先级 **P1**（❌ **已驳回，2026-09-15 复核**）
 - **复核结论（2026-09-15）**：三条理由，任一成立即不该做。
   1. **前提是审美而非可读性**：本文自己写的是「发闷」，而 `#8caaee`(Frappé) / `#89b4fa`(Mocha) 落在 `crust` 上远高于 AA——不存在对比度缺陷，不存在可判定的验收标准。
-  2. **过不了「偏离官方取值」的门槛**（规则 1：官方取值在 DSH 下确实不成立才可改，需证据 + 已穷尽不换色相手段）：`#8caaee` / `#89b4fa` 在 `crust` 上远高于 AA，拿不出「不成立」的证据；且 `--dsw-alias-brand-primary-new-colorprimary-new-color` 已被 `tests/palettes.spec.ts:105` 锁成 brand pin 契约，换 sapphire/sky 或统一提亮还会让三风味的蓝趋同、丢掉风味差异。（**注意**：驳回理由不是「官方色不许动」——允许有据偏离，见同一份 AGENTS.md 规则 1。）
+  2. **过不了「偏离官方取值」的门槛**（规则 1：官方取值在 DSH 下确实不成立才可改，需证据 + 已穷尽不换色相手段）：`#8caaee` / `#89b4fa` 在 `crust` 上远高于 AA，拿不出「不成立」的证据；且 `--dsw-alias-brand-primary-new-colorprimary-new-color` 已被 `tests/palettes.spec.ts` 的 brand pin 断言锁成契约，换 sapphire/sky 或统一提亮还会让三风味的蓝趋同、丢掉风味差异。（**注意**：驳回理由不是「官方色不许动」——允许有据偏离，见同一份 AGENTS.md 规则 1。）
   3. **已有用户侧出口**：想更亮的主操作色，用 **K（token 覆盖，已实施）**直接覆写对应 token；RR（accent 自定义 UI）只是 K 的可视化外壳，不是新能力。
 - 结论：**驳回**，不再作为 palette 层改动；不写进任何发版批次。
 - 现象：Mocha 的 blue `#89b4fa` 族在深底上发闷，发送按钮等唯一主操作点不够"跳"。
@@ -218,14 +218,14 @@
 - 预期效果：聊天流式输出时主线程负担 -80%。
 
 **O. Glass 不尊重 prefers-reduced-motion** — 优先级 **P1**（✅ **已实施，本条可关闭**）
-- **现状修正**：`glass.module.css:628` 已有 `@media (prefers-reduced-motion: reduce)` 块，对 hero/active/view/dialog 等动画置 `animation: none`。
+- **现状修正**：`glass.module.css` 已有 `@media (prefers-reduced-motion: reduce)` 块，对 hero/active/view/dialog 等动画置 `animation: none`。
 - 残留（可选）：当前只关 `animation`，未显式关 `transition`；如需彻底，可把 `transition: none` 一并纳入该媒体查询。
 - 预期效果：已符合 WCAG 2.3.3。
 
 **P. Glass 缺高对比度模式** — 优先级 **P1**（▲ **视觉批次，前置：截图流水线**）
 - **复核结论（2026-09-15）**：方案本身（强制 surface 不透明 + 文字加深）是**观感决策**，效果必须看，只有「顺眼 / 不顺眼」没有 fail / pass；且 `prefers-contrast` 在仓库确认为 0 处（只有 `prefers-reduced-motion`，见 O 条）。当时归入视觉批次，**前置 = 截图流水线能出 4 风味图**（见 FF 条）——没有 baseline 的观感改动无法回归。
 - **复核结论（2026-09-18）：❌ 不推进（原诉求拆两半，两半都不成立）**：
-  1. **「强制 surface 不透明」已存在**，不需要新代码——`glass-row.tsx:221-229` 的**总开关**一关就是原版不透明界面，`glass.modeHint` 也已写明兼容模式「不模糊大面积区域、性能更稳妥」。再做一个 high-contrast 开关只是把同一能力换个名字。
+  1. **「强制 surface 不透明」已存在**，不需要新代码——`glass-row.tsx` 的**总开关**一关就是原版不透明界面，`glass.modeHint` 也已写明兼容模式「不模糊大面积区域、性能更稳妥」。再做一个 high-contrast 开关只是把同一能力换个名字。
   2. **「文字加深」是 palette 层偏离**，按规则 1 需要「官方取值在 DSH 下确实不成立」的证据（低视力用户实测 / 上游对比度缺陷）；当前既无 `prefers-contrast` 用法，也无任何用户反馈，拿不出证据。
 
   ⇒ 判 **❌ 不推进**，与 `D`（插件适配 DSH，不改变 DSH）同一思路。若将来真有低视力用户反馈，只做「强制不透明 + 保留官方色」的**最小版**，不深化文字色（否则又是一次无据偏离）。
@@ -235,7 +235,7 @@
 - 预期效果：低视力用户也能用 glass 主题。
 
 **OO. compat 模式材质过于保守** — 优先级 **P1**
-- 现象：`data-dsh-glass-compat` 分支只给 menu/card/popover 加 12px blur，填充仍是不透明原生色（`glass.module.css:602-625`），用户开兼容模式后几乎感知不到插件存在——实测截图正是此状态，观感≈原生暗色。
+- 现象：`data-dsh-glass-compat` 分支只给 menu/card/popover 加 12px blur，填充仍是不透明原生色（`glass.module.css` 的 compat 段），用户开兼容模式后几乎感知不到插件存在——实测截图正是此状态，观感≈原生暗色。
 - 优化方向：compat 也注入半透明 fill + hairline rim（复用 `--dsh-glass-card-raised` / `--dsh-glass-rim`，不动布局）；并在 mode picker 文案明确"兼容模式 = 仅材质，浮动模式 = 完整皮肤"。
 - 实施方法：compat 段补 `background` / `border` 规则，复用既有 `--dsh-glass-*` 变量。
 - 预期效果：与 Q 互补——Q 解决"用户看不懂两种模式"，本条解决"compat 本身看不出皮肤"。
@@ -268,7 +268,7 @@
 - **复核结论（2026-09-18）：❌ 不推进（三条，任一成立即不该做）**：
   1. **对外已定案**：issue #9「是否可以支持自定义壁纸」已由维护者关闭，答复原话是「感觉当前插件定位不太适合加上自定义壁纸功能」，并给出 5 个社区皮肤插件（DSH-Transparent-UI-Plugin / dsh-dream-skin / dsh-gui-customization / dsh-client-ui-custom / dsh-skin）配合使用——与 `cb21371`「插件适配 DSH，而非改变 DSH」同一思路。
   2. **与 ZZ 直接冲突**：本皮肤把页面地面强制成纯色正是 0.5.3 性能修复的前提；背景层一旦不是纯色，`backdrop-filter` 就**不再是恒等变换**，ZZ 删掉的 4 处 blur（mica 460k → 236k px²、mica/compat 4.32× → 2.22×）全部作废，还要重新承担 issue #13 量到的每帧 backdrop 回读。
-  3. **会让 `tests/glass-css.spec.ts:64` 的前提失效**：那条「背后只有地面就不许 blur」的锁，理由就是「地面是纯色」。加了背景后测试**仍然绿**（按选择器匹配），但锁守的理由消失——**假绿比没有锁更糟**。
+  3. **会让 `tests/glass-css.spec.ts` 那条「背后只有地面就不许 blur」断言的前提失效**：锁的理由就是「地面是纯色」。加了背景后测试**仍然绿**（按选择器匹配），但锁守的理由消失——**假绿比没有锁更糟**。
 
   ⇒ 这不是视觉批次里的 P2，属**架构级反悔**：要真做，必须单独立项、重新测 GPU、并重写 `glass-css.spec.ts` 的不变量。
 
@@ -472,10 +472,10 @@
 
   | 位置 | 报错 | 根因 | 建议修法 |
   |---|---|---|---|
-  | `tests/client.spec.ts:106` | 风味 id 不能赋给 `'light'`/`'dark'`/`'system'`/`null` | 测试故意传风味 id 证明「非内置值永不胜出」，但 `builtinPickWins` 第 2 形参被收窄成 `BuiltinPreference \| null` | 放宽签名为 `string \| null`（该参数只参与 `preference === livePick` 比较，语义等价），或测试内断言 |
-  | `tests/client.spec.ts:166` | `ops` 隐式 any（strict） | 对象字面量整体 `as unknown as SettingsScope<...>`，没有上下文类型 | `mutate(ops: readonly SettingsPathOpView[])` |
-  | `tests/reentrancy.spec.ts:78` | `Snapshot` 不能赋给 `ThemeSnapshot` | 本地 `Snapshot = {preference, revision}` 是刻意裁剪的，真实事件载荷是 `ThemeSnapshot`（含 `fontSize`/`active`/`themes`） | 监听器参数标为真实类型；或把 `getTheme()` 补到真实形状（契约判断，需 maintainer 定） |
-  | `tests/versions.spec.ts:22` | 对象可能为 null | `parseVersion()` 返回 `ParsedVersion \| null`，直接取 `.prerelease` | 加 `!` 或先断言非空 |
+  | `tests/client.spec.ts`（`builtinPickWins` 用例） | 风味 id 不能赋给 `'light'`/`'dark'`/`'system'`/`null` | 测试故意传风味 id 证明「非内置值永不胜出」，但 `builtinPickWins` 第 2 形参被收窄成 `BuiltinPreference \| null` | 放宽签名为 `string \| null`（该参数只参与 `preference === livePick` 比较，语义等价），或测试内断言 |
+  | `tests/client.spec.ts`（`mutate` 的 ops 参数） | `ops` 隐式 any（strict） | 对象字面量整体 `as unknown as SettingsScope<...>`，没有上下文类型 | `mutate(ops: readonly SettingsPathOpView[])` |
+  | `tests/reentrancy.spec.ts`（ThemeRuntime double 的 Snapshot） | `Snapshot` 不能赋给 `ThemeSnapshot` | 本地 `Snapshot = {preference, revision}` 是刻意裁剪的，真实事件载荷是 `ThemeSnapshot`（含 `fontSize`/`active`/`themes`） | 监听器参数标为真实类型；或把 `getTheme()` 补到真实形状（契约判断，需 maintainer 定） |
+  | `tests/versions.spec.ts`（`parseVersion` 结果） | 对象可能为 null | `parseVersion()` 返回 `ParsedVersion \| null`，直接取 `.prerelease` | 加 `!` 或先断言非空 |
 
 - 为什么暂缓（2026-09-13）：全部落在未改动的测试文件里、不影响发版门禁与用户；其中两条触及契约边界（`builtinPickWins` 是 issue #6 的回归守卫；reentrancy 的 double 自称 "Faithful ThemeRuntime double"），需要在「放宽生产签名」与「测试内断言」之间取舍；在 bug-fix 提交里顺手改无关测试的类型会让 diff 语义变浑。
 - 建议（若采纳）：单独一个 `test(types):` 提交，包含 ① `package.json` 加 `"typecheck:tests": "tsc --noEmit -p tsconfig.vitest.json"`；② 修上述四处；③ CI 增加 `pnpm typecheck:tests` 一步 —— **不接 CI 就必然再次腐烂**（它烂到今天的原因正是配置写了没人跑）；④ 若决定不接 CI，则把 `tsconfig.vitest.json` 的注释改为「仅用于 vitest 路径解析」，别让下一个人以为有人在跑。
@@ -546,7 +546,7 @@
 |---|---|---|
 | **VV**（新，源自 CHANGELOG `[0.5.1]` 内联待办） | 暗色 `state-success-tertiary` / `state-warn-tertiary` 改走 `crust` 混色目标——`greenPlan` / `amberPlan` 的 900 步支持「混色目标」参数，与 `blueDarkPlan`（issue #11）同构 | 实测现状：green-500 on green-900 = **3.67 / 4.37 / 5.02**（Frappé、Macchiato ❌）；amber-600 on amber-900 = **3.18 / 3.79 / 4.34**（三风味全 ❌）。改 `crust@14%` 后预测 **5.40 ~ 9.34** ✅。新增 `tests/palettes.spec.ts` 断言（照 issue #11 用例的写法） |
 | **UU** | 修 4 处既有类型错误（**不动生产签名**：`builtinPickWins` 是 issue #6 的回归守卫，改为在测试内标真实类型）+ 加 `typecheck:tests` + CI 一步 | `npx tsc --noEmit -p tsconfig.vitest.json` 实测仍 **4 错**，与记录一致；修后应为 0 错 |
-| **TT**（已实施 2026-09-15：非受控 + 失焦提交，7 语言 hint 同步） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交（`CatppuccinRow.tsx:333`），键名输入已是 `defaultValue` + `onBlur`（:325） |
+| **TT**（已实施 2026-09-15：非受控 + 失焦提交，7 语言 hint 同步） | 走方案 (a) 非受控 + `onBlur` 提交，与已改的键名输入（cdccb09）对称 | 现状代码确认：值输入受控 + 逐键提交，键名输入已是 `defaultValue` + `onBlur`（两处均在 `CatppuccinRow.tsx`） |
 | **Z**（降配后） | `aria-valuetext={`${value}${unit}`}`，零新文案 | 见正文 Z 条复核结论 |
 
 > **2026-09-15 实施完成**：`VV`（暗色 900 步混向 `crust` 18%，实测 4.96~8.30）、`UU`（4 处修复 + `typecheck:tests` + CI 两步）、`Z`（零文案版 `aria-valuetext`）、`TT`（值输入改失焦提交，7 语言 hint 同步）+ 期间发现并修掉的 `glass-seams` dispose 契约与跨测试污染、幽灵类型依赖、CI pnpm 版本冲突，均已落地（0.5.2 已发布）。
@@ -600,18 +600,18 @@
 | JJ | 主题 lazy-register | P3 | ✅ | `src/client/index.ts`（只注册当前风味，选中时按需注册） | — |
 | AA | 键盘导航 | P2 | ✅ | `src/client/glass/glass-row.tsx`（segmented roving tabindex + 方向键/Home/End） | — |
 | F | 主题预览缩略图 | P2 → ❌ | ❌ 不推进（2026-09-21，见正文 F 条）：按钮已有 accent 色块 + 浅/深副标题，32×18 四色块属边际改善（仍不是「UI 长什么样」的答案，那由 README 预览图回答）；无用户请求。重开条件：有人反馈按钮上看不出风味差别 | `src/client/palettes.ts`、`CatppuccinRow.tsx` | — |
-| G | glass 预览 | P1 → ❌ | ❌ 不推进（2026-09-21，见正文 G 条复核结论）：前提已被 0.5.1 的设置弹窗玻璃化取代——行本身就坐在实时玻璃面板里（`glass-layer.ts:375-378` 的 `--dsh-glass-blur` / `--dsh-glass-frost` 挂在 documentElement，拖 knob 时弹窗跟着变），再加 swatch 是重复能力；brightness（改页面地面）与 mode（改布局）也无法在单张 swatch 里表达。重开条件：有人指出弹窗实时预览不够用的具体场景 | `src/client/glass/glass-row.tsx` | — |
-| SS | glass 预设档位 | P1 | ✅ 已实施（`ca979ba`：清透 / 标准 / 磨砂三档，`glass-row.tsx:152-159`）——勿重做 | `src/client/glass/glass-row.tsx` | — |
+| G | glass 预览 | P1 → ❌ | ❌ 不推进（2026-09-21，见正文 G 条复核结论）：前提已被 0.5.1 的设置弹窗玻璃化取代——行本身就坐在实时玻璃面板里（`glass-layer.ts` 把 `--dsh-glass-blur` / `--dsh-glass-frost` 挂在 documentElement，拖 knob 时弹窗跟着变），再加 swatch 是重复能力；brightness（改页面地面）与 mode（改布局）也无法在单张 swatch 里表达。重开条件：有人指出弹窗实时预览不够用的具体场景 | `src/client/glass/glass-row.tsx` | — |
+| SS | glass 预设档位 | P1 | ✅ 已实施（`ca979ba`：清透 / 标准 / 磨砂三档，`glass-row.tsx` 的 `GLASS_PRESETS`）——勿重做 | `src/client/glass/glass-row.tsx` | — |
 | Q | layout preview | P3 → ❌ | ❌ 不推进（2026-09-21，见正文 Q 条）：同行已有 `glass.modeHint` 文字 + 兼容模式的性能提示，本条是同一件事的图形化重复；P3 且无请求。重开条件：有用户问「两种模式差在哪」而文字不够 | `src/client/glass/glass-row.tsx` | — |
 | NN | hero 空状态品牌化 | P2 → ❌ | ❌ **不推进（2026-09-22 维护者拍板：不做）**：纯装饰偏好，不解决任何可度量问题（对比度 / 性能 / 正确性都不在其中）；渐变文字那半还会引入宿主没有的外观（改的是**宿主文字色**），与「玻璃只改材质」相抵且需先有对比度证据。**重开条件**：维护者想要 hero 更有品牌感时，**先只做光晕半**（不动文字色）。完整影响评估见「七」 | `src/client/glass/glass.module.css` | — |
 | PP | 会话列表选中/hover | P2 | ✅ 已实施（2026-09-18）：选中行补上真底色 `color-mix(nav-item-active 40%, transparent)`（`glass.module.css` 侧栏段）——真页实测上游 **hover 与选中本来就同是 6% tint**（`rgba(38,49,72,.06)`），只能靠 2px accent 条分辨；用 `card-hover` 试过但**隐形**（那 recipe 与地面同色，合成后逐像素不变）。**四风味实测**（注入生成物字节，A/B）：合成填充 Latte `#dbdde5` / Frappé `#2f3243` / Macchiato `#242636` / Mocha `#1e1e2b`，标题 14px `label-primary` 对比度 **5.89 / 8.29 / 10.07 / 11.38**；40% 为天花板（12px 时间戳 `label-secondary` 在 50% 时 4.41 < AA）。`tests/glass-css.spec.ts` 有 PP 断言；typecheck / typecheck:tests / 154 tests 全绿 | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts` | — |
-| QQ | 背景层（壁纸/渐变） | P2 → ❌ | ❌ 不推进（2026-09-18 定案，理由见正文 QQ 条）：① issue #9 已对外关闭（「本插件定位不太适合加上自定义壁纸功能」+ 5 个社区皮肤插件可配合）；② 背景层非纯色 ⇒ `backdrop-filter` 不再是恒等变换，ZZ 在 0.5.3 删掉的 4 处 blur 与 mica 460k→236k px² 的收益全部作废；③ 会让 `tests/glass-css.spec.ts:64`「背后只有地面就不许 blur」的前提**假绿**。⇒ 架构级反悔，需单独立项 + 重测 GPU 才可再议 | `src/state.ts`、`src/client/glass/` | — |
+| QQ | 背景层（壁纸/渐变） | P2 → ❌ | ❌ 不推进（2026-09-18 定案，理由见正文 QQ 条）：① issue #9 已对外关闭（「本插件定位不太适合加上自定义壁纸功能」+ 5 个社区皮肤插件可配合）；② 背景层非纯色 ⇒ `backdrop-filter` 不再是恒等变换，ZZ 在 0.5.3 删掉的 4 处 blur 与 mica 460k→236k px² 的收益全部作废；③ 会让 `tests/glass-css.spec.ts`「背后只有地面就不许 blur」那条断言的前提**假绿**。⇒ 架构级反悔，需单独立项 + 重测 GPU 才可再议 | `src/state.ts`、`src/client/glass/` | — |
 | RR | accent 自定义 | P2 → ❌ | ❌ 不推进（2026-09-21，见正文 RR 条）：K（token 覆盖）已给等价能力（写一行 `--dsw-alias-brand-primary-new-colorprimary-new-color: #cba6f7` 即可），本条只是色板点选外壳。重开条件：有用户明确要「点选而非手写 token」 | `src/state.ts`、`src/client/CatppuccinRow.tsx` | — |
 | OO | compat 材质增强 | P1 | ✅ 已实施（2026-09-18）：compat 的浮动家族（`menu` / `tooltip` / `card` / `popover` / `dropdown`）补上 `--dsh-glass-card-raised` 半透明填充 + `outline` 画的 hairline rim（`outline-offset:-1px`，不动布局、不盖宿主 box-shadow，`:not(:focus-visible)` 保住焦点环）。真页 computed style A/B 实测：composer 卡 `rgb(30,30,46)` 实色 → `color(srgb … / 0.256)` + 1px rim。**有意排除 `panel`**：面板嵌套（`P3OORG_panel` 内是透明的 `P3OORG_panelBody`），两处都填会叠出宿主没要的内框（实测 `newlyFilledFromTransparent=0` 由断言锁定）。Latte 下靠 rim 显形（`layer-1` === `bg-base`，填充合成后与地面同色）。（**issue #16 补注**：`P3OORG_panel` 自己也没有 `background`，是纯布局壳——compat 那条 blur 已按 `data-sidebar-right-panel` + `[data-sidebar-right-open]` 收窄，见 `CHANGELOG.md` 的 `[0.5.7]`） | `src/client/glass/glass.module.css`、`tests/glass-css.spec.ts` | — |
-| LL | 次级文字 token 提档 | P1 | ✅ 已实施（issue #7 批次：`palettes.ts:326-327` = subtext0 / overlay2，`palettes.spec.ts:197` 锁 floors）——勿重做 | `scripts/generate-palettes.mjs` | — |
-| MM | 暗色 accent 提亮 | P1 | ❌ 已驳回（拿不出「官方取值在 DSH 下不成立」的证据，属审美偏好；品牌蓝已被 `palettes.spec.ts:105` 锁成契约；要更亮的蓝走 K） | `scripts/generate-palettes.mjs` | — |
+| LL | 次级文字 token 提档 | P1 | ✅ 已实施（issue #7 批次：`palettes.ts` 里 secondary / tertiary = subtext0 / overlay2，`palettes.spec.ts` 的 issue #7 用例锁 floors）——勿重做 | `scripts/generate-palettes.mjs` | — |
+| MM | 暗色 accent 提亮 | P1 | ❌ 已驳回（拿不出「官方取值在 DSH 下不成立」的证据，属审美偏好；品牌蓝已被 `palettes.spec.ts` 的 brand pin 断言锁成契约；要更亮的蓝走 K） | `scripts/generate-palettes.mjs` | — |
 | O | reduced-motion | P1 | ✅（既有 `@media (prefers-reduced-motion)`，0.5.0 前已实施） | `src/client/glass/glass.module.css` | — |
-| P | 高对比度模式 | P1 → ❌ | ❌ 不推进（2026-09-18 核查，见正文 P 条）：①「强制 surface 不透明」**已存在**——`glass-row.tsx:221-229` 总开关一关即原版不透明界面，兼容模式也已「不模糊大面积区域」（`glass.modeHint`），再开一个开关是重复能力；②「文字加深」属 palette 层偏离，按规则 1 需「官方取值在 DSH 下不成立」的证据，当前 `prefers-contrast` 实测 0 处、无用户反馈。⇒ 有低视力用户反馈时只做「强制不透明 + 保留官方色」最小版 | `src/client/glass/glass-layer.ts` | — |
+| P | 高对比度模式 | P1 → ❌ | ❌ 不推进（2026-09-18 核查，见正文 P 条）：①「强制 surface 不透明」**已存在**——`glass-row.tsx` 的总开关一关即原版不透明界面，兼容模式也已「不模糊大面积区域」（`glass.modeHint`），再开一个开关是重复能力；②「文字加深」属 palette 层偏离，按规则 1 需「官方取值在 DSH 下不成立」的证据，当前 `prefers-contrast` 实测 0 处、无用户反馈。⇒ 有低视力用户反馈时只做「强制不透明 + 保留官方色」最小版 | `src/client/glass/glass-layer.ts` | — |
 | Z | aria-valuetext | P1 → P3 | ✅ 已实施（零文案版 `aria-valuetext={`${value}${unit}`}`，`glass-row.tsx`）；定性档位名仅在有屏幕阅读器用户反馈时再做 | `src/client/glass/glass-row.tsx` | — |
 | BB | 对比度警告 | P1 → ❌ | ❌ 不推进（2026-09-21 定案；正文已有 2026-09-15 复核）：半透明面 + `backdrop-filter` 下实时算对比度不可靠，**误报比不报更伤信任**；静态阈值版收益低，而且对比度下限已经由 `tests/palettes.spec.ts` 在源头锁住（含各语言、深/浅风味的 floors）。重开条件：有低视力用户反馈 | `src/client/glass/glass-row.tsx` | — |
 | B | palettes 分文件 | P2 | ❌ 已驳回（714 行生成物，拆文件零收益 = YAGNI） | `scripts/generate-palettes.mjs` | — |
@@ -757,7 +757,7 @@
 
 | | 内容 |
 |---|---|
-| **改前** | 空状态首屏（`[data-phase='hero']`）内**一切外观都来自宿主**；本插件只加了入场动画（`glass.module.css:653-655`）。无品牌色、无光晕 |
+| **改前** | 空状态首屏（`[data-phase='hero']`）内**一切外观都来自宿主**；本插件只加了入场动画（`glass.module.css` 的 hero 入场动画）。无品牌色、无光晕 |
 | **改后（拟）** | 标语上 accent 渐变文字 + 极淡径向光晕（纯 CSS，作用域限 hero） |
 | **影响与风险** | ① **渐变改的是宿主内容的文字色**，这是全表里离「玻璃只改材质、不改配色」边界最近的一条（`PP` / `OO` 只是换个用法套宿主已有 token，`NN` 会引入宿主没有的外观）；② **对比度必须实测**：`brand-primary` 在四风味的明度跨度很大，渐变浅色端在 Latte（浅色）上可能破 AA——不测就做等于一次无据偏离（规则 1）；③ 好的部分：不动布局、不加 `backdrop-filter`（不碰 `glass-css.spec.ts` 的两条不变量）、纯静态无动画（不碰 reduced-motion）；④ 选择器需先在真页确认（hero 内标语元素由宿主渲染，`[data-phase='hero']` 只是容器） |
 | **成本** | CSS ~15 行 + 四风味对比度实测 + 1 条断言；看效果要本机重出 `hero-mocha.png`（该文件不入库） |
@@ -775,7 +775,7 @@
 | `G` glass swatch | 前提已被「设置弹窗本身就是实时玻璃预览」取代 | 维持 ❌ |
 | `P` 高对比度模式 | 强制不透明已由总开关 / 兼容模式提供；文字加深无证据 | 维持 ❌（低视力反馈 → 只做最小版） |
 | `QQ` 背景层 / 壁纸 | **反向代价最大**：地面非纯色 ⇒ `backdrop-filter` 不再是恒等变换，0.5.3 的性能修复（−49% 模糊面积）全部作废，且 `glass-css.spec.ts` 的前提会**假绿** | 维持 ❌；要重启须单独立项 + 重测 GPU |
-| `MM` 暗色 accent 提亮 | 拿不出「官方取值在 DSH 下不成立」的证据，品牌蓝已被 `palettes.spec.ts:105` 锁成契约 | 维持 ❌；要更亮走 `K` |
+| `MM` 暗色 accent 提亮 | 拿不出「官方取值在 DSH 下不成立」的证据，品牌蓝已被 `palettes.spec.ts` 的 brand pin 断言锁成契约 | 维持 ❌；要更亮走 `K` |
 | `D` 行分组 | 上游 `settings.general.item` 无 group API ⇒ 得先改 DSH | 维持 ❌（插件适配 DSH，不改变 DSH） |
 
 #### C. 不是「项」但确实没做的三件事（已知边界）
@@ -790,7 +790,7 @@
 
 通读全部 `src/` + `scripts/` + 生成器核对后的结果见 **`docs/code-audit-2026-09-22.md`**。摘要：
 
-- **F1（P1）** `glass-layer.ts:221` 跨窗口改旋钮永不同步：`event.key in NUMERIC_KEYS` 判的是对象键名而非 localStorage 键 ⇒ 该分支恒 false（复现用例红：`expected 2 to be 24`）。
+- **F1（P1）** `glass-layer.ts` 的 storage 处理器跨窗口改旋钮永不同步：`event.key in NUMERIC_KEYS` 判的是对象键名而非 localStorage 键 ⇒ 该分支恒 false（复现用例红：`expected 2 to be 24`）。
 - **F2（P1）** 读侧陈旧写保护恒不成立（见上表 `C`/`X`）；多窗口下后写者静默覆盖、冲突横幅不可达。
 - **F3（P2）** 旋钮处于自定义档位时预设组 `tabIndex` 全 `-1` ⇒ 键盘不可达（`AA` 的可达性承诺只对模式组成立）。
 - **F4（P2）** 跨窗口「关闭风味」不落地（`onStorage` 忽略 `off`；`applyDesired` 读到 `off` 直接 return）。
