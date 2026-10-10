@@ -270,13 +270,16 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.1-beta.0`**（2026-10-07；Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s；
-> dist-tags 生效耗时约 **5 分钟**——期间 `latest: 0.6.0` / `beta: 0.5.10-beta.1` 都还在，**别在这段时间断言「没发出去」**，
-> 权威信号是 run 日志里的 `+ @nonamelego/dsh-catppuccin@0.6.1-beta.0`）= 玻璃模式下选中会话行的定位器重设计
-> （旧 `inset 2px 0 0` 暗色竖条 + 16px 外发光 → 1px 风味蓝内环 24% + 12% 柔光；纯 alpha/rim/shadow，
-> 40% 选中填充与 AA 口径不动）。上一版 `beta` = **`0.5.10-beta.1`**（2026-10-04）。
-> 当前 dist-tags = `latest: 0.6.1` / `beta: 0.6.1-beta.0`（2026-10-08 复核；**该次又踩了传播窗口**——
-> 发布后约 2 分钟查 registry 仍是 `latest: 0.6.0`，权威信号始终是 run 日志里的 `+ …@<version>`）。
+> `beta` = **`0.6.2-beta.0`**（2026-10-10；Publish run `38039861018` success 40 s、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.2-beta.0` 带 provenance；CI `38039848400` check 24 s + boot-e2e 1 m 29 s 双绿）
+> = 2026-10-10 全量审查（`docs/code-review-2026-10-10.md`，无 Blocker/Critical）后的 **P1 三修**：
+> R3 更新检查客户端 fetch 补 15 s 超时、R1 `setTheme` 包装卸载守卫、R2 boot 窗口防回滚；
+> **测试 274 全绿**（269 + 5 条，三组经变异验证）。上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
+> Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
+> 定位器重设计。再上一版 `beta` = **`0.5.10-beta.1`**（2026-10-04）。
+> 当前 dist-tags = `latest: 0.6.1` / `beta: 0.6.2-beta.0`（2026-10-10 复核：发布后约 2 分钟镜像口径已见
+> 新 beta；official registry 查询当日本机代理返 502——**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的
+> `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
 > （本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
