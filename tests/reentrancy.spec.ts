@@ -16,8 +16,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FLAVOR_STORAGE_KEY, apply } from '../src/client/index.ts'
 import { CatppuccinDetailCard } from '../src/client/detail-card.tsx'
-import { CATPPUCCIN_ENTRY_ID } from '../src/state.ts'
-import { PACKAGE_NAME } from '../src/update-check.ts'
+import { CATPPUCCIN_ENTRY_ID, defaultSettingsSection } from '../src/state.ts'
+import { PACKAGE_NAME, UPDATE_CHECK_CLIENT_TIMEOUT_MS } from '../src/update-check.ts'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 interface Snapshot { preference: string; revision: number }
@@ -132,18 +132,26 @@ function makeSlots() {
  * configForms double (issue #15's seam): the shape `get(entryId)` returns,
  * plus the `whileServed` gate the Plugins-page card rides.
  * @param options - `served: false` models a host that never serves the
- *  namespace; `withWhileServed: false` models a client without the gate.
+ *  namespace; `withWhileServed: false` models a client without the gate;
+ *  `user` / `value` / `revision` seed a document that ALREADY carries a user
+ *  layer (the R2 rollback window needs an older document to roll back to).
  */
-function makeConfigForms(options: { served?: boolean; withWhileServed?: boolean } = {}) {
+function makeConfigForms(options: {
+  served?: boolean
+  withWhileServed?: boolean
+  user?: unknown
+  value?: unknown
+  revision?: number
+} = {}) {
   const mutations: unknown[][] = []
   const snap = {
     status: 'ready' as const,
     mode: 'host' as const,
     // The new seam's "no user layer yet" is an EMPTY OBJECT (the profile
     // patch's `override`), so the boot push below has to fire.
-    user: {},
-    value: undefined,
-    revision: 2,
+    user: options.user ?? {},
+    value: options.value,
+    revision: options.revision ?? 2,
     writable: true,
     base: undefined,
   }
@@ -295,6 +303,50 @@ describe('issue #15: the client boots on either settings seam', () => {
     // The late bind notified the plugin, so the boot push ran after all.
     expect(forms.mutations).toHaveLength(1)
   })
+
+  it('pushes a pick made before the scope was usable instead of rolling it back (R2)', async () => {
+    // The boot-window rollback (2026-10-10 review, R2): a change made while
+    // the settings service is still absent has no channel to be pushed
+    // through, and the service's FIRST snapshot describes an older document.
+    // Without the pendingLocalPush flag the hydration "adopts the document"
+    // and silently reverts the user's pick — this test pins the fix.
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    const { slots, registered } = makeSlots()
+    ctx.provide('slots', slots as never)
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
+    apply(ctx)
+
+    // The user picks a flavour while the settings service is still absent —
+    // at this instant the durable push has nowhere to go.
+    const row = registered.find((entry) => entry.options.id === 'catppuccin')
+    if (row === undefined) throw new Error('flavour row was not registered')
+    const face = (row.options.inject as () => { select: (choice: string) => void })()
+    face.select('catppuccin-mocha')
+    await new Promise((resolve) => setTimeout(resolve, 50)) // still inside the 300 ms debounce
+
+    // The service lands and its document carries an OLDER choice (frappe)
+    // from a previous session — exactly the state the rollback used to
+    // overwrite the fresh pick with.
+    const documentSection = { ...defaultSettingsSection(), flavor: 'catppuccin-frappe' as const }
+    const forms = makeConfigForms({
+      user: { flavor: 'catppuccin-frappe' },
+      value: documentSection,
+      revision: 7,
+    })
+    ctx.provide('configForms', forms.service as never)
+    await new Promise((resolve) => setTimeout(resolve, 700)) // hydration + debounce + flush
+
+    // The fresh pick was pushed — the localStorage cache still holds it and
+    // the durable write went out with the mocha flavour.
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-mocha')
+    const written = forms.mutations.flat() as { op: string; path: string[]; value: unknown }[]
+    expect(written.some((op) => op.path.join('.') === 'flavor' && op.value === 'catppuccin-mocha')).toBe(true)
+    await ctx.fiber.dispose()
+  })
 })
 
 /**
@@ -380,5 +432,126 @@ describe('Plugins-page card', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
+  })
+})
+
+/**
+ * R1 (2026-10-10 review): the setTheme wrapper may only be restored while it
+ * is still the method the plugin installed. Another extension replacing it in
+ * the meantime owns the slot, and the pre-fix unconditional write-back of the
+ * original would silently unhook that extension.
+ */
+describe('setTheme wrapper ownership (R1)', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  const mount = () => {
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    return { ctx, theme }
+  }
+
+  it('restores the original setTheme on unload while the wrapper is still ours', async () => {
+    const { ctx, theme } = mount()
+    const original = theme.setTheme
+    apply(ctx)
+    expect(theme.setTheme).not.toBe(original) // the interception is installed
+
+    await ctx.fiber.dispose()
+    expect(theme.setTheme).toBe(original)
+  })
+
+  it('leaves a foreign replacement in place instead of unhooking it', async () => {
+    const { ctx, theme } = mount()
+    apply(ctx)
+
+    // Another extension replaces what is now OUR wrapper — the normal
+    // stacking order for an interception chain.
+    const foreign: typeof theme.setTheme = () => {}
+    theme.setTheme = foreign
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await ctx.fiber.dispose()
+
+    // The pre-fix cleanup wrote the original back unconditionally, silently
+    // dropping the foreign wrapper; now the replacement survives and the
+    // conflict is surfaced instead.
+    expect(theme.setTheme).toBe(foreign)
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+})
+
+/**
+ * R3 (2026-10-10 review): the client half of the update check must cap its
+ * same-origin fetch — a wedged host otherwise leaves the settings row in its
+ * `checking` phase, where the disabled check button makes a retry impossible.
+ */
+describe('client update-check fetch discipline (R3)', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => {
+    localStorage.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  /** Mount apply() with a recording slots double and return the update face. */
+  const mountUpdateFace = () => {
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    const { slots, registered } = makeSlots()
+    ctx.provide('slots', slots as never)
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    apply(ctx)
+    const entry = registered.find((candidate) => candidate.options.id === 'catppuccin-update')
+    if (entry === undefined) throw new Error('update row was not registered')
+    const face = (entry.options.inject as () => {
+      check: (channel: 'latest' | 'beta') => Promise<unknown>
+    })()
+    return { ctx, face }
+  }
+
+  it('caps the manual check and maps the abort to network.local', async () => {
+    const { ctx, face } = mountUpdateFace()
+    const controller = new AbortController()
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+    let seenSignal: AbortSignal | undefined
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: { signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        seenSignal = init?.signal
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+      })))
+
+    const pending = face.check('beta')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(timeout).toHaveBeenCalledWith(UPDATE_CHECK_CLIENT_TIMEOUT_MS)
+    expect(seenSignal).toBe(controller.signal)
+
+    controller.abort()
+    await expect(pending).resolves.toEqual({ ok: false, code: 'network.local', error: 'network.local' })
+    await ctx.fiber.dispose()
+  })
+
+  it('gives the periodic auto-check the same capped budget', async () => {
+    vi.useFakeTimers()
+    const { ctx } = mountUpdateFace()
+    let seenSignal: AbortSignal | undefined
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: { signal?: AbortSignal }) => {
+      seenSignal = init?.signal
+      return Promise.resolve({ ok: true, json: async () => ({ ok: true, code: 'ok' }) })
+    }))
+
+    await vi.advanceTimersByTimeAsync(3100) // the 3 s boot probe fires
+
+    expect(seenSignal).toBeInstanceOf(AbortSignal)
+    await ctx.fiber.dispose()
   })
 })

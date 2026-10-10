@@ -31,6 +31,15 @@ export const UPDATE_ROUTE_PATH = '/catppuccin/check-update'
 /** Network budget for the Host's registry lookup. */
 export const UPDATE_FETCH_TIMEOUT_MS = 8000
 
+/** Budget for the CLIENT half's same-origin fetch of {@link UPDATE_ROUTE_PATH}
+ *  (R3, 2026-10-10 review). The Host's own registry lookup is capped at
+ *  {@link UPDATE_FETCH_TIMEOUT_MS}, so this only ever bites when the host
+ *  process itself stopped answering — without it a wedged host leaves the
+ *  settings row stuck in its `checking` phase, where the disabled check button
+ *  makes a retry impossible. Comfortably larger than the host budget so a
+ *  slow-but-alive registry lookup is never cut off client-side. */
+export const UPDATE_CHECK_CLIENT_TIMEOUT_MS = 15_000
+
 /** The `dist-tags` object of an npm packument. */
 export interface DistTags {
   latest?: string

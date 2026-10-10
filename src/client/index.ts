@@ -53,7 +53,7 @@ import { GlassLayer } from './glass/glass-layer.ts'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
 import type { UpdateCheckPayload } from '../update-check.ts'
-import { PACKAGE_NAME, UPDATE_ROUTE_PATH } from '../update-check.ts'
+import { PACKAGE_NAME, UPDATE_CHECK_CLIENT_TIMEOUT_MS, UPDATE_ROUTE_PATH } from '../update-check.ts'
 import {
   CATPPUCCIN_ENTRY_ID,
   DEFAULT_AUTO_CHECK,
@@ -507,6 +507,16 @@ export function apply(ctx: ClientContext): void {
   // re-adopted + surfaced in the update row.
   let lastWrittenSection: CatppuccinSettingsSection | undefined
   let handleStaleConflict: (() => void) | undefined
+  // R2 (2026-10-10 review): whether a local change was made while the durable
+  // scope was NOT yet usable — the boot window, when the settings service
+  // lands late or its first snapshot is still in flight. Such a change has no
+  // channel to be pushed through yet, and the FIRST snapshot the scope later
+  // resolves may describe an OLDER document — without this flag the hydration
+  // below would "adopt the document" and silently roll the change back. The
+  // flag makes the first usable snapshot push the local state instead; a
+  // section that already equals the local state makes the queued write a
+  // noop, so the ordinary boot path pays nothing.
+  let pendingLocalPush = false
   // The revision the pending write is based on, captured when the change is
   // SCHEDULED (audit F2): reading it at flush time made the read-side staleness
   // guard compare a revision with itself — both reads sit in one synchronous
@@ -514,6 +524,12 @@ export function apply(ctx: ClientContext): void {
   // debounce window was silently overwritten. One capture per burst.
   const baseRevisionTracker = createBaseRevisionTracker()
   const queuePersist = (): void => {
+    // Marked at SCHEDULE time, not at flush time: the dangerous window is
+    // "change happened before the scope first became usable", which includes
+    // the debounce beat BEFORE the flush runs (a scope that turns ready
+    // inside that beat would hydrate and roll the change back before the
+    // flush ever sees it).
+    if (!isScopeUsable(scope.getSnapshot())) pendingLocalPush = true
     baseRevisionTracker.capture(() => scope.getSnapshot().revision)
     scheduleDurablePersist(persistLocal)
   }
@@ -572,10 +588,15 @@ export function apply(ctx: ClientContext): void {
     // flavour (or the wrapper's own flavour restore) clears the record.
     let liveBuiltinPick: BuiltinPreference | null = null
     const originalSetTheme = theme.setTheme
-    theme.setTheme = (id) => {
+    // Named on purpose (R1, 2026-10-10 review): the cleanup below may only
+    // restore the original while the method is still OUR wrapper. Another
+    // extension replacing it afterwards owns the slot by then, and an
+    // unconditional write-back of the original would silently unhook it.
+    const restoreGuardSetTheme = (id: string): void => {
       liveBuiltinPick = isBuiltinPreference(id) ? id : null
       originalSetTheme.call(theme, id)
     }
+    theme.setTheme = restoreGuardSetTheme
 
     // Issue #10: a synchronous setTheme inside a theme/change dispatch
     // re-enters publish() — the ThemePresenter (registered after us) then
@@ -689,6 +710,15 @@ export function apply(ctx: ClientContext): void {
       const state = durableStateFromSnapshot(snapshot)
       if (state === null) return // loading / memory / absent — localStorage-only
       const local = buildLocalState()
+      // R2: a change made before the scope first became usable wins over the
+      // first usable snapshot (see `pendingLocalPush`). Re-queue it and skip
+      // this adoption pass entirely — the queued write is a noop when the
+      // section already equals the local state.
+      if (pendingLocalPush) {
+        pendingLocalPush = false
+        queuePersist()
+        return
+      }
       // The channel owns the "does the document hold a user layer yet?" test:
       // the new form's `user` is an empty object until someone writes, while
       // the legacy document omits it entirely.
@@ -735,6 +765,9 @@ export function apply(ctx: ClientContext): void {
       try {
         const response = await fetch(`${UPDATE_ROUTE_PATH}?channel=${readUpdateChannel()}`, {
           headers: { accept: 'application/json' },
+          // R3: same client-side cap as the manual check — a periodic probe
+          // must never pile up behind a wedged host.
+          signal: AbortSignal.timeout(UPDATE_CHECK_CLIENT_TIMEOUT_MS),
         })
         if (response.ok) lastAutoResult = await response.json() as UpdateCheckPayload
       } catch {
@@ -766,8 +799,15 @@ export function apply(ctx: ClientContext): void {
       handleStaleConflict = undefined
       armAutoCheck = undefined
       // Undo the setTheme wrapper so a stopped plugin leaves the runtime as
-      // it found it.
-      theme.setTheme = originalSetTheme
+      // it found it — but only while the wrapper is still ours (R1): if
+      // another extension replaced it after us, that replacement is the
+      // current owner and force-writing the original back would unhook it
+      // without a trace.
+      if (theme.setTheme === restoreGuardSetTheme) {
+        theme.setTheme = originalSetTheme
+      } else {
+        console.warn('[dsh-catppuccin] theme.setTheme was replaced by another extension; leaving it in place')
+      }
     }
   }, 'catppuccin: theme restore')
 
@@ -857,7 +897,16 @@ export function apply(ctx: ClientContext): void {
   const updateInjected = (): UpdateRowInjected => ({
     check: async (channel: UpdateChannel) => {
       try {
-        const response = await fetch(`${UPDATE_ROUTE_PATH}?channel=${channel}`, { headers: { accept: 'application/json' } })
+        const response = await fetch(`${UPDATE_ROUTE_PATH}?channel=${channel}`, {
+          headers: { accept: 'application/json' },
+          // R3 (2026-10-10 review): cap the host hop. The route's own registry
+          // lookup is capped at 8s (UPDATE_FETCH_TIMEOUT_MS), so this budget
+          // only bites when the host process itself stopped answering —
+          // without it the row's `checking` phase (and its disabled button)
+          // could stay pinned forever. The abort lands in the catch below as
+          // the same `network.local` as any other failed hop.
+          signal: AbortSignal.timeout(UPDATE_CHECK_CLIENT_TIMEOUT_MS),
+        })
         return await response.json() as UpdateCheckPayload
       } catch {
         return { ok: false, code: 'network.local', error: 'network.local' }

@@ -8,6 +8,24 @@
 
 ## [Unreleased]
 
+> 本批 = 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3）；
+> 预发布渠道发布为 `0.6.2-beta.0`。三条修复各有**变异验证**过的回归测试
+> （把修复回退即变红，见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）。
+
+### 修复
+
+- **更新检查的客户端 fetch 补 15 秒超时（审查 R3）**。宿主进程假死时，「检查更新」的
+  同行 fetch 会无限悬挂、按钮卡在 `检查中…` 的禁用态且点不动（此前只有宿主侧 8 秒超时兜底，
+  挡不住宿主本身不响应）。手动检查与 3 秒启动自动检查两处都改用
+  `AbortSignal.timeout(UPDATE_CHECK_CLIENT_TIMEOUT_MS)`（15s，比宿主预算宽，不会裁掉
+  慢但活着的 registry 查询）；中止落进既有 catch，归 `network.local`。
+- **卸载不再无条件还原 `theme.setTheme`（审查 R1）**。包装恢复前先校验「这个方法还是我们的
+  包装」；若已被第三方扩展替换，保留对方的包装并输出一条警告，不再把别人的拦截链无声摘掉。
+- **boot 窗口内的设置改动不再被首个文档快照回滚（审查 R2）**。settings 服务迟到（或首个
+  快照还在路上）时，用户改动没有推送通道；服务一到，水合逻辑按「文档优先」把它静默回滚。
+  现在 `queuePersist` 在 scope 尚不可用时打 `pendingLocalPush` 标记，首个可用快照到来时
+  改为把本地状态推上去（与文档相等时自然退化为 noop，普通启动路径零成本）。
+
 ## [0.6.1] - 2026-10-08
 
 > 本版 = 预发布 `0.6.1-beta.0`（玻璃模式下选中会话边框重设计）**转正** + 一项新修复（issue #21）。
@@ -859,7 +877,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...HEAD
+[0.6.2-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2-beta.0
 [0.6.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...v0.6.0
 [0.5.9]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.8...v0.5.9
