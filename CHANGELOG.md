@@ -8,9 +8,11 @@
 
 ## [Unreleased]
 
-> 本批两个来源：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3），
+> 本批三个来源：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3），
 > 已作为 `0.6.2-beta.0` 预发布（三条修复各有**变异验证**过的回归测试——把修复回退即变红，
-> 见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）；② `beta.0` 之后新增「反馈与支持」行。
+> 见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）；② `beta.0` 之后新增「反馈与支持」行；
+> ③ issue #22 三修（菜单换座 / 侧栏右线 / 选中态去环）+ 分组标题胶囊复活。②③ 已作为
+> `0.6.2-beta.1` 预发布。
 
 ### 新增
 
@@ -919,7 +921,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...HEAD
+[0.6.2-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...v0.6.2-beta.1
 [0.6.2-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2-beta.0
 [0.6.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.5.9...v0.6.0
