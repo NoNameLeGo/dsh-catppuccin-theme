@@ -169,7 +169,17 @@
 }
 
 /* ---------- Corner language: 14px surfaces, 10px controls, 8px atoms. ---------- */
-[data-dsh-glass-float] [role='menu'],
+/* Menu surfaces seat on MenuSurface's own material hook, NOT on `[role='menu']`
+   (issue #22): since 0.2.0 the model-parade picker flips the roles — the
+   surface takes `role='group'` and the INNER scroll list takes `role='menu'`
+   (`dsh-client-ui-model-selection/lib/client.js`, `pane === "model" ? "group"
+   : "menu"`). `data-menu-material="translucent"` exists in 0.1.7-rc.2 and
+   0.2.0-rc.2 alike. The guarded `[role='menu']` arm keeps hand-rolled menus
+   (dsh-client-ui-schedule's TaskMenu) on the corner language; the second
+   `:not()` keeps the model list out — that guard pair is the invariant the
+   glass-css spec locks. */
+[data-dsh-glass-float] [data-menu-material='translucent'],
+[data-dsh-glass-float] [role='menu']:not([data-menu-material]):not([data-menu-material] *),
 [data-dsh-glass-float] [role='dialog'],
 [data-dsh-glass-float] [role='alert'],
 /* The trigger palette is a menu surface too, but it carries none of the ARIA
@@ -408,10 +418,13 @@
   z-index: 9;
   margin: 12px;
   padding: 10px 12px 14px;
+  /* Border uniform on all four sides (issue #22). The right edge used to be
+     overridden with the accent at 40% ("luminous right edge"): in Latte that
+     read as a stray half-frame — the other three edges' 18% ink rim measures
+     (210,212,220) against the (238,240,244) ground (invisible at 1x), while
+     the right edge measured (155,186,245), and the corner arcs blend the two
+     neighbours, so the blue hooked around both right corners. */
   border: 1px solid var(--dsh-glass-rim);
-  /* Luminous right edge: the accent-coloured hairline where the sidebar
-     meets the chat, stronger on light glass, subdued on dark. */
-  border-right-color: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 40%, transparent);
   border-radius: 20px;
   box-shadow: var(--dsh-glass-drop);
   overflow: hidden;
@@ -439,10 +452,6 @@
   z-index: -1;
   pointer-events: none;
   transition: border-radius 150ms var(--ds-ease-in-out);
-}
-
-[data-dsh-glass-float] body[data-ds-dark-theme] [class*='sidebarCol'] {
-  border-right-color: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 22%, transparent);
 }
 
 /* Collapsed rail: floats too (mica mode) — same geometry as the original
@@ -669,37 +678,76 @@
    at 40% but 4.41 at 50% — under AA.
    The row title (14px `label-primary`) measures 5.89 / 8.29 / 10.07 / 11.38
    across the four flavours (injected A/B on the live GUI, 2026-09-18).
-   Selected-row border (2026-10-07 redesign): the old locator was
-   `inset 2px 0 0 accent-bar + 16px brand glow` — the accent token is a
-   near-ground dark in every flavour (#313244 in Mocha), so the bar read as
-   an offcut bracket hugging the row's rounded corner, and the free-floating
-   glow fuzzed the outline. Replaced with the same hover-ring vocabulary the
-   buttons below use (`box-shadow inset ring + soft glow`), one notch up:
-   a 1px inner ring in the flavour's own blue follows the row's own radius
-   as one clean rounded-rect border, and the glow stays behind it. Ring alpha
-   is 24%, not higher: the brand blue is a deep saturated ink (Latte
-   `#1e66f5`), so at 38% the hairline read as a hard dark outline on the
-   light fill — a locator over an already-filled row wants a tint, not a
-   rule. No blur,
+   Selected-row locator (2026-10-07 redesign, revised 2026-10-11 by issue #22):
+   the old locator was `inset 2px 0 0 accent-bar + 16px brand glow` — the
+   accent token is a near-ground dark in every flavour (#313244 in Mocha), so
+   the bar read as an offcut bracket hugging the row's rounded corner, and
+   the free-floating glow fuzzed the outline. The 10-07 replacement added a
+   1px inner ring; issue #22 (c3) then showed the ring itself was the
+   problem: the reporter put the row next to the sidebar's own 「插件」 row
+   (themed fill, no stroke) and asked for ONE un-stroked vocabulary. The ring
+   is therefore gone again and the fill does the locating alone — hover keeps
+   upstream's 6% tint, selected is 40% (a 6.7x step; the fill's 40% ceiling
+   and its AA numbers below are unchanged). The soft glow stays: it is a halo
+   BEHIND the fill, not a stroke, and keeps the row readable as the focused
+   item in dark flavours. No blur,
    no backdrop read — pure alpha/rim/shadow, so the off-state (glass off =
    stock upstream) is untouched. ---------- */
 [data-dsh-glass-float] [role='treeitem'][aria-selected='true'] {
   background: color-mix(in srgb, var(--dsw-specific-sidebar-nav-item-active) 40%, transparent);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 24%, transparent),
-    0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%, transparent);
 }
 
-/* ---------- Hover light: buttons and menu cells answer with a soft ring. ---------- */
+/* ---------- Hover light: buttons and menu cells answer with a soft glow —
+   no stroke (issue #22 c3). The 1px inset ring came off both arms: the
+   reporter compared the picker's first-level 「模型」 row (ringed) with the
+   drilled level's 「High」 row (plain themed fill) and asked for the same
+   no-outline vocabulary everywhere. The fill change itself is upstream's
+   hover token; the glow stays as the skin's only hover accent. ---------- */
 [data-dsh-glass-float] button[class*='button']:hover:not(:disabled),
 [data-dsh-glass-float] [role='menuitem']:hover:not(:disabled) {
-  box-shadow:
-    0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-border-l3) 60%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);
 }
 
-/* ---------- Menus: the raised glass recipe. ---------- */
-[data-dsh-glass-float] [role='menu'] {
+/* ---------- Menus: the raised glass recipe, re-seated on MenuSurface's own
+   material plane (issue #22).
+   The old seat was `[role='menu']` — fine while the model-parade picker kept
+   that role on its SURFACE, which is how it rendered on the 0.1.7 line. Since
+   0.2.0 the picker flips the roles (`pane === "model" ? "group" : "menu"`):
+   the MenuSurface is `role='group'` and the INNER scrolling list (`.groups`)
+   takes `role='menu'`, so this recipe landed on the list — a 1px frame with
+   14px radius drawn INSIDE the real card, the last model's capsule flush
+   against its bottom edge (the reporter's "double frame", issue #22 c2).
+   `data-menu-material='translucent'` is MenuSurface's own stable hook
+   (0.1.7-rc.2 and 0.2.0-rc.2 both carry it), and the material rides the
+   element's `z-index:-1` plane through its two tokens — fill AND blur, both
+   read by the plane's `.material` child (its upstream comment: "keeps nested
+   menus free of an ancestor backdrop root"):
+   - `--dsw-menu-surface-fill` → our raised glass fill (stock: 58% / 45%);
+   - `--dsw-menu-backdrop-filter` → our live blur knob (stock:
+     blur(40px) saturate(150%), ui-theme).
+   Painting nothing on the surface itself keeps this clear of the issue #19
+   backdrop-root shape: a filter on the container would become the plane's
+   root and would starve nested submenus' backdrops. The rim is an OUTLINE,
+   not a border: an outline paints above negative-z children (the plane, so
+   the hairline stays visible) and shifts no boxes — the menu's geometry stays
+   byte-identical to stock. `:not(:focus-visible)` mirrors the compat rim
+   contract so the shared focus ring can take over. ---------- */
+[data-dsh-glass-float] [data-menu-material='translucent']:not(:focus-visible) {
+  --dsw-menu-surface-fill: var(--dsh-glass-card-raised);
+  --dsw-menu-backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  outline: 1px solid var(--dsh-glass-rim-soft);
+  outline-offset: -1px;
+}
+
+/* Hand-rolled menus that never enter MenuSurface (dsh-client-ui-schedule's
+   TaskMenu list renders its own `div[role='menu']`): they paint their whole
+   box themselves, so the surface recipe stays on the element. Guarded twice —
+   the first `:not()` skips MenuSurface surfaces (seated above, via the
+   tokens), the second skips anything INSIDE one, which is exactly where the
+   model picker's scroll list sits. That guard pair is the invariant
+   `tests/glass-css.spec.ts` locks. */
+[data-dsh-glass-float] [role='menu']:not([data-menu-material]):not([data-menu-material] *) {
   background: var(--dsh-glass-card-raised);
   border: 1px solid var(--dsh-glass-rim-soft);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
@@ -708,11 +756,12 @@
 /* ---------- Model-parade menu: the composer 模型选择弹层（含分组列表的那
    个）通用菜单配方太透（约 9% 不透明度），铺在聊天内容上几乎看不清；
    设置面板是 ~55% 的磨砂，清晰得多。这里单独把它提浓到 layer-2 @ 70%（仍
-   跟随主题 token、保留 blur），达到与设置面板相当的清晰度。Scoped with
-   :has([role='group'] > [role='menuitemradio']) 只命中带分组清单的模型弹层，
-   普通上下文菜单不受影响。 ---------- */
-[data-dsh-glass-float] [role='menu']:has([role='group'] > [role='menuitemradio']) {
-  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 70%, transparent);
+   跟随主题 token、保留 blur），达到与设置面板相当的清晰度。Keyed on the
+   grouped structure (a `[role='group']` holding radio options), so ordinary
+   context menus are untouched; the value lands on the plane via the same
+   token as the seat above. ---------- */
+[data-dsh-glass-float] [data-menu-material='translucent']:has([role='group'] > [role='menuitemradio']) {
+  --dsw-menu-surface-fill: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 70%, transparent);
 }
 
 /* ---------- Model picker provider-group titles: 每个模型提供方的分组名
@@ -720,9 +769,15 @@
    像侧栏「新会话」按钮那样被容器包起来——细描边 + 玻璃填充 + 全圆角，
    宽度收缩到只包住文本（inline-flex + width:fit-content），不再占满整行，
    也不需要原来那个不透明实底条。保留 sticky 吸顶：选项滚动经过时胶囊
-   浮在组上方。Scoped with :has(> [role='menuitemradio']) 只命中模型分组，
-   不影响其他菜单里的 group 行。 ---------- */
-[data-dsh-glass-float] [role='menu'] [role='group']:has(> [role='menuitemradio']) > :first-child {
+   浮在组上方，所以它保留自己的 blur（滚过的行会从胶囊底下经过，不是恒等
+   读取）。
+   Issue #22 re-hooked the target: the old `> :first-child` now lands on the
+   1×1 invisible position sentinel 0.2.0 prepends to the group section
+   (`span[data-menu-group-start]`, `opacity:0`) — the pill drew on a
+   zero-visibility span and the headings rendered plain text. The heading's
+   own hook is `[data-menu-group-heading]`; keep the `:has()` scope so only
+   groups holding radio options are pilled (other MenuGroup users untouched). */
+[data-dsh-glass-float] [data-menu-group]:has(> [role='menuitemradio']) > [data-menu-group-heading] {
   display: inline-flex;
   align-items: center;
   margin: 3px 0 5px 6px;
@@ -922,10 +977,23 @@
    note at the mica composer recipe). Compat gets the same plane split in the
    dedicated block below; a `::before` selector cannot ride this list, which is
    exactly why it needs its own rules. */
-[data-dsh-glass-compat] [role='menu'],
+/* Issue #22: the menu member of this list is guarded now — since 0.2.0 a bare
+   `[role='menu']` also matches the model picker's inner scroll list (see the
+   mica seat above); MenuSurface surfaces take the token seat below instead. */
+[data-dsh-glass-compat] [role='menu']:not([data-menu-material]):not([data-menu-material] *),
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
   backdrop-filter: blur(12px);
+}
+
+/* Compat's menu seat: the same upstream-plane ride as mica (issue #22), with
+   compat's fixed 12px blur and the compat rim token. This replaces the
+   literal blur + fill + outline triple that used to sit on `[role='menu']`. */
+[data-dsh-glass-compat] [data-menu-material='translucent']:not(:focus-visible) {
+  --dsw-menu-surface-fill: var(--dsh-glass-card-raised);
+  --dsw-menu-backdrop-filter: blur(12px);
+  outline: 1px solid var(--dsh-glass-rim);
+  outline-offset: -1px;
 }
 
 /* Issue #16: the host's own right-sidebar container is a transparent LAYOUT
@@ -962,7 +1030,7 @@
    plane's blur would then read instead of the page. The RIM stays on the card:
    an outline is painted above negative-z children, so it keeps carving the
    surface out of the transcript. */
-[data-dsh-glass-compat] [role='menu'],
+[data-dsh-glass-compat] [role='menu']:not([data-menu-material]):not([data-menu-material] *),
 [data-dsh-glass-compat] [class*='popover'],
 [data-dsh-glass-compat] [class*='dropdown'] {
   background: var(--dsh-glass-card-raised);
@@ -989,7 +1057,7 @@
   pointer-events: none;
 }
 
-[data-dsh-glass-compat] [role='menu']:not(:focus-visible),
+[data-dsh-glass-compat] [role='menu']:not([data-menu-material]):not([data-menu-material] *):not(:focus-visible),
 [data-dsh-glass-compat] [data-composer-card]:not(:focus-visible),
 [data-dsh-glass-compat] [class*='popover']:not(:focus-visible),
 [data-dsh-glass-compat] [class*='dropdown']:not(:focus-visible) {

@@ -36,6 +36,37 @@
   快照还在路上）时，用户改动没有推送通道；服务一到，水合逻辑按「文档优先」把它静默回滚。
   现在 `queuePersist` 在 scope 尚不可用时打 `pendingLocalPush` 标记，首个可用快照到来时
   改为把本地状态推上去（与文档相等时自然退化为 noop，普通启动路径零成本）。
+- **修复 issue #22：模型弹层「双层边框 + 末项贴底」**（2026-10-11）。根因是 **0.2.0 上游翻转了
+  模型弹层的 ARIA role**（`dsh-client-ui-model-selection/lib/client.js` 的
+  `pane === "model" ? "group" : "menu"`）：外层 MenuSurface 变成 `role=group`，而**内层滚动
+  列表 `.groups` 反而拿了 `role=menu`**（0.1.7 线没有这翻转）。玻璃配方挂在 `[role='menu']` 上，
+  于是 1px 边框 + 14px 圆角画进了卡片内部；`.groups` 无下内边距 ⇒ 末项胶囊贴着内框底。
+  修法：菜单座位改挂 MenuSurface 自带的稳定钩子 `[data-menu-material='translucent']`
+  （0.1.7-rc.2 / 0.2.0-rc.2 皆有），且**不再在表面上画填充/blur**——改为覆写自带材质面
+  （`z-index:-1` 的 `.material`）读的两个 token：`--dsw-menu-surface-fill`（→ 我们的
+  raised 填充）与 `--dsw-menu-backdrop-filter`（→ 我们的 blur 旋钮；stock 为 blur(40px)
+  saturate(150%)），保持 issue #19 的 backdrop-root 卫生；rim 改用 outline（画在负 z 子元素
+  之上、不改盒模型）。手工菜单（如 `dsh-client-ui-schedule` 的 TaskMenu）留在
+  `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` 兜底臂上。
+  真页实测（reporter 同款配置：Latte + mica + blur 12 + frost 45，1440×900@2x）：
+  表面 `backdrop-filter: none`、outline = rim-soft、材质面 `blur(12px)` + layer-2@70%、
+  内层列表 `border: none 0px` + 透明 + 圆角 0。
+- **修复 issue #22：侧栏右侧的「半截残缺框」**（2026-10-11）。`[class*='sidebarCol']` 曾单独
+  覆盖 `border-right-color` 为品牌蓝 40%（注释里的 "luminous right edge"）：Latte 下其余三边
+  的 18% 墨线实测 (210,212,220) ≈ 不可见，右边却是 (155,186,245)，且圆角处两邻边混色让蓝线
+  在右上/右下拐弯 ⇒ 读作画了一半的方框。修法：删掉该覆盖（连带暗色 22% 那条），四边统一回
+  `--dsh-glass-rim`。真页实测四边色值完全一致（label-primary @18%）。
+- **修复 issue #22：选中/高亮态统一为「无描边」**（2026-10-11）。删除会话行的 1px 内环
+  （保留 40% 填充与 12% 柔光；填充档位 40% vs hover 6% 仍可辨）与按钮/菜单项 hover 的 1px
+  内环（保留柔光），对齐报告人给出的参照物（侧栏「插件」的纯色胶囊）。真页实测选中行
+  box-shadow 无 inset。
+- **顺带修复：模型分组标题胶囊在 0.2.0 失效**（2026-10-11）。0.2.0 给每个 MenuGroup 的
+  section 前置了一个 1×1 隐形哨兵 `span[data-menu-group-start]`（`opacity:0`），旧的
+  `> :first-child` 命中哨兵，标题一直渲染成纯文本；改挂 `[data-menu-group-heading]`。
+  真页实测标题 `display: inline-flex` + `border-radius: 999px`。
+- 护栏：`tests/glass-css.spec.ts` 新增「menu seat + un-stroked highlights (issue #22)」一组
+  5 条（双模式席位 + `[role='menu']` 守卫对 + 侧栏统一描边 + 无 inset 环 + 胶囊钩子），
+  19 用例全绿；全量 281 用例全绿。⚠️ 真机 e2e 仅在 web profile 上以 CDP 跑通（桌面壳未重启）。
 
 ## [0.6.1] - 2026-10-08
 

@@ -21,8 +21,12 @@
  *  - surfaces over the flat ground (sidebar sheet, chat bubbles, trajectory
  *    panel) must NOT carry a backdrop-filter — blurring them is pure waste;
  *  - the surfaces that do cover moving content (top bar over the transcript,
- *    composer, floating menus, edge fades) must keep it — deleting those would
- *    be a silent downgrade of the skin instead of a performance fix.
+ *    composer, edge fades) must keep it — deleting those would be a silent
+ *    downgrade of the skin instead of a performance fix. Menus are on that
+ *    side of the line too, but since issue #22 their blur rides MenuSurface's
+ *    OWN material plane (`--dsw-menu-backdrop-filter`), so the needle for
+ *    them lives in the "menu seat" block below instead of a literal
+ *    `backdrop-filter` declaration.
  *
  * If this test fails after adding a blur, ask first whether the element has
  * anything but the page ground behind it.
@@ -46,8 +50,9 @@ const GROUND_ONLY = /sidebarCol|bubble|trajectory/
 /** Selectors whose backdrop is genuinely moving/heterogeneous content.
  *  The composer blurs from its `::before` material plane, not from the element
  *  itself (issue #19) — the element hosts the trigger palette, so a blur on it
- *  would be that palette's backdrop root. */
-const VISIBLE = ['header', '[data-composer-card]::before', "[role='menu']", '[data-dsh-glass-fade]']
+ *  would be that palette's backdrop root. (Menus are asserted separately in
+ *  the issue #22 block: their blur moved onto upstream's own material plane.) */
+const VISIBLE = ['header', '[data-composer-card]::before', '[data-dsh-glass-fade]']
 
 const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
@@ -342,6 +347,100 @@ describe('glass blur budget (issue #13)', () => {
         'data-dsh-glass-float',
       )
     }
+  })
+})
+
+describe('menu seat + un-stroked highlights (issue #22)', () => {
+  // Context (reporter's screenshots retained in `.debug/issue-22/`):
+  //  - The model-parade picker flips the ARIA roles in 0.2.0
+  //    (`dsh-client-ui-model-selection/lib/client.js`: `pane === "model" ?
+  //    "group" : "menu"`), so the recipe written for `[role='menu']` landed on
+  //    the INNER scrolling list — a second 1px frame inside the real card,
+  //    with the last model's capsule flush against its bottom edge (the
+  //    reporter's 「双层边框 + 贴底」).
+  //  - The sidebar's right edge was the only edge with an accent override
+  //    ("luminous right edge"); in Latte it read as a half-drawn box whose
+  //    corners hooked around the rounded arcs.
+  //  - The two 1px inset rings (selected conversation row, hovered menu cell)
+  //    were the last strokes in the highlight vocabulary; the reporter asked
+  //    for one un-stroked fill everywhere.
+  const menuSeat = rules.filter((rule) =>
+    rule.selector.includes("[data-menu-material='translucent']"),
+  )
+
+  it('seats the menu glass on MenuSurface\'s material plane, both modes', () => {
+    const float = menuSeat.find(
+      (rule) =>
+        rule.selector.includes('data-dsh-glass-float') &&
+        /--dsw-menu-surface-fill\s*:\s*var\(--dsh-glass-card-raised\)/.test(rule.decls) &&
+        /--dsw-menu-backdrop-filter\s*:\s*blur\(var\(--dsh-glass-blur/.test(rule.decls),
+    )
+    expect(float?.selector, 'mica menus lost their plane seat (fill + blur)').toBeDefined()
+    const compat = menuSeat.find(
+      (rule) =>
+        rule.selector.includes('data-dsh-glass-compat') &&
+        /--dsw-menu-backdrop-filter\s*:\s*blur\(12px\)/.test(rule.decls),
+    )
+    expect(compat?.selector, 'compat menus lost their plane seat').toBeDefined()
+    // The seat must paint nothing on the surface itself: a backdrop-filter
+    // there would become the plane's backdrop root (the issue #19 shape) and
+    // a fill there would sit UNDER the plane and become what the plane's
+    // blur reads.
+    for (const rule of menuSeat) {
+      expect(blurOf(rule.decls), `${rule.selector} puts a filter on the surface`).toBeUndefined()
+      expect(
+        /(?:^|;)\s*background\s*:/.test(rule.decls),
+        `${rule.selector} paints a fill on the surface`,
+      ).toBe(false)
+    }
+  })
+
+  it('never styles a bare [role=menu] — the model list wears that role since 0.2.0', () => {
+    const menuRules = rules.filter((rule) => rule.selector.includes("[role='menu']"))
+    expect(menuRules.length).toBeGreaterThan(0)
+    for (const rule of menuRules) {
+      for (const part of rule.selector.split(',').map((piece) => piece.trim())) {
+        if (!part.includes("[role='menu']")) continue
+        expect(part, 'must not style a MenuSurface surface through the ARIA role').toContain(
+          ':not([data-menu-material])',
+        )
+        expect(part, "must not style anything inside a surface (the model picker's inner list)").toContain(
+          ':not([data-menu-material] *)',
+        )
+      }
+    }
+  })
+
+  it('keeps the sidebar border uniform — no accent right edge', () => {
+    const sidebar = rules.filter((rule) => rule.selector.includes('sidebarCol'))
+    expect(sidebar.length).toBeGreaterThan(0)
+    expect(
+      sidebar.filter((rule) => /border-right-color/.test(rule.decls)).map((rule) => rule.selector),
+      'issue #22 c1: the accent right edge read as a half-drawn frame in Latte',
+    ).toEqual([])
+    expect(
+      sidebar.some((rule) => /border\s*:\s*1px solid var\(--dsh-glass-rim\)/.test(rule.decls)),
+      'the sidebar lost its uniform rim',
+    ).toBe(true)
+  })
+
+  it('keeps highlights un-stroked: no 1px inset rings on rows or menu cells', () => {
+    const selectedRow = rules.find((rule) =>
+      rule.selector.includes("[role='treeitem'][aria-selected='true']"),
+    )
+    expect(selectedRow?.decls, 'the selected row grew a stroke back').not.toContain('inset')
+    const hover = rules.find((rule) => rule.selector.includes("[role='menuitem']:hover"))
+    expect(hover?.decls, 'the hover light grew a stroke back').not.toContain('inset')
+  })
+
+  it('styles the group heading, not the group sentinel (pill re-hook)', () => {
+    // 0.2.0 prepends a 1×1 `span[data-menu-group-start]` (opacity: 0) to every
+    // MenuGroup section, so the old `> :first-child` arm drew the pill on an
+    // invisible span and the heading rendered as plain text.
+    const pill = rules.find((rule) => rule.decls.includes('border-radius: 999px'))
+    expect(pill?.selector, 'the provider-group pill lost its rule').toBeDefined()
+    expect(pill!.selector, 'must target the heading hook').toContain('[data-menu-group-heading]')
+    expect(pill!.selector, ':first-child hits the 0.2.0 sentinel span').not.toContain(':first-child')
   })
 })
 
