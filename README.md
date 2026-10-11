@@ -77,6 +77,7 @@ Catppuccin 主题。
   纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
 - 🎨 玻璃配色自动跟随当前 Catppuccin 主题
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令；**默认开启自动检查**（启动后一次 + 每 6 小时），更新渠道可选稳定版 / Beta
+- 💬 **反馈与支持**：设置区底部与插件详情页附 GitHub 链接——遇到问题可提 Issue，喜欢就点个 Star ⭐
 - 💻 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) 终端主题**：一条安装命令装进 dsh-TUI，四套主题自动同步到 `~/.dsh-tui/themes/`，见[安装 · dsh-TUI](#dsh-tui终端版主题)
 
 ## 预览
@@ -198,7 +199,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
    的官方偏好（浅色 / 深色 / 跟随系统），而不是强制重置。
 
 > **另一处入口**：在 **插件页**（Plugins）点开本插件自己的卡片，中间会出现**同一组设置**
-> （Catppuccin 主题 / 玻璃质感 / 检查更新）——两处读写的是同一份偏好，改哪边都一样。
+> （Catppuccin 主题 / 玻璃质感 / 检查更新 / 反馈与支持）——两处读写的是同一份偏好，改哪边都一样。
 > 该区域由宿主（≥ `0.2.0-rc.2` 的插件详情页）提供，更旧的版本上没有。
 
 ### Catppuccin 行里的其它选项

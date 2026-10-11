@@ -24,16 +24,17 @@
  * section render. The Host half keeps `configure({ auto: false })` because
  * this plugin genuinely ships its own UI.
  *
- * Not a second implementation: the card renders the SAME three rows the
+ * Not a second implementation: the card renders the SAME four rows the
  * General section shows and is handed the same injected faces, so both homes
  * read and write the one durable section (`CATPPUCCIN_ENTRY_ID`). The only
- * cost of the second home is that the three rows exist twice in the DOM when
+ * cost of the second home is that the rows exist twice in the DOM when
  * both are open — each instance subscribes for itself, so no state is shared
- * behind the framework's back.
+ * behind the framework's back (the feedback row has no state at all).
  */
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
+import { LinksRow } from './LinksRow.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -75,7 +76,7 @@ export type CatppuccinDetailCardProps =
   PropsRuntime<'plugins.bundle.config'> & PropsLocale<'catppuccin'> & CatppuccinDetailCardInjected
 
 /**
- * Render the three preference rows on the plugin's own detail page.
+ * Render the four preference rows on the plugin's own detail page.
  *
  * The rows carry their own title, help affordance and spacing (a bottom
  * border each), so the card is a plain column — the page owns the section
@@ -89,6 +90,7 @@ export function CatppuccinDetailCard(props: CatppuccinDetailCardProps): React.JS
       <CatppuccinRow {...props.flavor} t={props.t} />
       <GlassRow {...props.glass} t={props.t} />
       <UpdateRow {...props.update} t={props.t} />
+      <LinksRow t={props.t} />
     </div>
   )
 }

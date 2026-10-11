@@ -85,6 +85,8 @@ Catppuccin theme automatically.
 - 🔄 **Update check**: one-click "Check for updates" in Settings compares the latest npm
   version and gives you a copyable upgrade command; **auto-check is on by default** (once at
   startup, then every 6 hours) and the release channel switches between stable and beta
+- 💬 **Feedback & support**: GitHub links at the bottom of the settings section and the
+  plugin's detail page — open an issue when something breaks, star the repo if you like it
 - 💻 **[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) terminal themes**: one command installs into
   dsh-TUI; the four themes sync to `~/.dsh-tui/themes/` automatically
   (see [Installation · dsh-TUI](#dsh-tui-terminal-themes))
@@ -226,9 +228,9 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
    you had before enabling Catppuccin (light / dark / follow system) instead of forcing a reset.
 
 > **Second entrance**: open this plugin's own card on the **Plugins** page and the middle of
-> its detail page shows the **same settings** (Catppuccin theme / Glass / Check for updates) —
-> both read and write one set of preferences, so either place works. That area comes from the
-> host's plugin detail page (`0.2.0-rc.2` and later); older versions do not have it.
+> its detail page shows the **same settings** (Catppuccin theme / Glass / Check for updates /
+> Feedback & support) — both read and write one set of preferences, so either place works.
+> That area comes from the host's plugin detail page (`0.2.0-rc.2` and later); older versions do not have it.
 
 ### Other options in the Catppuccin row
 

@@ -47,6 +47,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { CatppuccinDetailCard, type CatppuccinDetailCardInjected } from './detail-card.tsx'
 import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
+import { LinksRow } from './LinksRow.tsx'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
 import { SHIKI_TOKENS } from './shiki-tokens.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
@@ -948,6 +949,18 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: updateInjected,
   }, UpdateRow))
+
+  // Feedback & support row (2026-10-11): closes the section with two static
+  // GitHub links — the issue tracker and the repo (the star ask). Pure copy,
+  // so it registers WITHOUT an inject factory (only the locale seat); live
+  // edits to the URLs belong in LinksRow.tsx. Rendered in both homes: the
+  // General section here and the plugin detail card below.
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'catppuccin-links',
+    order: 23,
+    locale: NS,
+  }, LinksRow))
 
   // Plugins-page card: the settings section on this plugin's OWN detail page in
   // the Plugin manager (DSH >= 0.2.0-rc.2). Three things about this

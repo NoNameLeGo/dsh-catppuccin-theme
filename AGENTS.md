@@ -97,6 +97,7 @@
 | Windows 标题栏菜单（应用/编辑）用 shadow DOM 挂在 `[data-shell-overlay]` 之后，消费 4 个 `--dsw-alias-*` token + `--dsw-font-family` | `apps/desktop/src/preload-menu.ts` | 全在映射表内；插件不碰 `[data-shell-overlay]` |
 | `html[data-ds-theme-source]` → 主进程 `nativeTheme.themeSource`（原生 chrome / Platform 登录页 / macOS vibrancy 跟随） | `apps/desktop/src/preload-theme.ts` | 插件用 `theme.setTheme()` 强制亮暗，实测桌面下 `themeSource=dark` 与风味一致 |
 | macOS：`html[data-platform='darwin'] body` 把 `--dsw-specific-menu` 覆写成 94% 不透明；主窗口 `vibrancy: sidebar` | `design-platform.css` 的 darwin 块；`lib/main.js` `createWindow()` | ⚠️ **未适配**：我们无条件覆写该 token，macOS 上的近不透明变体丢失；本机无法验证 |
+| **外链一律交系统浏览器**：主窗口 `setWindowOpenHandler` 对 `http(s)` 协议调 `shell.openExternal`（壳内 deny）；`will-navigate` 拦下非 `dsh-app:` 且非同源的导航，`http(s)` 同样转发 `shell.openExternal` | `app.asar` 的 main（2026-10-11 逐条 grep 取证，共三处 handler：工作区 view / guest / 主窗口） | `LinksRow`（反馈/star 行）的 `target="_blank"` 链接在官方壳里 = 打开系统默认浏览器；**不带 target 也不会把 UI 导航走**（同样被 `will-navigate` 转发），但带上是显式契约 |
 
 > 桌面壳专属 token `--dsw-desktop-window-tint` 只被欢迎窗口（`renderer/welcome.html`）消费，那份窗口自带整套字面量 token
 > ⇒ **不需要插件映射**（2026-09-30 由出厂包逐文件扫描确认）。
@@ -209,11 +210,11 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 | ⚠️ `autoGenerate` 是惰性的 | Host 的 `describe()` 只把 `autoGenerate`（`presentations.get(fiber)?.auto ?? true`）写进 descriptor，**不过滤** `namespaces`；客户端唯一消费点是该页的 `formFor(id)`，它只查 `ns` 在不在。⇒ **去掉 `configure({ auto: false })` 不会让详情页长出表单**（上游文档原话：默认开启，供按 schema 生成页面的客户端使用，目前没有已发布的客户端这样做） |
 | 参照实现 | 本机 `~/.dsh/profiles/desktop/node_modules/dsh-context/lib/client.js`（`plugins.bundle.config`，key = 自己的包名）与壳内 `ui-settings-agent-loop`（`plugins.item`） |
 
-- 本插件落地：`src/client/detail-card.tsx`（复用三条行组件）+ `src/client/index.ts` 末尾的注册；**数据层零改动**（两个入口共用
+- 本插件落地：`src/client/detail-card.tsx`（复用四条行组件，含 2026-10-11 新增的纯静态「反馈与支持」行 `LinksRow`）+ `src/client/index.ts` 末尾的注册；**数据层零改动**（两个入口共用
   `CATPPUCCIN_ENTRY_ID` 那一份 durable section）。SlotMap 成员在 `detail-card.tsx` 内**本地声明**——我们的 devDep 停在 0.1.7 线，
   早于 Plugin manager；将来升依赖时若上游也声明了它，同形状会合并、异形状会编译报错（那就是删掉本地声明的信号）。
 - 护栏：`tests/reentrancy.spec.ts` 的「Plugins-page card」一组 5 条（key = `PACKAGE_NAME`、`whileServed` 的 gate、无 `whileServed` 的宿主、旧 seam 上不注册、key 等于 manifest `name`）
-  + `tests/rows.spec.tsx` 的组成断言（三条行 + schema 表单渲染不出的那些控件）。
+  + `tests/rows.spec.tsx` 的组成断言（四条行 + schema 表单渲染不出的那些控件）。
 - 相关配置（Host 侧，别混）：`src/index.ts` 仍 `configure({ auto: false })` —— 它表达的是「本插件自带 UI」，与详情页区块是否出现无关。
 
 ## DSH STORE 上架状态与契约（2026-09-24 核实，issue #1106）

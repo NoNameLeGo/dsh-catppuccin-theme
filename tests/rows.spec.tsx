@@ -16,6 +16,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { CatppuccinRow, type CatppuccinRowProps } from '../src/client/CatppuccinRow.tsx'
 import { CatppuccinDetailCard, type CatppuccinDetailCardProps } from '../src/client/detail-card.tsx'
 import { GlassRow, type GlassRowProps } from '../src/client/glass/glass-row.tsx'
+import { ISSUES_URL, LinksRow, REPO_URL, type LinksRowProps } from '../src/client/LinksRow.tsx'
 import { UPDATE_RETRY_AFTER_MS, UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
 import type { UpdateChannel } from '../src/update-check.ts'
 import { zh, type CatppuccinKey } from '../src/client/locales.ts'
@@ -407,14 +408,15 @@ describe('GlassRow knobs', () => {
 })
 
 /**
- * The Plugins-page card is a composition, not a fourth UI: it stacks the three
+ * The Plugins-page card is a composition, not a fourth UI: it stacks the
  * existing rows so the plugin's own detail page offers the same knobs as the
  * General section. These tests pin that composition (a swap of any child would
  * silently change what the page shows) and that each row keeps its own
  * affordances — including the ones the schema form could never render.
  */
 describe('CatppuccinDetailCard (Plugins-page card)', () => {
-  /** The three faces the apply-side factories hand the card, minimally faked. */
+  /** The three injected faces the apply-side factories hand the card,
+   *  minimally faked — the feedback row carries no face of its own. */
   function makeCardProps() {
     return {
       t,
@@ -437,13 +439,14 @@ describe('CatppuccinDetailCard (Plugins-page card)', () => {
     } as unknown as CatppuccinDetailCardProps
   }
 
-  it('stacks the flavour, glass and update rows', () => {
+  it('stacks the flavour, glass, update and feedback rows', () => {
     const { container } = render(<CatppuccinDetailCard {...makeCardProps()} />)
     expect(container.querySelector('[data-catppuccin-detail-card]')).not.toBeNull()
     const text = container.textContent ?? ''
     expect(text).toContain(t('row.title'))
     expect(text).toContain(t('glass.title'))
     expect(text).toContain(t('update.title'))
+    expect(text).toContain(t('links.title'))
   })
 
   it('keeps the affordances a schema-generated form could not render', () => {
@@ -453,5 +456,38 @@ describe('CatppuccinDetailCard (Plugins-page card)', () => {
     // The glass presets and the update-check action travel with the rows.
     expect(screen.getByRole('group', { name: t('glass.presets') })).toBeTruthy()
     expect(screen.getByRole('button', { name: t('update.check') })).toBeTruthy()
+    // The feedback row's two GitHub links render on the detail page too.
+    expect(screen.getByRole('link', { name: t('links.issue') })).toBeTruthy()
+    expect(screen.getByRole('link', { name: t('links.star') })).toBeTruthy()
+  })
+})
+
+/**
+ * The feedback row: pure copy plus two static URLs, no injected face. The
+ * contracts worth pinning are the hrefs (a typo'd repo URL would ship
+ * silently — nothing type-checks a string against GitHub) and
+ * `target="_blank"` (without it the click navigates the DSH UI itself away).
+ */
+describe('LinksRow (feedback & support)', () => {
+  const props = { t } as unknown as LinksRowProps
+
+  it('lists both GitHub links with the right targets', () => {
+    render(<LinksRow {...props} />)
+    const issue = screen.getByRole('link', { name: t('links.issue') })
+    const star = screen.getByRole('link', { name: t('links.star') })
+    expect(issue.getAttribute('href')).toBe(ISSUES_URL)
+    expect(star.getAttribute('href')).toBe(REPO_URL)
+    expect(ISSUES_URL).toBe(`${REPO_URL}/issues`)
+  })
+
+  it('opens both links in a new tab so the app is never navigated away', () => {
+    render(<LinksRow {...props} />)
+    for (const link of [
+      screen.getByRole('link', { name: t('links.issue') }),
+      screen.getByRole('link', { name: t('links.star') }),
+    ]) {
+      expect(link.getAttribute('target')).toBe('_blank')
+      expect(link.getAttribute('rel')).toContain('noreferrer')
+    }
   })
 })

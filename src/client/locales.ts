@@ -80,6 +80,9 @@ export const zh = {
   'update.err.invalid': 'npm registry 返回了无法解析的数据。',
   'update.err.networkLocal': '无法连接插件宿主——请检查你的网络后刷新页面重试。',
   'update.err.networkUpstream': 'npm registry 暂时不可用（请求超时），请稍后重试。',
+  'links.title': '反馈与支持',
+  'links.issue': '遇到问题或有建议？欢迎在 GitHub 提 Issue',
+  'links.star': '喜欢这个插件？点一个 Star ⭐',
 } as const
 
 /** English dictionary, checked complete against the zh key set. */
@@ -158,6 +161,9 @@ export const en: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'The npm registry returned unparseable data.',
   'update.err.networkLocal': 'Could not reach the plugin host — check your network, then refresh the page.',
   'update.err.networkUpstream': 'The npm registry is temporarily unavailable (request timed out) — try again later.',
+  'links.title': 'Feedback & support',
+  'links.issue': 'Found a problem or have an idea? Open an issue',
+  'links.star': 'Enjoying the plugin? Star it on GitHub ⭐',
 }
 
 /** Japanese dictionary. */
@@ -236,6 +242,9 @@ export const ja: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'npm registry が解析不能なデータを返しました。',
   'update.err.networkLocal': 'プラグインのホストに接続できません。ネットワークを確認してページを更新してください。',
   'update.err.networkUpstream': 'npm registry が一時的に利用できません（タイムアウト）。後で再試行してください。',
+  'links.title': 'フィードバックとサポート',
+  'links.issue': '問題や提案がありますか？Issue を作成',
+  'links.star': '気に入ったら GitHub でスターを ⭐',
 }
 
 /** Korean dictionary. */
@@ -314,6 +323,9 @@ export const ko: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'npm registry가 해석할 수 없는 데이터를 반환했습니다.',
   'update.err.networkLocal': '플러그인 호스트에 연결할 수 없습니다. 네트워크를 확인한 뒤 페이지를 새로고침하세요.',
   'update.err.networkUpstream': 'npm registry를 일시적으로 사용할 수 없습니다(시간 초과). 잠시 후 다시 시도하세요.',
+  'links.title': '피드백 및 지원',
+  'links.issue': '문제나 제안이 있나요? 이슈를 남겨 주세요',
+  'links.star': '마음에 드셨다면 GitHub에서 스타를 ⭐',
 }
 
 /** Spanish dictionary. */
@@ -392,6 +404,9 @@ export const es: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'npm registry devolvió datos no analizables.',
   'update.err.networkLocal': 'No se pudo conectar con el host del plugin: revisa tu red y recarga la página.',
   'update.err.networkUpstream': 'npm registry no está disponible temporalmente (tiempo de espera agotado); inténtalo más tarde.',
+  'links.title': 'Comentarios y soporte',
+  'links.issue': '¿Un problema o una idea? Abre un issue',
+  'links.star': '¿Te gusta el plugin? Dale una estrella en GitHub ⭐',
 }
 
 /** French dictionary. */
@@ -470,6 +485,9 @@ export const fr: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'npm registry a renvoyé des données non analysables.',
   'update.err.networkLocal': 'Impossible de joindre l\'hôte du plugin — vérifiez votre réseau puis rechargez la page.',
   'update.err.networkUpstream': 'npm registry est temporairement indisponible (délai dépassé) — réessayez plus tard.',
+  'links.title': 'Retours et support',
+  'links.issue': 'Un problème ou une idée ? Ouvrez une issue',
+  'links.star': 'Vous aimez ce plugin ? Laissez une Star sur GitHub ⭐',
 }
 
 /** German dictionary. */
@@ -548,6 +566,9 @@ export const de: Record<keyof typeof zh, string> = {
   'update.err.invalid': 'npm registry lieferte nicht analysierbare Daten.',
   'update.err.networkLocal': 'Plugin-Host nicht erreichbar – prüfen Sie Ihre Verbindung und laden Sie die Seite neu.',
   'update.err.networkUpstream': 'npm registry ist vorübergehend nicht verfügbar (Zeitüberschreitung) – versuchen Sie es später erneut.',
+  'links.title': 'Feedback & Support',
+  'links.issue': 'Problem oder Idee? Eröffnen Sie ein Issue',
+  'links.star': 'Gefällt Ihnen das Plugin? Geben Sie ihm einen Star auf GitHub ⭐',
 }
 
 /** Key union of the Catppuccin dictionaries. */

@@ -391,8 +391,8 @@ describe('Plugins-page card', () => {
     expect(card?.options.key).not.toBe(CATPPUCCIN_ENTRY_ID)
     expect(card?.options.locale).toBe('catppuccin')
     expect(card?.component).toBe(CatppuccinDetailCard)
-    // Additive: the General section keeps its three rows.
-    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(3)
+    // Additive: the General section keeps its four rows.
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(4)
   })
 
   it('keys the card by the manifest package name', () => {
@@ -423,7 +423,7 @@ describe('Plugins-page card', () => {
 
     expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
     // The rest of the plugin still registered on this host.
-    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(3)
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(4)
   })
 
   it('registers no card on the legacy settingsScope seam', async () => {

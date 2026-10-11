@@ -8,9 +8,20 @@
 
 ## [Unreleased]
 
-> 本批 = 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3）；
-> 预发布渠道发布为 `0.6.2-beta.0`。三条修复各有**变异验证**过的回归测试
-> （把修复回退即变红，见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）。
+> 本批两个来源：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3），
+> 已作为 `0.6.2-beta.0` 预发布（三条修复各有**变异验证**过的回归测试——把修复回退即变红，
+> 见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）；② `beta.0` 之后新增「反馈与支持」行。
+
+### 新增
+
+- **设置区新增「反馈与支持」行**（2026-10-11）。设置页与插件详情页底部各多一行、两枚 GitHub
+  链接——「遇到问题或有建议？欢迎在 GitHub 提 Issue」与「喜欢这个插件？点一个 Star ⭐」，
+  分别指向 `NoNameLeGo/dsh-catppuccin-theme` 的 `/issues` 与仓库主页。实现：
+  `src/client/LinksRow.tsx`（纯静态链接，无注入面，URL 常量就在该文件里），注册 `order: 23`
+  （「检查更新」之后），文案随 7 语言字典；两枚链接都是 `target="_blank"` +
+  `rel="noreferrer noopener"`——官方桌面壳实测（`app.asar` 的 `setWindowOpenHandler`）：
+  http/https 外链一律交给系统浏览器打开，应用自身不被导航走。
+  护栏：`tests/rows.spec.tsx` 的「LinksRow (feedback & support)」两条 + 详情卡组成断言。
 
 ### 修复
 
