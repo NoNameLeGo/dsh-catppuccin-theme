@@ -373,8 +373,8 @@ describe('GlassRow presets tab stop (audit F3)', () => {
   })
 
   it('anchors on the matching preset when there is one', () => {
-    // blur 2 / frost 20 / brightness 50 === the shipped "standard" preset.
-    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 2, frost: 20, brightness: 50, dark: true })} />)
+    // blur 5 / frost 20 / brightness 50 === the shipped "standard" preset.
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })} />)
     const cells = presetCells()
     expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
     expect(cells[1]?.tabIndex).toBe(0)
@@ -421,7 +421,7 @@ describe('CatppuccinDetailCard (Plugins-page card)', () => {
     return {
       t,
       flavor: makeRow().props,
-      glass: makeGlassRow({ enabled: true, mode: 'mica', blur: 2, frost: 20, brightness: 50, dark: true }),
+      glass: makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true }),
       update: {
         t,
         check: async () => null,

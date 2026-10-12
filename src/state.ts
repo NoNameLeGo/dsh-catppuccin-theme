@@ -154,7 +154,7 @@ export interface CatppuccinSettingsSection {
 export const DEFAULT_GLASS: GlassState = {
   enabled: false,
   mode: 'mica',
-  blur: 2,
+  blur: 5,
   frost: 20,
   brightness: 50,
 }

@@ -82,7 +82,7 @@ export interface GlassRowState extends GlassSettings {
  * Shipped knob defaults — the knob-only view of `DEFAULT_GLASS` in
  * `src/state.ts` (the single source of truth, inlined into both bundles).
  * The shipped look aligns with the reference project
- * (DSH-Transparent-UI-Plugin / Aqua): mica mode, blur 2px, frost 20
+ * (DSH-Transparent-UI-Plugin / Aqua): mica mode, blur 5px, frost 20
  * (the 0-100 slider maps to a 0-1.4 alpha multiplier via frost/50, so 20
  * reads as a light frost) and neutral backdrop brightness.
  */

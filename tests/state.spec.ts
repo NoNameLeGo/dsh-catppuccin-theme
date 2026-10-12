@@ -37,7 +37,7 @@ describe('durable state defaults', () => {
       glass: {
         enabled: false,
         mode: 'mica',
-        blur: 2,
+        blur: 5,
         frost: 20,
         brightness: 50,
       },
