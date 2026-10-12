@@ -8,18 +8,16 @@
 
 ## [Unreleased]
 
-## [0.6.2] - 2026-10-12
-
-> 本版 = `0.6.2-beta.0` + `0.6.2-beta.1` 一路**转正** + 一批新修复；原计划的 `0.6.2-beta.2`
-> **未单独发布**，内容并入本版。四个批次：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）
-> 的 P1 修复（R1~R3，三条均有**变异验证**过的回归测试——把修复回退即变红，见
-> `tests/reentrancy.spec.ts` 的三个新 describe/用例）= `0.6.2-beta.0`；② 「反馈与支持」行 +
-> ③ issue #22 三修（菜单换座 / 侧栏右线 / 选中态去环）+ 分组标题胶囊复活 = `0.6.2-beta.1`；
-> ④ issue #23 注册容错（与语言包共存不再炸 boot）+ issue #22 追评（融合 slab / hero 输入卡
-> 边界 rim-strong 档）+ 反馈行文案点身份修订 = 本版新增。`beta` 渠道里 `0.6.2-beta.0/.1`
-> 是前两批的真子集。
-> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；④ 的两条修复已在本机 CDP
-> 真页取证（Latte/Mocha/关玻璃四条 + 报错链复现）。
+> 本批先以 **`0.6.2-beta.2`** 预发布（报告人验证无误后转正为 `0.6.2`）。四个批次：
+> ① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3，三条均有
+> **变异验证**过的回归测试——把修复回退即变红，见 `tests/reentrancy.spec.ts` 的三个新
+> describe/用例）= `0.6.2-beta.0`；② 「反馈与支持」行 + issue #22 三修（菜单换座 / 侧栏右线 /
+> 选中态去环）+ 分组标题胶囊复活 = `0.6.2-beta.1`；③ issue #23 注册容错（与语言包共存不再炸
+> boot）+ issue #22 追评（主输入面 rim-strong 档）+ 反馈行文案点身份修订；
+> ④ 会话输入区观感调整——拆除融合带（玻璃卡只包输入区、统计行回卡外）+ 主输入面双层影 +
+> 标准预设默认模糊度 2 → 5px。③④ = 本版（`0.6.2-beta.2`）新增。
+> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；③④ 已在本机 CDP 真页取证
+> （Latte / Mocha / 关玻璃 + 报告人同款配置）。
 
 ### 新增
 
@@ -33,20 +31,34 @@
   http/https 外链一律交给系统浏览器打开，应用自身不被导航走。
   护栏：`tests/rows.spec.tsx` 的「LinksRow (feedback & support)」两条 + 详情卡组成断言。
 
+### 变更
+
+- **标准预设默认模糊度 `2` → `5`（px）**（2026-10-13）。维护者实机试看后定：2px 在浅色
+  风味下读感偏「透」。`DEFAULT_GLASS.blur` 一处改全（「标准」预设、恢复默认、新装同源）；
+  `清透`（0）与 `磨砂`（12）两档不动。
+
 ### 修复
 
-- **修复 issue #22 追评 —— 融合 slab 与 hero 输入卡的边界在浅色风味下不可见**。报告人追评
+- **修复 issue #22 第三轮 ④「性能与用量下移」—— 会话输入区拆除「融合带」**（2026-10-13）。
+  报告人在 `0.6.2-beta.1` 上追报统计行「整体向下位移」。取证（web GUI + CDP）结论：融合带
+  （自 issue #19 起把 composer 与统计行包进同一块玻璃）在 0.2.0 上本就半残——slot 发线画在
+  0×0 的 `display:contents` 槽位上（CSS 命中、物理上永远画不出），统计行实际按上游 stock
+  的贴底布局走，视觉缝合从未真正成立。本版**整体拆除融合带**：玻璃卡只包输入区
+  （placeholder + 工具栏；30% rim + 24px 圆角），统计行回到卡外（stock 位置）；hero 与会话
+  输入共用同一条卡规则。主输入面同时换上**双层影**（近场 `1px/2px` + 外围 `8px/24px` 晕，
+  替掉实测 ≈ 无感的单层 drop）：Latte 下卡底缘影 Δ7 → Δ22（约 3 倍），Mocha 可辨不过重。
+  护栏随 `tests/glass-css.spec.ts` 的 issue #22 组同步更新（消费点 / 材质面 / 无分隔线）。
+- **修复 issue #22 追评 —— 主输入面的边界在浅色风味下不可见（rim-strong 档）**。报告人追评
   「输入区与地面无边界、状态栏文字洗白」；真页取证（web GUI + CDP，报告人同款 Latte + mica +
   blur 12 + frost 45 + brightness 50）表明 footer 文字色与 stock 逐项一致（不是配色回归），
   根因是主输入面的通用 18% rim 在近白地面上不成立：rim 实测 `rgb(210,212,220)` vs 地面
   `rgb(239,241,245)`，ΔRGB ≤ 31，1x 不可辨。修法：新增 rim 档位 `--dsh-glass-rim-strong`
-  （30%，浅/暗同值，暗色不低于浅色），**只**作用于两处主输入面——hero 输入卡与融合 slab
-  （会话视图 composer + 统计行）；slab 内分隔线 12% → 18%（保持低于外框一档）。
-  其余 rim 消费点（侧栏/顶栏/菜单/弹窗等）一律不动。复核（同一 CDP 链路）：Latte 下
-  slab/hero 边框实测 30%（渲染像素 `rgb(191,193,203)`，ΔRGB ≈ 48）、Mocha 下 30% 可辨
-  不过重、关玻璃后输入区完全回到 stock（零 border）。护栏 = `tests/glass-css.spec.ts`
-  新增 4 条（两档定义且暗色不低于浅色、恰好两处消费、其余 rim 仍走 18%、分隔线档位），
-  把改动回退即变红。
+  （30%，浅/暗同值，暗色不低于浅色），**只**作用于主输入面（hero 输入卡与会话输入卡，
+  同一条 `[data-composer-card]` 规则）——其余 rim 消费点（侧栏/顶栏/菜单/弹窗等）一律
+  不动。复核（同一 CDP 链路）：Latte 下卡边框实测 30%（渲染像素 `rgb(191,193,203)`，
+  ΔRGB ≈ 48）、Mocha 下 30% 可辨不过重、关玻璃后输入区完全回到 stock（零 border）。
+  护栏 = `tests/glass-css.spec.ts` 的 issue #22 组（档位定义且暗色不低于浅色、消费点、
+  其余 rim 仍走 18%），把改动回退即变红。
 - **修复 issue #23 —— 注册冲突不再炸掉整个 boot（与语言包共存）**。与 `dsh-locale-pack`
   等注册同批 BCP 47 ID 的语言包共存时，上游 `locale.addLanguage` 抛
   `locale "ja" is already registered`；`ctx.effect` 同步执行并原样 rethrow → 本 entry
@@ -954,8 +966,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...HEAD
-[0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.2...HEAD
+[0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2
 [0.6.2-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...v0.6.2-beta.1
 [0.6.2-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2-beta.0
 [0.6.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...v0.6.1
