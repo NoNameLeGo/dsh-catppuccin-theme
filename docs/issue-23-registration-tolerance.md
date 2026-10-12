@@ -166,5 +166,5 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
   还原后全绿。
 - 验证：`pnpm typecheck` + `pnpm typecheck:tests` 干净；全量 `pnpm test` **286/286**
   （281 → 286）；`pnpm build` 通过。
-- 发版：目标 `0.6.2-beta.2`，**按用户指示先提交、暂不发版**；CHANGELOG 条目已在
-  `[Unreleased]`，发版时随 SOP 移到正式段。
+- 发版：随 **`0.6.2-beta.2`** 发布（预发布按仓库惯例内容留在 CHANGELOG 的 `[Unreleased]` 节）；
+  release commit 已备好，`tag` 推送待维护者放行（publish.yml 监听 `v*` tag）。

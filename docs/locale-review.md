@@ -15,7 +15,7 @@
 | 字典 | **7 个**：`zh`（键集真源）、`en`、`ja`、`ko`、`es`、`fr`、`de` —— `src/client/locales.ts` |
 | 键数 | **78**，7 个字典**完全一致**（missing=0 / extra=0） |
 | 测试锁什么 | `tests/locales.spec.ts`：键集一致、值非空、`{profile}` / `{s}` 占位符齐全、（2026-09-21 新增）旋钮与预设同词根、`glass.help` 必须列出三个预设名 |
-| 注册方式 | `ctx.locale.register(NS, { zh, en })` + 5 个 `addLanguage({ label, fallback: 'en' })`（`src/client/index.ts:319-325`） |
+| 注册方式 | `ctx.locale.register(NS, { zh, en })` + 5 个 `addLanguage({ label, fallback: 'en' })`；**11 个调用全部经 `tolerantRegistration` 容错**（issue #23：与语言包抢同一批 BCP 47 ID 时静默跳过，绝不炸 boot——见 `docs/issue-23-registration-tolerance.md`） |
 | 谁决定用哪个语言 | **宿主 locale**（设置 → 语言下拉），插件不自带语言开关；缺键时逐键回退到 `en` |
 
 **结论**：结构层面已经无懈可击；**测试无法校验的只有「译得对不对」**——这正是 YY 不能自动化的原因。
