@@ -444,6 +444,72 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
   })
 })
 
+describe('main input surface rim (issue #22 follow-up)', () => {
+  // The hero composer card and the fused session slab sit FLAT on the solid
+  // page ground with a fill all but identical to it, so the generic 18% rim
+  // measured as an invisible boundary there (rim ≈ rgb(210,212,220) on the
+  // rgb(239,241,245) Latte ground, ΔRGB ≤ 31 at 1x — reporter's config,
+  // 2026-10-11 CDP evidence). Those two forms ride the dedicated
+  // `--dsh-glass-rim-strong` step; every other rim consumer keeps the base
+  // token, whose 18% is right wherever a drop shadow or a layer step does
+  // part of the separating.
+  const lightVars = rules.find(
+    (rule) => rule.selector === '[data-dsh-glass] body' && rule.decls.includes('--dsh-glass-rim:'),
+  )
+  const darkVars = rules.find((rule) => rule.selector === '[data-dsh-glass] body[data-ds-dark-theme]')
+
+  const strongPct = (decls: string | undefined): number | undefined => {
+    const value = decls === undefined ? undefined : /--dsh-glass-rim-strong\s*:\s*([^;]+)/.exec(decls)?.[1]
+    return value === undefined ? undefined : Number(/(\d+)%/.exec(value)?.[1])
+  }
+
+  it('defines --dsh-glass-rim-strong in both scheme blocks, dark never below light', () => {
+    const light = strongPct(lightVars?.decls)
+    const dark = strongPct(darkVars?.decls)
+    expect(light, 'the light block lost the strong rim').toBeDefined()
+    expect(dark, 'the dark block lost the strong rim').toBeDefined()
+    expect(dark!, 'the dark step must never sit below the light one (same alpha reads weaker on a dark ground)')
+      .toBeGreaterThanOrEqual(light!)
+  })
+
+  it('confines the strong step to the two composer forms', () => {
+    const consumers = rules.filter((rule) => rule.decls.includes('var(--dsh-glass-rim-strong)'))
+    expect(
+      consumers.map((rule) => rule.selector).sort(),
+      'exactly the hero card and the fused slab ride the strong rim',
+    ).toEqual([
+      '[data-dsh-glass-float] [data-composer-card]',
+      '[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats])',
+    ].sort())
+  })
+
+  it('keeps every other rim consumer on the base token (no global swap)', () => {
+    // Spot checks the two surfaces the reporter's screenshots key on: the
+    // top-bar card and the sidebar column stay at the 18% ink rim.
+    const topBar = rules.find(
+      (rule) => rule.selector.includes('[data-phase] header') && /border\s*:\s*1px solid/.test(rule.decls),
+    )
+    expect(topBar?.decls, 'the top-bar card rim moved off the base token')
+      .toContain('border: 1px solid var(--dsh-glass-rim)')
+    const sidebar = rules.filter(
+      (rule) => rule.selector.includes('sidebarCol') && /border\s*:\s*1px solid/.test(rule.decls),
+    )
+    expect(sidebar.length, 'the sidebar lost its rim').toBeGreaterThan(0)
+    for (const rule of sidebar) {
+      expect(rule.decls, `${rule.selector} must keep the base rim`).toContain('border: 1px solid var(--dsh-glass-rim)')
+    }
+  })
+
+  it('steps the slab dock divider up from rim-soft but below the frame', () => {
+    const divider = rules.filter((rule) => /border-top\s*:\s*1px solid/.test(rule.decls))
+    expect(divider.map((rule) => rule.selector)).toEqual([
+      '[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-slot]',
+    ])
+    expect(divider[0]!.decls).toContain('border-top: 1px solid var(--dsh-glass-rim)')
+    expect(divider[0]!.decls).not.toContain('rim-strong')
+  })
+})
+
 describe('backdrop-root hygiene: the trigger-palette host stays filter-free (issue #19)', () => {
   // Why this is a hard rule and not a taste call.
   //

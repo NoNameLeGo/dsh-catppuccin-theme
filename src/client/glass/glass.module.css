@@ -47,9 +47,16 @@
   --dsh-glass-card-hover: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(76% * var(--dsh-glass-frost, 1)), transparent);
   /* Rim: a real hairline so the pane's silhouette stays readable over a
      busy backdrop (the bare border-l2 token was too faint to carve the
-     glass out of the page ground). */
+     glass out of the page ground). `rim-strong` is the one step up,
+     reserved for the MAIN INPUT SURFACE (the hero composer card and the
+     fused session slab): those sit flat on the SOLID page ground with a
+     fill all but identical to it, so 18% measures as an invisible boundary
+     there (rim ≈ rgb(210,212,220) on the rgb(239,241,245) Latte ground,
+     ΔRGB ≤ 31 at 1x — issue #22 follow-up, 2026-10-11 CDP evidence).
+     30% measures ΔRGB ≈ 52 and still stays below the label text colour. */
   --dsh-glass-rim: color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent);
   --dsh-glass-rim-soft: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent);
+  --dsh-glass-rim-strong: color-mix(in srgb, var(--dsw-alias-label-primary) 30%, transparent);
   /* Edge light: the glass signature — a white inner line along the top
      edge. Must be WHITE, not the label token: under a light scheme the
      label colour is dark, which turned the "highlight" into a dark seam. */
@@ -64,6 +71,11 @@
      backdrop. */
   --dsh-glass-rim: color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);
   --dsh-glass-rim-soft: color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
+  /* Same 30% as the light block on purpose: the same alpha reads WEAKER on
+     a dark ground, so the dark step must never go below the light one
+     (issue #22 follow-up — micro-adjust within 28~32% only with CDP
+     evidence). */
+  --dsh-glass-rim-strong: color-mix(in srgb, var(--dsw-alias-label-primary) 30%, transparent);
   --dsh-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --dsh-glass-drop: 0 10px 32px rgba(2, 6, 14, 0.45);
 }
@@ -541,7 +553,10 @@
      also replaces the host's own `--dsw-specific-input-major` fill. */
   isolation: isolate;
   background: none;
-  border: 1px solid var(--dsh-glass-rim);
+  /* Main input surface (issue #22 follow-up): the stronger rim — the hero
+     card sits flat on the page ground, where the generic 18% rim measures
+     invisible (see the rim-strong note in the variable block). */
+  border: 1px solid var(--dsh-glass-rim-strong);
   /* Only the OUTER drop: the inset edge light belongs on the plane, or the
      card would paint it UNDER the 52%-alpha fill and wash it out. */
   box-shadow: var(--dsh-glass-drop);
@@ -586,7 +601,9 @@
   max-width: var(--dsh-composer-card-max-width) !important;
   margin: 0 auto 12px;
   padding: 0;
-  border: 1px solid var(--dsh-glass-rim);
+  /* Same main-input-surface rim as the hero composer card (issue #22
+     follow-up): the two forms must read one boundary strength. */
+  border: 1px solid var(--dsh-glass-rim-strong);
   border-radius: 24px;
   /* Same split as the plain composer card (issue #19): the slab hosts the
      trigger palette too, so its blur must NOT sit on this element. */
@@ -626,14 +643,18 @@
 }
 
 /* The dock band inside the slab: full width, transparent, the hairline
-   divider at the seam is the only remnant of the split. */
+   divider at the seam is the only remnant of the split. The divider rides
+   the 18% rim — NOT rim-soft (12% is sub-threshold on the flat ground in
+   light flavours; the 18% itself already measured ΔRGB ≤ 31, so 12% can
+   only be fainter) and deliberately NOT rim-strong: a divider must stay
+   below the frame's 30% (issue #22 follow-up). */
 [data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-slot] {
   width: 100% !important;
   max-width: none !important;
   margin: 0;
   padding: 2px 16px 6px;
   border: none;
-  border-top: 1px solid var(--dsh-glass-rim-soft);
+  border-top: 1px solid var(--dsh-glass-rim);
   border-radius: 0;
   background: transparent;
   box-shadow: none;

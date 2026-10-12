@@ -17,7 +17,8 @@
 ### 新增
 
 - **设置区新增「反馈与支持」行**（2026-10-11）。设置页与插件详情页底部各多一行、两枚 GitHub
-  链接——「遇到问题或有建议？欢迎在 GitHub 提 Issue」与「喜欢这个插件？点一个 Star ⭐」，
+  链接——「对 Catppuccin 外观插件有问题或建议？欢迎在 GitHub 提 Issue」与「喜欢这个 Catppuccin
+  外观插件？点一个 Star ⭐」（2026-10-12 修订：两句都点名插件身份，7 语言同步），
   分别指向 `NoNameLeGo/dsh-catppuccin-theme` 的 `/issues` 与仓库主页。实现：
   `src/client/LinksRow.tsx`（纯静态链接，无注入面，URL 常量就在该文件里），注册 `order: 23`
   （「检查更新」之后），文案随 7 语言字典；两枚链接都是 `target="_blank"` +
@@ -27,6 +28,18 @@
 
 ### 修复
 
+- **修复 issue #22 追评 —— 融合 slab 与 hero 输入卡的边界在浅色风味下不可见**。报告人追评
+  「输入区与地面无边界、状态栏文字洗白」；真页取证（web GUI + CDP，报告人同款 Latte + mica +
+  blur 12 + frost 45 + brightness 50）表明 footer 文字色与 stock 逐项一致（不是配色回归），
+  根因是主输入面的通用 18% rim 在近白地面上不成立：rim 实测 `rgb(210,212,220)` vs 地面
+  `rgb(239,241,245)`，ΔRGB ≤ 31，1x 不可辨。修法：新增 rim 档位 `--dsh-glass-rim-strong`
+  （30%，浅/暗同值，暗色不低于浅色），**只**作用于两处主输入面——hero 输入卡与融合 slab
+  （会话视图 composer + 统计行）；slab 内分隔线 12% → 18%（保持低于外框一档）。
+  其余 rim 消费点（侧栏/顶栏/菜单/弹窗等）一律不动。复核（同一 CDP 链路）：Latte 下
+  slab/hero 边框实测 30%（渲染像素 `rgb(191,193,203)`，ΔRGB ≈ 48）、Mocha 下 30% 可辨
+  不过重、关玻璃后输入区完全回到 stock（零 border）。护栏 = `tests/glass-css.spec.ts`
+  新增 4 条（两档定义且暗色不低于浅色、恰好两处消费、其余 rim 仍走 18%、分隔线档位），
+  把改动回退即变红。
 - **修复 issue #23 —— 注册冲突不再炸掉整个 boot（与语言包共存）**。与 `dsh-locale-pack`
   等注册同批 BCP 47 ID 的语言包共存时，上游 `locale.addLanguage` 抛
   `locale "ja" is already registered`；`ctx.effect` 同步执行并原样 rethrow → 本 entry
