@@ -8,13 +8,18 @@
 
 ## [Unreleased]
 
-> 本批来源：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3），
-> 已作为 `0.6.2-beta.0` 预发布（三条修复各有**变异验证**过的回归测试——把修复回退即变红，
-> 见 `tests/reentrancy.spec.ts` 的三个新 describe/用例）；② `beta.0` 之后新增「反馈与支持」行；
-> ③ issue #22 三修（菜单换座 / 侧栏右线 / 选中态去环）+ 分组标题胶囊复活。②③ 已作为
-> `0.6.2-beta.1` 预发布；④ issue #23 注册容错（与语言包共存不再炸 boot）+ issue #22 追评
-> （融合 slab / hero 输入卡边界 rim-strong 档）+ 反馈行文案点身份修订，将作为
-> `0.6.2-beta.2` 预发布。
+## [0.6.2] - 2026-10-12
+
+> 本版 = `0.6.2-beta.0` + `0.6.2-beta.1` 一路**转正** + 一批新修复；原计划的 `0.6.2-beta.2`
+> **未单独发布**，内容并入本版。四个批次：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）
+> 的 P1 修复（R1~R3，三条均有**变异验证**过的回归测试——把修复回退即变红，见
+> `tests/reentrancy.spec.ts` 的三个新 describe/用例）= `0.6.2-beta.0`；② 「反馈与支持」行 +
+> ③ issue #22 三修（菜单换座 / 侧栏右线 / 选中态去环）+ 分组标题胶囊复活 = `0.6.2-beta.1`；
+> ④ issue #23 注册容错（与语言包共存不再炸 boot）+ issue #22 追评（融合 slab / hero 输入卡
+> 边界 rim-strong 档）+ 反馈行文案点身份修订 = 本版新增。`beta` 渠道里 `0.6.2-beta.0/.1`
+> 是前两批的真子集。
+> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；④ 的两条修复已在本机 CDP
+> 真页取证（Latte/Mocha/关玻璃四条 + 报错链复现）。
 
 ### 新增
 
@@ -949,7 +954,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...v0.6.2-beta.1
 [0.6.2-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2-beta.0
 [0.6.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.0...v0.6.1

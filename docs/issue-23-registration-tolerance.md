@@ -136,7 +136,8 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
   4. `theme.register` 重复 → 不抛（microtask flush 后断言）。
   - **变异验证**：把容错回退 → 四例全红（对齐本仓 R1~R3 测试的惯例）。
 - `pnpm test` 全绿 + `pnpm build`。
-- 版本 `0.6.2-beta.2`，走 AGENTS.md 的发版 SOP；CI 的 boot-e2e 兜底。
+- 版本 **`0.6.2`**（正式版；原计划的 `0.6.2-beta.2` 未单独发布、内容并入本版），
+  走 AGENTS.md 的发版 SOP；CI 的 boot-e2e 兜底。
 - issue #23 回帖：说明「降级 no-op 采纳 / 非重复错不 rethrow」的分歧与理由，附本文档链接。
 
 ## 6. 上游报错文案速查（后续复用）
@@ -166,5 +167,6 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
   还原后全绿。
 - 验证：`pnpm typecheck` + `pnpm typecheck:tests` 干净；全量 `pnpm test` **286/286**
   （281 → 286）；`pnpm build` 通过。
-- 发版：随 **`0.6.2-beta.2`** 发布（预发布按仓库惯例内容留在 CHANGELOG 的 `[Unreleased]` 节）；
+- 发版：随 **`0.6.2`** 正式版发布（2026-10-12 转正；CHANGELOG 已从 `[Unreleased]` 落成
+  `## [0.6.2] - 2026-10-12` 节，满足 publish.yml 的 `Verify changelog entry` 校验）；
   release commit 已备好，`tag` 推送待维护者放行（publish.yml 监听 `v*` tag）。
