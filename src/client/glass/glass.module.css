@@ -48,8 +48,9 @@
   /* Rim: a real hairline so the pane's silhouette stays readable over a
      busy backdrop (the bare border-l2 token was too faint to carve the
      glass out of the page ground). `rim-strong` is the one step up,
-     reserved for the MAIN INPUT SURFACE (the hero composer card and the
-     fused session slab): those sit flat on the SOLID page ground with a
+     reserved for the MAIN INPUT SURFACE (the composer card — hero and
+     session views share the same rule): it sits flat on the SOLID page
+     ground with a
      fill all but identical to it, so 18% measures as an invisible boundary
      there (rim ≈ rgb(210,212,220) on the rgb(239,241,245) Latte ground,
      ΔRGB ≤ 31 at 1x — issue #22 follow-up, 2026-10-11 CDP evidence).
@@ -63,6 +64,16 @@
   --dsh-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.42);
   /* Drop: one soft shadow per pane, cool-tinted on light. */
   --dsh-glass-drop: 0 10px 32px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 38%, transparent);
+  /* Input-surface lift (issue #22 follow-up №3, 2026-10-12): the composer
+     card (hero and session views share the rule) rides a two-layer shadow
+     instead of the single soft drop — a near-field edge
+     shadow plus a wider halo, the same structure as stock's own composer
+     shadow (`0 4px 16px` + `0 0 24px` at 3%), scaled up ~3x so the lift
+     actually reads on the near-white Latte ground (stock's own faintness
+     still looked flat there; the default 38% drop measured invisible). */
+  --dsh-glass-input-shadow:
+    0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 65%, transparent),
+    0 8px 24px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 80%, transparent);
 }
 
 [data-dsh-glass] body[data-ds-dark-theme] {
@@ -78,6 +89,10 @@
   --dsh-glass-rim-strong: color-mix(in srgb, var(--dsw-alias-label-primary) 30%, transparent);
   --dsh-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --dsh-glass-drop: 0 10px 32px rgba(2, 6, 14, 0.45);
+  /* Same input-surface lift as the light block (issue #22 follow-up №3). */
+  --dsh-glass-input-shadow:
+    0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 65%, transparent),
+    0 8px 24px color-mix(in srgb, var(--dsw-alias-bg-mask-2) 80%, transparent);
 }
 
 /* Canvas: a SOLID ground — the theme's own base colour (方案 A: Latte
@@ -557,9 +572,10 @@
      card sits flat on the page ground, where the generic 18% rim measures
      invisible (see the rim-strong note in the variable block). */
   border: 1px solid var(--dsh-glass-rim-strong);
-  /* Only the OUTER drop: the inset edge light belongs on the plane, or the
-     card would paint it UNDER the 52%-alpha fill and wash it out. */
-  box-shadow: var(--dsh-glass-drop);
+  /* Only the OUTER lift (issue #22 follow-up №3): the inset edge light
+     belongs on the plane, or the card would paint it UNDER the 52%-alpha
+     fill and wash it out. */
+  box-shadow: var(--dsh-glass-input-shadow);
 }
 
 [data-dsh-glass-float] [data-composer-card]::before {
@@ -589,101 +605,30 @@
   padding-bottom: 12px;
 }
 
-[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) {
-  /* Positioning context for the material plane below. The host's own `.root`
-     is static (`display:flex`), and every absolutely positioned element inside
-     the composer already resolves against the CARD (`uV2eYG_card` carries
-     `position:relative` upstream), so this adds a containing block but does not
-     re-anchor anything — re-check on the live GUI (issue #19 verification). */
-  position: relative;
-  isolation: isolate;
-  width: var(--dsh-composer-card-max-width) !important;
-  max-width: var(--dsh-composer-card-max-width) !important;
-  margin: 0 auto 12px;
-  padding: 0;
-  /* Same main-input-surface rim as the hero composer card (issue #22
-     follow-up): the two forms must read one boundary strength. */
-  border: 1px solid var(--dsh-glass-rim-strong);
-  border-radius: 24px;
-  /* Same split as the plain composer card (issue #19): the slab hosts the
-     trigger palette too, so its blur must NOT sit on this element. */
-  background: none;
-  box-shadow: var(--dsh-glass-drop);
-}
+/* ⚠️ 2026-10-13（维护者决定）：fused slab 废除 —— 「性能与用量」统计行不再
+   被包进玻璃卡内，回归 stock 的「卡外一行」布局（玻璃外观由
+   [data-composer-card] 自己携带，hero 与会话两视图同一套）。历史上的融合带
+   （slab 边框/材质面 + 卡透明化 + dock 发线）删除；原因：① 融合带从 0.2.0
+   起就半残（发线配方打在 0×0 的 display:contents 槽位上，从未渲染）；② 报告人
+   把它读作「统计行下移」；③ 维护者对照 stock 明确选择「不包」。 */
 
-[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats])::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--dsh-glass-card);
-  box-shadow: var(--dsh-glass-edge);
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
-  pointer-events: none;
-}
+/* （原「Main-input-surface fill」覆写，2026-10-12 试装 → 2026-10-13 维护者决定
+   撤回：输入卡填充回归默认玻璃配方（layer-1 × 52% × frost）——与左侧栏及
+   所有玻璃面完全同款（「对话框和侧栏一个材质」）。曾试的 bluish-75/800 @55%
+   实色差使卡在暗色下偏紫偏亮、与侧栏不一致；撤回后卡的辨识由 rim-strong
+   （30%）+ 双层影承担。历史证据见 `.workbuddy/memory/2026-10-12.md` 与
+   `.cache/issue22-verify/` 的截图。） */
 
-/* Inside the slab the composer card is bare content: no glass of its own. */
-[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card] {
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
+/* （原「Inside the slab the composer card is bare content」三条重置规则随
+   fused slab 一并废除，2026-10-13——卡恢复自带玻璃外观。） */
 
-/* …and its own material plane steps aside so the slab's plane is the only
-   one painting (two planes would stack two fills and two backdrop reads). */
-[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card]::before {
-  display: none;
-}
+/* （原「dock band 发线」规则随 fused slab 一并废除，2026-10-13——发线配方
+   本就打在 0×0 的 display:contents 槽位上从未渲染；统计行回归卡外后不再需要
+   「缝线」。） */
 
-[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card]::after {
-  display: none;
-}
-
-/* The dock band inside the slab: full width, transparent, the hairline
-   divider at the seam is the only remnant of the split. The divider rides
-   the 18% rim — NOT rim-soft (12% is sub-threshold on the flat ground in
-   light flavours; the 18% itself already measured ΔRGB ≤ 31, so 12% can
-   only be fainter) and deliberately NOT rim-strong: a divider must stay
-   below the frame's 30% (issue #22 follow-up). */
-[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-slot] {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0;
-  padding: 2px 16px 6px;
-  border: none;
-  border-top: 1px solid var(--dsh-glass-rim);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-/* The stats row inside the band: plain text, no own glass. It must keep a
-   container-constrained width (100% + the shell's own max-width, exactly
-   like the stock row): in the flex column the row is a direct flex item
-   (the slot anchor is display:contents), and `width:auto` there would let
-   it shrink to its content width, which makes scrollWidth == clientWidth
-   and disables the stock "hover for full text" tooltip (it only arms when
-   the row is truncated). */
-[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar] [data-slot] [data-dsh-glass-stats] {
-  width: 100% !important;
-  min-width: 0;
-  margin: 0;
-  padding: 4px 0 0 !important;
-  border: none;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-/* The live segment keeps a right inset so it does not touch the band edge. */
-[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar] [data-slot] [data-dsh-live-tps] {
-  padding-right: 0;
-}
+/* （原「带内 stats 行 / live 段」两条微调随 fused slab 一并废除，2026-10-13
+   ——统计行回归 stock 样式：宽度、内边距、"hover 看全文" 工具提示行为全部
+   交还上游自己管。） */
 
 /* ---------- Sidebar rows: the selected row gets a real fill, because
    upstream gives hover and selected the SAME 6% tint (`rgba(38,49,72,.06)`

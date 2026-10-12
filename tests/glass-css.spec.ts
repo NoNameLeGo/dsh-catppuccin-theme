@@ -121,9 +121,9 @@ describe('glass blur budget (issue #13)', () => {
     ).toBe(true)
   })
 
-  it('keeps the composer slab erasing the inner card blur (no double read)', () => {
+  it('keeps composer hosts blur-free — the material rides the plane (no double read)', () => {
     const erasers = rules.filter((rule) => blurOf(rule.decls) === 'none')
-    expect(erasers.length).toBeGreaterThanOrEqual(3)
+    expect(erasers.length).toBeGreaterThanOrEqual(1)
     expect(
       erasers.some(
         (rule) =>
@@ -445,14 +445,14 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
 })
 
 describe('main input surface rim (issue #22 follow-up)', () => {
-  // The hero composer card and the fused session slab sit FLAT on the solid
-  // page ground with a fill all but identical to it, so the generic 18% rim
-  // measured as an invisible boundary there (rim ≈ rgb(210,212,220) on the
+  // The composer card (hero and session views share the same rule — the fused
+  // slab was removed 2026-10-13) sits FLAT on the solid page ground with a
+  // fill all but identical to it, so the generic 18% rim measured as an
+  // invisible boundary there (rim ≈ rgb(210,212,220) on the
   // rgb(239,241,245) Latte ground, ΔRGB ≤ 31 at 1x — reporter's config,
-  // 2026-10-11 CDP evidence). Those two forms ride the dedicated
-  // `--dsh-glass-rim-strong` step; every other rim consumer keeps the base
-  // token, whose 18% is right wherever a drop shadow or a layer step does
-  // part of the separating.
+  // 2026-10-11 CDP evidence). It rides the dedicated `--dsh-glass-rim-strong`
+  // step; every other rim consumer keeps the base token, whose 18% is right
+  // wherever a drop shadow or a layer step does part of the separating.
   const lightVars = rules.find(
     (rule) => rule.selector === '[data-dsh-glass] body' && rule.decls.includes('--dsh-glass-rim:'),
   )
@@ -472,15 +472,12 @@ describe('main input surface rim (issue #22 follow-up)', () => {
       .toBeGreaterThanOrEqual(light!)
   })
 
-  it('confines the strong step to the two composer forms', () => {
+  it('confines the strong step to the composer card', () => {
     const consumers = rules.filter((rule) => rule.decls.includes('var(--dsh-glass-rim-strong)'))
     expect(
       consumers.map((rule) => rule.selector).sort(),
-      'exactly the hero card and the fused slab ride the strong rim',
-    ).toEqual([
-      '[data-dsh-glass-float] [data-composer-card]',
-      '[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats])',
-    ].sort())
+      'exactly the composer card rides the strong rim (hero and session share the rule)',
+    ).toEqual(['[data-dsh-glass-float] [data-composer-card]'])
   })
 
   it('keeps every other rim consumer on the base token (no global swap)', () => {
@@ -498,15 +495,6 @@ describe('main input surface rim (issue #22 follow-up)', () => {
     for (const rule of sidebar) {
       expect(rule.decls, `${rule.selector} must keep the base rim`).toContain('border: 1px solid var(--dsh-glass-rim)')
     }
-  })
-
-  it('steps the slab dock divider up from rim-soft but below the frame', () => {
-    const divider = rules.filter((rule) => /border-top\s*:\s*1px solid/.test(rule.decls))
-    expect(divider.map((rule) => rule.selector)).toEqual([
-      '[data-dsh-glass][data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-slot]',
-    ])
-    expect(divider[0]!.decls).toContain('border-top: 1px solid var(--dsh-glass-rim)')
-    expect(divider[0]!.decls).not.toContain('rim-strong')
   })
 })
 
@@ -553,9 +541,9 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
   it('keeps the composer material on a ::before plane that owns the fill too', () => {
     // The plane must carry the FILL, not just the blur: anything the host paints
     // below the plane (a background, an inset shadow) becomes what the plane
-    // reads. One active plane per mode (mica card, mica slab, compat card), plus
-    // exactly one eraser — the mica slab hides the inner card's plane so that a
-    // single plane paints (two would stack two fills and two backdrop reads).
+    // reads. One active plane per mode (mica card, compat card) — the fused
+    // slab was removed 2026-10-13, so the card's plane is the single composer
+    // plane in both views (nothing left to erase).
     const planeRules = rules.filter(
       (rule) =>
         rule.selector.includes('::before') && HOSTS.some((host) => rule.selector.includes(host)),
@@ -565,10 +553,8 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
       return blur !== undefined && blur !== 'none'
     })
     const erased = planeRules.filter((rule) => /(?:^|;)\s*display\s*:\s*none/.test(rule.decls))
-    expect(active.map((rule) => rule.selector)).toHaveLength(3)
-    expect(erased.map((rule) => rule.selector)).toEqual([
-      '[data-dsh-glass-float] [data-dsh-glass-inputbar]:has([data-dsh-glass-stats]) [data-composer-card]::before',
-    ])
+    expect(active.map((rule) => rule.selector)).toHaveLength(2)
+    expect(erased.map((rule) => rule.selector)).toEqual([])
     for (const plane of active) {
       expect(
         /(?:^|;)\s*background\s*:/.test(plane.decls),
