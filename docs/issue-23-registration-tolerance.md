@@ -152,7 +152,7 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
 | `webserver: duplicate exact route "…"` | dsh-host-webserver `register` | 静默跳过 |
 | `Settings presentation is already configured for this plugin instance` | dsh-settings `configure` | 由 §3-5 的 disposer 修复消除，不靠吞错 |
 
-## 7. 实施记录（2026-10-12，**未发版**）
+## 7. 实施记录（2026-10-12；**2026-10-13 已随 `0.6.2-beta.2` 预发布**）
 
 - 新增 `src/registration-tolerance.ts`：`tolerantRegistration` + `ALREADY_OWNED` 形态表。
 - 落地清单 **8/8**：语言注册 ×11、`theme.register`、设置行 slot ×4、详情卡 slot →
@@ -167,6 +167,6 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
   还原后全绿。
 - 验证：`pnpm typecheck` + `pnpm typecheck:tests` 干净；全量 `pnpm test` **286/286**
   （281 → 286）；`pnpm build` 通过。
-- 发版：随 **`0.6.2`** 正式版发布（2026-10-12 转正；CHANGELOG 已从 `[Unreleased]` 落成
-  `## [0.6.2] - 2026-10-12` 节，满足 publish.yml 的 `Verify changelog entry` 校验）；
-  release commit 已备好，`tag` 推送待维护者放行（publish.yml 监听 `v*` tag）。
+- 发版：**已随 `0.6.2-beta.2` 预发布**（2026-10-13；Publish run `38287525195` success，
+  `+ @nonamelego/dsh-catppuccin@0.6.2-beta.2` 带 provenance；预发布按惯例内容留 CHANGELOG
+  `[Unreleased]`，转正 `0.6.2` 时落节）。

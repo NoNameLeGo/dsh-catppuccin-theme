@@ -273,7 +273,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.2-beta.1`**（2026-10-11；Publish run `38122408831` success、日志
+> `beta` = **`0.6.2-beta.2`**（2026-10-13；Publish run `38287525195` success 32 s、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.2-beta.2` 带 provenance；CI `38287240048` check + boot-e2e 全绿，
+> **测试 289 全绿**（281 → 289））= 输入区「拆融合」（玻璃卡只包输入区、统计行回卡外）+ 主输入面双重
+> 影 + 标准预设默认模糊度 2 → 5px + **issue #23 注册容错**（与语言包共存不再炸 boot）+
+> issue #22 追评（主输入面 rim-strong 档）+ 反馈行文案点身份。首轮 CI `38286922335` 抓到一处漏改断言
+> （glass-layer.spec 的 shipped default 仍为 2），修复后全绿。
+> 上一版 `beta` = **`0.6.2-beta.1`**（2026-10-11；Publish run `38122408831` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.2-beta.1` 带 provenance；CI `38122409040` check 24 s + boot-e2e 1 m 19 s 双绿）
 > = 「反馈与支持」行（LinksRow）+ **issue #22 三修**（模型弹层换座到 MenuSurface 材质面 / 侧栏右侧蓝线移除 /
 > 选中态去 1px 内环；顺带复活分组标题胶囊），真页 CDP 验证（reporter 同款 Latte + mica + blur 12 + frost 45）。
