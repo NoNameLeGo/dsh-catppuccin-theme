@@ -55,6 +55,7 @@ import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
 import type { UpdateCheckPayload } from '../update-check.ts'
 import { PACKAGE_NAME, UPDATE_CHECK_CLIENT_TIMEOUT_MS, UPDATE_ROUTE_PATH } from '../update-check.ts'
+import { tolerantRegistration } from '../registration-tolerance.ts'
 import {
   CATPPUCCIN_ENTRY_ID,
   DEFAULT_AUTO_CHECK,
@@ -382,19 +383,27 @@ export function apply(ctx: ClientContext): void {
   // ja/ko/es/fr/de ride the untyped language-pack form and are registered
   // as selectable languages (fallback chain → en) so the dictionaries are
   // reachable without an external language pack (item CC).
+  //
+  // Every call rides `tolerantRegistration` (issue #23): a peer language pack
+  // (dsh-locale-pack, …) that already owns a BCP 47 id makes `addLanguage`
+  // throw `locale "ja" is already registered`, and a raw throw here fails
+  // THIS entry → the whole web boot aborts → the desktop's crash rescue
+  // disables every third-party plugin. A skipped registration costs nothing:
+  // our dictionaries still land (they register into our OWN namespace), and
+  // the id collision only means the peer's language entry already stands.
   ctx.effect(() => {
     const disposers = [
-      ctx.locale.register(NS, { zh, en }),
-      ctx.locale.register(NS, 'ja', ja),
-      ctx.locale.register(NS, 'ko', ko),
-      ctx.locale.register(NS, 'es', es),
-      ctx.locale.register(NS, 'fr', fr),
-      ctx.locale.register(NS, 'de', de),
-      ctx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }),
-      ctx.locale.addLanguage({ id: 'ko', label: '한국어', fallback: 'en' }),
-      ctx.locale.addLanguage({ id: 'es', label: 'Español', fallback: 'en' }),
-      ctx.locale.addLanguage({ id: 'fr', label: 'Français', fallback: 'en' }),
-      ctx.locale.addLanguage({ id: 'de', label: 'Deutsch', fallback: 'en' }),
+      tolerantRegistration(() => ctx.locale.register(NS, { zh, en })),
+      tolerantRegistration(() => ctx.locale.register(NS, 'ja', ja)),
+      tolerantRegistration(() => ctx.locale.register(NS, 'ko', ko)),
+      tolerantRegistration(() => ctx.locale.register(NS, 'es', es)),
+      tolerantRegistration(() => ctx.locale.register(NS, 'fr', fr)),
+      tolerantRegistration(() => ctx.locale.register(NS, 'de', de)),
+      tolerantRegistration(() => ctx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' })),
+      tolerantRegistration(() => ctx.locale.addLanguage({ id: 'ko', label: '한국어', fallback: 'en' })),
+      tolerantRegistration(() => ctx.locale.addLanguage({ id: 'es', label: 'Español', fallback: 'en' })),
+      tolerantRegistration(() => ctx.locale.addLanguage({ id: 'fr', label: 'Français', fallback: 'en' })),
+      tolerantRegistration(() => ctx.locale.addLanguage({ id: 'de', label: 'Deutsch', fallback: 'en' })),
     ]
     return () => {
       for (const dispose of disposers) dispose()
@@ -415,7 +424,16 @@ export function apply(ctx: ClientContext): void {
     // → key is "latte".
     const flavorId = flavor.themeId.replace('catppuccin-', '') as CatppuccinFlavorId
     const shiki = SHIKI_TOKENS[flavorId][readShikiStyle()]
-    const disposer = theme.register({
+    // Tolerant (issue #23): `theme.register` throws `theme "…" is already
+    // registered` when another instance of this plugin owns the id (a
+    // duplicate install). One reachable path runs it synchronously
+    // (applyScopeSnapshot → reapplyThemePrefs, inside the boot effect), so a
+    // raw throw could fail the entry; the others (the deferred restore
+    // microtask, the storage event) would turn into uncaught errors. A skip
+    // is right either way: the theme exists (the peer's copy), `setTheme`
+    // below still works, and the no-op disposer memoizes the skip so we do
+    // not re-attempt on every override change.
+    const disposer = tolerantRegistration(() => theme.register({
       id: flavor.themeId,
       colorScheme: flavor.colorScheme,
       tokens: {
@@ -427,7 +445,7 @@ export function apply(ctx: ClientContext): void {
         ...menuSurfaceFor(hostHasMenuBlur()),
         ...readOverrides(),
       } as ThemeTokens,
-    })
+    }))
     themeDisposers.set(flavor.themeId, disposer)
   }
   const ensureThemeRegistered = (themeId: string): void => {
@@ -831,7 +849,14 @@ export function apply(ctx: ClientContext): void {
         // restore guard must already read `off` here and not re-assert the
         // previous flavour.
         writeFlavor('off')
-        theme.setTheme(readRestoredPreference())
+        // Wrapped like every other setTheme call (issue #23 audit): a throw
+        // here used to escape into the row's click handler; keep the current
+        // theme instead of dropping the user into nothing.
+        try {
+          theme.setTheme(readRestoredPreference())
+        } catch {
+          /* keep the current theme rather than dropping the user into nothing */
+        }
         queuePersist()
         return
       }
@@ -842,7 +867,11 @@ export function apply(ctx: ClientContext): void {
       // registration: the theme must exist before setTheme (item JJ).
       writeFlavor(flavor.themeId)
       ensureThemeRegistered(flavor.themeId)
-      theme.setTheme(flavor.themeId)
+      try {
+        theme.setTheme(flavor.themeId)
+      } catch {
+        /* theme unavailable — keep the current one; a later theme/change retries */
+      }
       queuePersist()
     },
     overrides: overridesSnapshot,
@@ -865,13 +894,19 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+  // Every row registration rides `tolerantRegistration` (issue #23): the
+  // callback runs SYNCHRONOUSLY when the slot is already declared (the
+  // renderer's documented contract), so a duplicate id at the same priority
+  // (`list slot "…" already has an entry with id "…"`, e.g. a duplicate
+  // install) would otherwise throw straight through apply() and fail the
+  // boot. A skipped row costs nothing: the occupant is the same row.
+  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
     name: 'settings.general.item',
     id: 'catppuccin',
     order: 20,
     locale: NS,
     inject: injected,
-  }, CatppuccinRow))
+  }, CatppuccinRow)))
 
   const glassInjected = (): GlassRowInjected => ({
     getState: () => glass.getSnapshot(),
@@ -884,13 +919,13 @@ export function apply(ctx: ClientContext): void {
     resetDefaults: () => { glass.resetDefaults() },
   })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
     name: 'settings.general.item',
     id: 'catppuccin-glass',
     order: 21,
     locale: NS,
     inject: glassInjected,
-  }, GlassRow))
+  }, GlassRow)))
 
   // Update check: the Host owns the npm lookup (Node fetch, no CORS); the row
   // only fetches the same-origin route and renders the verdict. Upgrade stays
@@ -942,25 +977,25 @@ export function apply(ctx: ClientContext): void {
     subscribeLocale: (listener: () => void) => ctx.locale.subscribe(listener),
   })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
     name: 'settings.general.item',
     id: 'catppuccin-update',
     order: 22,
     locale: NS,
     inject: updateInjected,
-  }, UpdateRow))
+  }, UpdateRow)))
 
   // Feedback & support row (2026-10-11): closes the section with two static
   // GitHub links — the issue tracker and the repo (the star ask). Pure copy,
   // so it registers WITHOUT an inject factory (only the locale seat); live
   // edits to the URLs belong in LinksRow.tsx. Rendered in both homes: the
   // General section here and the plugin detail card below.
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
     name: 'settings.general.item',
     id: 'catppuccin-links',
     order: 23,
     locale: NS,
-  }, LinksRow))
+  }, LinksRow)))
 
   // Plugins-page card: the settings section on this plugin's OWN detail page in
   // the Plugin manager (DSH >= 0.2.0-rc.2). Three things about this
@@ -986,12 +1021,12 @@ export function apply(ctx: ClientContext): void {
     if (typeof forms.whileServed !== 'function') return
     return forms.whileServed([CATPPUCCIN_ENTRY_ID], () => ctx.slots.inject(
       'plugins.bundle.config',
-      () => ctx.slots.register({
+      () => tolerantRegistration(() => ctx.slots.register({
         name: 'plugins.bundle.config',
         key: PACKAGE_NAME,
         locale: NS,
         inject: detailInjected,
-      }, CatppuccinDetailCard),
+      }, CatppuccinDetailCard)),
     ))
   })
 }

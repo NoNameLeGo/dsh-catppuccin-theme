@@ -28,7 +28,7 @@
 
 > **两层「官方」不要混淆**：(a) **Catppuccin 源色板** —— 取色来源；(b) **DSH 官方 token 的取值与语义** —— 被适配对象。改 (b) 是本插件存在的理由（例如整族重映射 `brand-primary` 到风味蓝），不需要理由；改 (a) 才需要证据（规则 1）。
 
-### 由此推出的四条硬规则
+### 由此推出的五条硬规则
 
 1. **以官方色板为默认来源，偏离需要证据。** 每个 `--dsw-*` 的取值默认是官方 26 色本身、或由它们 `color-mix` 出来的中间值；**不得凭观感发明色相**（「这个蓝有点闷，换 sapphire」不是理由）。但当官方取值**在 DSH 的实际用法下确实不成立**时——例如该色被 DSH 用在对比度不达标的场景、或该 token 在 DSH 里被用在官方设计没有的场景——**可以改**，过下面三条即可：
    - ① 有可复核的证据（实测对比度数字 / 用户 issue / 上游设计差异）；
@@ -39,6 +39,7 @@
 4. **玻璃层不得改变配色语义。** 玻璃只动 alpha / blur / rim / shadow；开关关闭时必须回到与官方色板逐 token 一致的纯色形态。**推论（issue #13 实测）**：本皮肤把页面地面强制成**纯色**，所以「背后只有地面」的玻璃面上加 `backdrop-filter` 是**恒等变换**——填充逐像素不变（隐藏该面内容后 A/B：气泡 **0/19184 像素**），代价却是 Chromium 每帧回读 backdrop（**半径不参与**；`will-change` / `contain` 绕不开，只有 `none` 免提升）。**新增 blur 前先问一句「这个面背后是不是只有纯色地面」**，`tests/glass-css.spec.ts` 双向锁定（地面之上的面不得有 blur、覆盖移动内容的必须保留）。唯一已知的可见副作用不是降级：面变成合成层后，**面内文字会重抗锯齿**（≤16/255 侧栏、≤64/255 气泡）。
    **推论二（issue #19 实测，同样必须记）：不要把 blur 加在「托管浮层」的容器上。** 带 `backdrop-filter` 的元素会成为其后代的 **backdrop root**，后代只能读到**该元素自己画的那层**（页面内容不在其中）；命令面板 `[data-trigger-menu]` 就挂在 `[data-composer-card]` 的 `conversation.input.overlay` 锚点里，且整块**悬在卡盒之外**，于是它自带的 `blur(40px)` 读空 ⇒ 底下的转录原样透出。**推论：材质必须整体搬到容器内部的 `::before` 材质面（填充 + blur 都要，别只搬 blur），容器本体保持零绘制**——这正是上游 `MenuSurface.module.css` 的做法（`isolation: isolate` 外壳 + `z-index:-1` 材质面，其注释原话就是「keeps nested menus free of an ancestor backdrop root」）。`isolation: isolate` **不是** backdrop root，可以放心用。护栏 = `tests/glass-css.spec.ts` 的 `backdrop-root hygiene` 一组；判定手法与实测数字见 `skills/css-backdrop-root-probe` 与 `docs/issue-19-palette-blur.md`。
    **推论三（issue #22 实测）：`role='menu'` 不是菜单表面的身份。** 菜单座位的真源 = **`data-menu-material='translucent'`**（MenuSurface 自带钩子，0.1.7-rc.2 与 0.2.0-rc.2 皆有）；且填充/blur 一律**不画在表面上**，而是覆写它自带材质面读的两个 token：`--dsw-menu-surface-fill` 与 `--dsw-menu-backdrop-filter`（stock：58%/45% 填充 + `blur(40px) saturate(150%)`）。理由是 0.2.0 起模型弹层**翻转了 role**（外表面 `role=group`，内层滚动列表 `.groups` 拿了 `role=menu`，出处 `dsh-client-ui-model-selection/lib/client.js` 的 `pane === "model" ? "group" : "menu"`）——把配方挂在 role 上会画到列表上（双框 + 贴底），挂在表面上则是推论二的 backdrop root 形状。**凡 `[role='menu']` 选择器必须带守卫对** `:not([data-menu-material]):not([data-menu-material] *)`（前者跳过表面、后者跳过表面内部的一切，如模型列表；二者保留给手写菜单，如 `dsh-client-ui-schedule` 的 TaskMenu）。rim 用 `outline`（画在负 z 子元素之上、不改盒模型）。同族陷阱：MenuGroup 的分组标题钩子是 `[data-menu-group-heading]`（`> :first-child` 会被 0.2.0 前置的 1×1 哨兵 `span[data-menu-group-start]` 吃掉）。护栏 = `tests/glass-css.spec.ts` 的 `menu seat + un-stroked highlights (issue #22)` 一组。
+5. **boot 关键路径上的注册一律走 `tolerantRegistration`（issue #23）。** entry 的 `apply()` 一同步抛错 → entry FAILED → 整个 `web boot` 中止（`web boot: N entry(s) did not activate`）→ 官方壳崩溃救援 `disableAllPlugins()` 把**所有**第三方插件关停；而 `ctx.effect` 是同步执行并原样 rethrow 的（`ctx.slots.inject` 在槽已声明时同样同步）。⇒ **凡在 apply 同步路径上调用外部注册表**（`ctx.locale.register/addLanguage`、`theme.register`、`ctx.slots.register`、宿主 `webServer.register`）都必须经 `src/registration-tolerance.ts` 的 `tolerantRegistration`：已知「他方已占用」形态（语言包抢 BCP 47 ID、双份安装抢路由/slot/theme id）静默跳过，其余 warn 后同样跳过——没有任何一项注册值得用户的全套插件陪葬。新增调用点若漏包，`tests/registration-tolerance.spec.ts` 的变异检查会红。全量排查（A/B/C 三档）与上游报错文案速查见 `docs/issue-23-registration-tolerance.md`。
 
 ### 用这条准绳做过的判定（可引用的先例）
 

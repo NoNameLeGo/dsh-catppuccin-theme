@@ -11,6 +11,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import pkg from '../../package.json'
+import { tolerantRegistration } from '../registration-tolerance.ts'
 import {
   REGISTRY_PACKUMENT_URL,
   UPDATE_FETCH_TIMEOUT_MS,
@@ -290,9 +291,21 @@ async function handleUpdateCheck(ctx: Context, req: HttpRequestLike, res: HttpRe
  *  this runs — mounting can never race ahead of the service. */
 export function registerUpdateCheckRoute(ctx: Context): void {
   const webServer = ctx.get('webServer') as WebServerLike
-  ctx.effect(() => webServer.register({
+  // Tolerant (issue #23): a duplicate install registers the same exact route
+  // twice and upstream throws `webserver: duplicate exact route "…"` — a raw
+  // throw here fails this Host entry at startup. A skip is right: the peer's
+  // instance serves the route.
+  ctx.effect(() => tolerantRegistration(() => webServer.register({
     kind: 'exact',
     path: UPDATE_ROUTE_PATH,
-    handler: (req, res) => void handleUpdateCheck(ctx, req, res),
-  }), 'dsh-catppuccin: update-check route')
+    // Request-scope guard: this is a bare `void` call, so an escaping
+    // rejection would be an unhandled rejection (Node's default terminates
+    // the process). Every internal branch already catches; this is the
+    // last-resort log.
+    handler: (req, res) => {
+      void handleUpdateCheck(ctx, req, res).catch((error: unknown) => {
+        console.warn(`[dsh-catppuccin] update-check route failed: ${String(error)}`)
+      })
+    },
+  })), 'dsh-catppuccin: update-check route')
 }

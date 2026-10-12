@@ -144,10 +144,22 @@ export function apply(ctx: Context): void {
     // and its volatile fields are what the settings service projects into the
     // form the Client reads. Suppress the schema-generated page — this plugin
     // ships its own settings rows.
-    settings.configure?.({ auto: false }, ctx.fiber)
+    //
+    // The disposer is OWNED here (issue #23 audit): upstream documents
+    // "register it with the calling plugin's effects" and throws `Settings
+    // presentation is already configured for this plugin instance` when the
+    // same owner configures twice. Dropping the disposer pinned the policy to
+    // the top-level fiber forever, so the next activation of this child
+    // (host fiber restart / HMR / service reload) would re-run `configure`,
+    // fail the child, and skip the migration wiring below it.
+    const releasePresentation = settings.configure?.({ auto: false }, ctx.fiber)
     // The entry is not addressable until its own fiber is ACTIVE, so the
     // migration is deferred and retried rather than run inline (a synchronous
     // `describe()` here cannot see us yet — see `src/migrate-legacy.ts`).
     scheduleLegacyMigration(ctx, settings, CATPPUCCIN_ENTRY_ID, hasUserLayerSection)
+    // Child-fiber cleanup: release the presentation policy with this child.
+    return () => {
+      if (typeof releasePresentation === 'function') (releasePresentation as () => void)()
+    }
   })
 }

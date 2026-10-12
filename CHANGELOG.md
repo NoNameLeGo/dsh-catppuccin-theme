@@ -27,6 +27,19 @@
 
 ### 修复
 
+- **修复 issue #23 —— 注册冲突不再炸掉整个 boot（与语言包共存）**。与 `dsh-locale-pack`
+  等注册同批 BCP 47 ID 的语言包共存时，上游 `locale.addLanguage` 抛
+  `locale "ja" is already registered`；`ctx.effect` 同步执行并原样 rethrow → 本 entry
+  变 FAILED → 整个 `web boot` 中止 → 官方桌面壳的崩溃救援 `disableAllPlugins()`
+  把**全部**第三方插件一起关停。修法：新增 `src/registration-tolerance.ts` 的
+  `tolerantRegistration`，boot 关键路径上的全部注册改走容错——语言字典与语言定义 ×11、
+  `theme.register`、设置行 slot ×4、插件详情卡 slot、宿主 `webServer.register`；
+  已知「他方已占用」形态静默跳过（与生态惯例一致），其余 warn 后同样跳过。
+  同一排查顺带修掉三处：`settings.configure` 丢弃 disposer（宿主 fiber 重启后子 fiber
+  必抛「presentation already configured」）、更新检查路由的 `void` 调用无 catch、
+  行 `select()` 的两处 `setTheme` 未包。护栏：`tests/registration-tolerance.spec.ts`
+  5 例，把容错回退即全红（变异验证过）；全量排查（A/B/C 三档）与上游报错文案速查见
+  `docs/issue-23-registration-tolerance.md`。
 - **更新检查的客户端 fetch 补 15 秒超时（审查 R3）**。宿主进程假死时，「检查更新」的
   同行 fetch 会无限悬挂、按钮卡在 `检查中…` 的禁用态且点不动（此前只有宿主侧 8 秒超时兜底，
   挡不住宿主本身不响应）。手动检查与 3 秒启动自动检查两处都改用
