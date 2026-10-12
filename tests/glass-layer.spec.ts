@@ -49,7 +49,7 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
     const layer = new GlassLayer(fakeCtx())
     const notified: number[] = []
     layer.subscribe(() => notified.push(layer.getSnapshot().blur))
-    expect(layer.getSnapshot().blur).toBe(2) // shipped default
+    expect(layer.getSnapshot().blur).toBe(5) // shipped default
 
     crossTabWrite(BLUR_KEY, '24')
 
