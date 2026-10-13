@@ -295,7 +295,11 @@ describe('glass blur budget (issue #13)', () => {
     // the weak-feedback bug PP is about.
     const selected = rules.find((rule) => rule.selector.includes("[role='treeitem'][aria-selected='true']"))
     expect(selected, 'the selected sidebar row lost its rule').toBeDefined()
-    expect(/background\s*:\s*[^;]*--dsw-specific-sidebar-nav-item-active/.test(selected?.decls ?? '')).toBe(true)
+    // Round 3 (①, 2026-10-13): it must ride the EXACT token the app's own
+    // panel rows use for active (`hHd-Xa_panelRow.hHd-Xa_panelActive` in
+    // dsh-client-ui-sidebar), so the session row and the 「插件」 row read as
+    // one selected colour.
+    expect(/background\s*:\s*var\(--dsw-alias-interactive-bg-hover\)/.test(selected?.decls ?? '')).toBe(true)
     expect(/background\s*:\s*var\(--dsh-glass-card/.test(selected?.decls ?? '')).toBe(false)
   })
 
@@ -392,6 +396,10 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
         /(?:^|;)\s*background\s*:/.test(rule.decls),
         `${rule.selector} paints a fill on the surface`,
       ).toBe(false)
+      expect(
+        /outline\s*:/.test(rule.decls),
+        `${rule.selector} paints a stroke on the surface (round 3 ②a removed the rim)`,
+      ).toBe(false)
     }
   })
 
@@ -429,6 +437,7 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
       rule.selector.includes("[role='treeitem'][aria-selected='true']"),
     )
     expect(selectedRow?.decls, 'the selected row grew a stroke back').not.toContain('inset')
+    expect(selectedRow?.decls, 'the selected row grew its glow back (round 3 ①)').not.toContain('box-shadow')
     const hover = rules.find((rule) => rule.selector.includes("[role='menuitem']:hover"))
     expect(hover?.decls, 'the hover light grew a stroke back').not.toContain('inset')
   })
@@ -441,6 +450,8 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
     expect(pill?.selector, 'the provider-group pill lost its rule').toBeDefined()
     expect(pill!.selector, 'must target the heading hook').toContain('[data-menu-group-heading]')
     expect(pill!.selector, ':first-child hits the 0.2.0 sentinel span').not.toContain(':first-child')
+    expect(pill!.decls, 'the provider pill grew a frame back (round 3 ③)').not.toMatch(/border\s*:\s*1px/)
+    expect(pill!.decls, 'the pill lost its sticky-cover blur').toContain('backdrop-filter')
   })
 })
 

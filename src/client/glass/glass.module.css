@@ -633,35 +633,28 @@
 /* ---------- Sidebar rows: the selected row gets a real fill, because
    upstream gives hover and selected the SAME 6% tint (`rgba(38,49,72,.06)`
    on both, measured on the live GUI) — without a fill a row could only tell
-   you it was picked through a locator. The fill uses DSH's own selected-nav
-   token, not this skin's `card-hover`: that recipe is the SAME colour as the
-   page ground, so over the solid ground it composites to a pixel-identical
-   fill (measured: 0 visible delta, only glyph antialiasing). Hover stays
-   upstream's own 6% tint (227,229,235 on Latte); the 40% selected fill
-   composites to (219,221,229) there, a clear step above it while keeping the
-   translucency. 40% is the ceiling, not a taste call: the row's 12px
-   timestamp is `label-secondary` and its contrast against the fill is 4.62
-   at 40% but 4.41 at 50% — under AA.
+   you it was picked through a locator. Round 3 (①, 2026-10-13): the reporter
+   put the row next to the sidebar's own 「插件」 row and asked for ONE unified
+   selected colour — and the app's OWN panel rows are the answer:
+   `panelRow.panelActive { background: var(--dsw-alias-interactive-bg-hover) }`
+   (dsh-client-ui-sidebar, read from the 0.2.0 bundle). The skin now rides
+   that exact token — the Latte row composites to (227,230,236), the「插件」
+   pill the reporter measured is (227,230,235), Δ ≤ 1. Selected == hover,
+   which is upstream's own convention for both the panel rows and the session
+   list. (The retired 40% boost of the selected-nav token and its AA-ceiling
+   note are obsolete: the new fill is ~6% instead of 40%, so the 12px
+   timestamp's AA margin only grows.)
    The row title (14px `label-primary`) measures 5.89 / 8.29 / 10.07 / 11.38
    across the four flavours (injected A/B on the live GUI, 2026-09-18).
-   Selected-row locator (2026-10-07 redesign, revised 2026-10-11 by issue #22):
-   the old locator was `inset 2px 0 0 accent-bar + 16px brand glow` — the
-   accent token is a near-ground dark in every flavour (#313244 in Mocha), so
-   the bar read as an offcut bracket hugging the row's rounded corner, and
-   the free-floating glow fuzzed the outline. The 10-07 replacement added a
-   1px inner ring; issue #22 (c3) then showed the ring itself was the
-   problem: the reporter put the row next to the sidebar's own 「插件」 row
-   (themed fill, no stroke) and asked for ONE un-stroked vocabulary. The ring
-   is therefore gone again and the fill does the locating alone — hover keeps
-   upstream's 6% tint, selected is 40% (a 6.7x step; the fill's 40% ceiling
-   and its AA numbers below are unchanged). The soft glow stays: it is a halo
-   BEHIND the fill, not a stroke, and keeps the row readable as the focused
-   item in dark flavours. No blur,
-   no backdrop read — pure alpha/rim/shadow, so the off-state (glass off =
-   stock upstream) is untouched. ---------- */
+   Locator history (2026-10-07 → 2026-10-13): the old `inset bar + brand
+   glow`, then a 1px inner ring (removed by issue #22 c3), then 40% + glow —
+   now ALL of them are gone (glow removal = maintainer call 2026-10-13: it
+   was never a stroke, but in Latte it read as a shadow frame around the
+   row). The fill locates alone — no blur, no backdrop read, no box-shadow,
+   pure alpha, so the off-state (glass off = stock upstream) is untouched.
+   ---------- */
 [data-dsh-glass-float] [role='treeitem'][aria-selected='true'] {
-  background: color-mix(in srgb, var(--dsw-specific-sidebar-nav-item-active) 40%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%, transparent);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 /* ---------- Hover light: buttons and menu cells answer with a soft glow —
@@ -694,16 +687,15 @@
      blur(40px) saturate(150%), ui-theme).
    Painting nothing on the surface itself keeps this clear of the issue #19
    backdrop-root shape: a filter on the container would become the plane's
-   root and would starve nested submenus' backdrops. The rim is an OUTLINE,
-   not a border: an outline paints above negative-z children (the plane, so
-   the hairline stays visible) and shifts no boxes — the menu's geometry stays
-   byte-identical to stock. `:not(:focus-visible)` mirrors the compat rim
-   contract so the shared focus ring can take over. ---------- */
+   root and would starve nested submenus' backdrops. Round 3 (②a, 2026-10-13):
+   the 1px outline that used to ride this seat is gone — in Latte it read as
+   a solid frame around the popup; the surface now separates by its fill +
+   upstream's own elevation (CDP-checked on the reporter's config). The
+   `:not(:focus-visible)` scope stays so the shared focus-ring contract does
+   not drift. ---------- */
 [data-dsh-glass-float] [data-menu-material='translucent']:not(:focus-visible) {
   --dsw-menu-surface-fill: var(--dsh-glass-card-raised);
   --dsw-menu-backdrop-filter: blur(var(--dsh-glass-blur, 14px));
-  outline: 1px solid var(--dsh-glass-rim-soft);
-  outline-offset: -1px;
 }
 
 /* Hand-rolled menus that never enter MenuSurface (dsh-client-ui-schedule's
@@ -742,13 +734,15 @@
    (`span[data-menu-group-start]`, `opacity:0`) — the pill drew on a
    zero-visibility span and the headings rendered plain text. The heading's
    own hook is `[data-menu-group-heading]`; keep the `:has()` scope so only
-   groups holding radio options are pilled (other MenuGroup users untouched). */
+   groups holding radio options are pilled (other MenuGroup users untouched).
+   Round 3 (③): the 1px rim comes off — the reporter saw a frame pinching the
+   provider names; fill + blur STAY (they cover the sticky scroll-under, a
+   functional job, not decoration). */
 [data-dsh-glass-float] [data-menu-group]:has(> [role='menuitemradio']) > [data-menu-group-heading] {
   display: inline-flex;
   align-items: center;
   margin: 3px 0 5px 6px;
   padding: 3px 10px;
-  border: 1px solid var(--dsh-glass-rim);
   border-radius: 999px;
   background: var(--dsh-glass-card-raised);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
@@ -953,13 +947,13 @@
 }
 
 /* Compat's menu seat: the same upstream-plane ride as mica (issue #22), with
-   compat's fixed 12px blur and the compat rim token. This replaces the
-   literal blur + fill + outline triple that used to sit on `[role='menu']`. */
+   compat's fixed 12px blur. Its 1px rim (the compat token) came off together
+   with the mica outline in round 3 (②a) — same solid-frame reading, one
+   vocabulary. This replaces the literal blur + fill + outline triple that
+   used to sit on `[role='menu']`. */
 [data-dsh-glass-compat] [data-menu-material='translucent']:not(:focus-visible) {
   --dsw-menu-surface-fill: var(--dsh-glass-card-raised);
   --dsw-menu-backdrop-filter: blur(12px);
-  outline: 1px solid var(--dsh-glass-rim);
-  outline-offset: -1px;
 }
 
 /* Issue #16: the host's own right-sidebar container is a transparent LAYOUT
