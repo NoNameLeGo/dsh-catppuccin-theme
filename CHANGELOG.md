@@ -6,18 +6,19 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.6.2] - 2026-10-13
 
-> 本批先以 **`0.6.2-beta.2`** 预发布（报告人验证无误后转正为 `0.6.2`）。四个批次：
-> ① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）的 P1 修复（R1~R3，三条均有
-> **变异验证**过的回归测试——把修复回退即变红，见 `tests/reentrancy.spec.ts` 的三个新
-> describe/用例）= `0.6.2-beta.0`；② 「反馈与支持」行 + issue #22 三修（菜单换座 / 侧栏右线 /
-> 选中态去环）+ 分组标题胶囊复活 = `0.6.2-beta.1`；③ issue #23 注册容错（与语言包共存不再炸
-> boot）+ issue #22 追评（主输入面 rim-strong 档）+ 反馈行文案点身份修订；
-> ④ 会话输入区观感调整——拆除融合带（玻璃卡只包输入区、统计行回卡外）+ 主输入面双层影 +
-> 标准预设默认模糊度 2 → 5px。③④ = 本版（`0.6.2-beta.2`）新增。
-> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；③④ 已在本机 CDP 真页取证
-> （Latte / Mocha / 关玻璃 + 报告人同款配置）。
+> 本版 = `0.6.2-beta.0/.1/.2` 一路**转正** + 一批新修复；原计划的 `0.6.2-beta.3`
+> **未单独发布**，内容并入本版。五个批次：① 2026-10-10 代码审查（`docs/code-review-2026-10-10.md`）
+> 的 P1 修复（R1~R3，三条均有**变异验证**过的回归测试——把修复回退即变红，见
+> `tests/reentrancy.spec.ts` 的三个新 describe/用例）= `0.6.2-beta.0`；② 「反馈与支持」行 +
+> issue #22 三修（菜单换座 / 侧栏右线 / 选中态去环）+ 分组标题胶囊复活 = `0.6.2-beta.1`；
+> ③ issue #23 注册容错（与语言包共存不再炸 boot）+ issue #22 追评（主输入面 rim-strong 档）+
+> 反馈行文案点身份修订 = `0.6.2-beta.2`；④ 会话输入区观感调整——拆除融合带（玻璃卡只包输入区、
+> 统计行回卡外）+ 主输入面双层影 + 标准预设默认模糊度 2 → 5px = `0.6.2-beta.2`；
+> ⑤ issue #22 第三轮 ①②③（选中行色统一 / 一级弹层去实线框 / 供应商胶囊去描边）= 本版新增。
+> ⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）；③④⑤ 已在本机 CDP 真页取证
+> （四风味 Latte / Frappé / Macchiato / Mocha + 玻璃关 + compat + 报告人同款配置）。
 
 ### 新增
 
@@ -39,6 +40,17 @@
 
 ### 修复
 
+- **修复 issue #22 第三轮 ①②③ —— 选中行色统一 / 弹层去实线框 / 供应商胶囊去描边**（2026-10-13）。
+  报告人追报三条：① 侧栏会话列表选中色深比其它位置深一档、且带一圈灰色柔光（读作「阴影边框」）；
+  ② 模型/推理等级一级弹窗有一条实线边框；③ 模型子弹窗的「供应商」分组被描边胶囊包住。修法
+  （只动玻璃层、不碰配色语义）：① 选中行改骑上游同款 token `--dsw-alias-interactive-bg-hover`
+  （与「插件」等行同值同形），删掉 40% mix 填充与 12% 品牌柔光——选中态与 hover 同一词汇、
+  且与玻璃关时的 stock 外观逐字节一致；② mica 与 compat 两处菜单座位的 `outline` 全删
+  （上游自带 elevation——0.5px 环 + 双层影——完整呈现）；③ 分组标题胶囊删 1px 描边、保留填充
+  与毛玻璃（sticky 防叠字是功能件）。真页复核（CDP 四风味）：① Latte `rgba(38,49,72,.06)`、
+  Frappé/Macchiato/Mocha `rgba(255,255,255,.08)`，阴影全 none；② `outline: none`（双路径）；
+  ③ 五个分组 `border: 0`、填充与 blur 在。护栏 = `tests/glass-css.spec.ts` 三组断言（选中行
+  token / 席位零描边 / 胶囊无 border），回退即变红。
 - **修复 issue #22 第三轮 ④「性能与用量下移」—— 会话输入区拆除「融合带」**（2026-10-13）。
   报告人在 `0.6.2-beta.1` 上追报统计行「整体向下位移」。取证（web GUI + CDP）结论：融合带
   （自 issue #19 起把 composer 与统计行包进同一块玻璃）在 0.2.0 上本就半残——slot 发线画在
@@ -966,7 +978,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.2...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2
 [0.6.2-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.0...v0.6.2-beta.1
 [0.6.2-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2-beta.0
