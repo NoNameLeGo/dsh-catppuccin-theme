@@ -264,7 +264,12 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.1`**（2026-10-08；Publish run `37651773918` success、日志
+> ⚠️ **发版版本号**：`latest` = **`0.6.2`**（2026-10-13；Publish run `38373767687` success 30 s、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.2` 带 provenance；CI `38373498824` check + boot-e2e 双绿 1 m 37 s）
+> = `0.6.2-beta.0/.1/.2` 全链**转正** + **issue #22 第三轮 ①②③**（选中行色统一 / 一级弹层去实线框 /
+> 供应商胶囊去描边；CDP 四风味 + 玻璃关 + compat 复测）+ issue #22 追评（rim-strong）与「拆融合」+
+> issue #23 注册容错。**测试 289 全绿**（20/20 文件）。原计划的 `0.6.2-beta.3` 未单独发布、内容并入本版。
+> 上一版 `latest` = **`0.6.1`**（2026-10-08；Publish run `37651773918` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.1` 带 provenance；CI `37651749540` 的 check + boot-e2e 双绿）
 > = `0.6.1-beta.0` **转正** + **修复 issue #21**（玻璃层三处裸 `header` 元素选择器误命中插件页的页面头，
 > 收窄为 `[data-phase] header`；CDP 真页实测：工具条对卡片的上/下距 **11px / 29px → 0 / 20**，

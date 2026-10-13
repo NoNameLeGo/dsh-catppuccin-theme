@@ -1,6 +1,6 @@
 # issue #23 — 注册类调用容错（语言包 ID 冲突不得炸掉整个 boot）
 
-> 状态：**已实施（未发版）**（2026-10-12）——实施记录见 §7。
+> 状态：**已实施并发布**（2026-10-13，随 `0.6.2` 正式版）——实施记录见 §7。
 > 报告人：yuzlyn（[issue #23](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/23)，报告内容已逐条复核）。
 > 上游取证基准：`@deepseek-ai/dsh-client-locale` / `dsh-client-ui-theme` / `dsh-client-ui-slots` /
 > `dsh-settings` / `cordis` / `dsh-host-webserver` 的 **0.2.0-rc.2**（locale 另对 **0.1.7-rc.2** 复核，
@@ -152,7 +152,9 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
 | `webserver: duplicate exact route "…"` | dsh-host-webserver `register` | 静默跳过 |
 | `Settings presentation is already configured for this plugin instance` | dsh-settings `configure` | 由 §3-5 的 disposer 修复消除，不靠吞错 |
 
-## 7. 实施记录（2026-10-12；**2026-10-13 已随 `0.6.2-beta.2` 预发布**）
+## 7. 实施记录（2026-10-12；**2026-10-13 已随 `0.6.2` 正式版发布**）
+
+- 新增 `src/registration-tolerance.ts`：`tolerantRegistration` + `ALREADY_OWNED` 形态表。
 
 - 新增 `src/registration-tolerance.ts`：`tolerantRegistration` + `ALREADY_OWNED` 形态表。
 - 落地清单 **8/8**：语言注册 ×11、`theme.register`、设置行 slot ×4、详情卡 slot →
@@ -167,6 +169,7 @@ const ALREADY_OWNED = /already (?:registered|has locale|has an entry)|duplicate 
   还原后全绿。
 - 验证：`pnpm typecheck` + `pnpm typecheck:tests` 干净；全量 `pnpm test` **286/286**
   （281 → 286）；`pnpm build` 通过。
-- 发版：**已随 `0.6.2-beta.2` 预发布**（2026-10-13；Publish run `38287525195` success，
-  `+ @nonamelego/dsh-catppuccin@0.6.2-beta.2` 带 provenance；预发布按惯例内容留 CHANGELOG
-  `[Unreleased]`，转正 `0.6.2` 时落节）。
+- 发版：先随 **`0.6.2-beta.2`** 预发布（2026-10-13；Publish run `38287525195` success，
+  `+ @nonamelego/dsh-catppuccin@0.6.2-beta.2` 带 provenance）；后随 **`0.6.2` 正式版**发布
+  （2026-10-13；Publish run `38373767687` success 30 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.2`
+  带 provenance，进 npm `latest`；CI `38373498824` check + boot-e2e 双绿）。
