@@ -398,7 +398,7 @@ pnpm typecheck && pnpm typecheck:tests && pnpm build && pnpm test
 
 前置：本机 CLI 是 `0.1.5-rc.2`，且 `web` profile 依赖树已损坏（`@deepseek-ai/dsh-sandbox-local` 解析失败）。
 
-1. 升级 CLI：`npm install -g @deepseek-ai/dsh@0.1.7-rc.1 --prefix "C:/Users/LeGo/AppData/Roaming/npm" --ignore-scripts`
+1. 升级 CLI：`npm install -g @deepseek-ai/dsh@0.1.7-rc.1 --prefix "C:/Users/<you>/AppData/Roaming/npm" --ignore-scripts`
    （`--ignore-scripts` 必带，否则 koffi 的 `cnoke.cjs --prebuild` 会因缺 CMake 失败并整包回滚。）
 2. 修 profile：`dsh plugin --profile web install`（会下载到 C 盘，先确认空间）。
 3. 装本地构建：`dsh plugin --profile web add link:D:\Vibe-Coding\dsh-catppuccin`。

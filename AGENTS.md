@@ -435,7 +435,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 `%APPDATA%\DSH\data\config.json` 的 `versions` 列出已装版本。所以「验证 0.1.7」不需要动全局 CLI（那里还是 0.1.5-rc.2）：
 
 ```bash
-V="C:/Users/LeGo/AppData/Roaming/DSH/data/versions/0.1.7-rc.1/node_modules/@deepseek-ai/dsh/lib/bin.js"
+V="C:/Users/<you>/AppData/Roaming/DSH/data/versions/0.1.7-rc.1/node_modules/@deepseek-ai/dsh/lib/bin.js"
 node "$V" --version                                              # 0.1.7-rc.1
 node "$V" plugin --profile web add @nonamelego/dsh-catppuccin@beta
 node "$V" --profile web --no-open --port 19411                   # 前台跑，token 在 stdout 的 URL 里

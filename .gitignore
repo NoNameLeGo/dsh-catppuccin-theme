@@ -35,6 +35,14 @@ debug-*.cjs
 debug-*.png
 quicksort.py
 
+# Generic fallbacks — the rules above cover every scratch DIR, but these two leak
+# past them when a tool writes a loose file into the repo root. `.env` first:
+# an API key in a root `.env` would otherwise be one `git add -A` away.
+# (No tracked file matches either rule as of 2026-10-14; if a `.env.example` is
+# ever added, whitelist it with a `!.env.example` line right below.)
+.env*
+*.log
+
 # Scratch dirs/files from local debugging sessions (CDP dumps, pasted bundles)
 .debug/
 .pideck-paste/

@@ -156,7 +156,7 @@ start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" \
   file:///D:/Vibe-Coding/dsh-catppuccin/.debug/issue-19/matrix.html
 
 # 像素统计（隔离 venv，Pillow 已装）
-C:/Users/LeGo/.workbuddy/binaries/python/envs/default/Scripts/python.exe <统计脚本>
+C:/Users/<you>/.workbuddy/binaries/python/envs/default/Scripts/python.exe <统计脚本>
 ```
 
 真机一轮按 `AGENTS.md` 的 e2e 跑法（`DSH_BIN=<版本>/node_modules/@deepseek-ai/dsh/lib/bin.js` + 系统 Chrome + `--no-proxy-server`）；注意本机 **Node 不能 spawn 子进程**，`browser.launch()` 不可用，浏览器侧走 CDP（`chrome --remote-debugging-port` + 非默认 `--user-data-dir`，连 localhost 带 `NO_PROXY`）。
