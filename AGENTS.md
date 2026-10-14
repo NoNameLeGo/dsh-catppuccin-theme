@@ -237,6 +237,10 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
   - **2026-09-30 实测 `{0.1.7-rc.2, 0.2.0-rc.1, 0.2.0-rc.2}`**（target = `latest` 的 `0.2.0-rc.2`；`next` 也是 0.2.0-rc.2、
     `alpha` 反而退到 0.1.7-alpha.2）——**声明没跟上的那两天，窗口内 `compatible` 命中为 0**，所以每次上游发版后
     用 `.debug/dsh-store/verify-manifest.mjs` 复算一遍，别只看记忆里的窗口。
+  - **2026-10-14 复算 `{0.2.1-alpha.1, 0.2.1-alpha.2, 0.2.1-alpha.3}`（target `0.2.1-alpha.3`）⇒ 窗口内命中
+    `compatible` = 0**—— `package.json` 声明里最高的两条仍是 `0.1.7-rc.1` / `0.2.0-rc.2`，都没进新窗口。
+    这不影响已安装用户（商城条目本来就是 `blocked` + `external-only`），但**要让商城窗口里重新出现一条 `compatible`
+    命中，得先实测上游新版再把结果写进声明**；没测过就不要为了凑窗口凭空标 `compatible`。
   规则：**窗口内 ≥1 条 `compatible` 即可**；`approved` 条目三者全非 `compatible` 会转 `unlisted`。
 - **声明写在 `package.json` 的 `dsh.compatibility`**（`dsh` 范围字符串 + `dshReleases` 逐版本 + `dshOperations` 逐版本
   `install/start/uninstall/rollback`，值 `passed|failed|unknown`）。这是 **store 专有**字段：上游
@@ -296,7 +300,8 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.1` / `beta: 0.6.2-beta.1`（2026-10-11 复核：发布后 1 分钟内 official registry
+> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.2-beta.2`（2026-10-14 复核，显式带 registry 直读
+> `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
 > 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**

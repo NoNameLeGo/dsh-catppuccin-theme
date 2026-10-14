@@ -56,7 +56,7 @@ Web / 桌面端做全界面换色与玻璃质感，TUI 端自动同步四套官�
 下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、重启自动恢复。
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
-输入框、统计行、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
+输入框、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
 模糊度、磨砂度、背景亮度均可自由调节，玻璃颜色自动跟随当前
 Catppuccin 主题。
 
@@ -69,7 +69,7 @@ Catppuccin 主题。
 - 🔧 **自定义 token 覆盖**：按「`--dsw-* 变量: 值`」逐条覆盖单个配色 token（例如把注释色换成蓝色），与所选风味一起持久保存
 - 🖍️ **代码块高亮风格**：默认 / 注释斜体（italic-comments）两套 shiki 风格可选
 - 🌐 中 / 英 / 日 / 韩 / 西 / 法 / 德七语文案（跟随系统语言）
-- 🪟 **玻璃质感**（云母模式）：顶栏 / 侧边栏 / 输入框 / 统计行 / 轨迹视图 / 聊天气泡 /
+- 🪟 **玻璃质感**（云母模式）：顶栏 / 侧边栏 / 输入框 / 轨迹视图 / 聊天气泡 /
   新会话按钮磨砂玻璃效果，设置里一键开关；云母 / 兼容双模式（兼容模式保持原版排版，
   只给输入框卡片与浮层上玻璃），模糊度、磨砂度、
   背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
@@ -104,7 +104,7 @@ Catppuccin 主题。
 ### 玻璃质感（Mica 云母模式）
 
 同一会话在浅色（Latte）与深色（Mocha）下的磨砂玻璃效果：顶栏、侧边栏、
-聊天气泡、输入框与统计行都是玻璃卡片，消息滚过页面边缘时被柔化，
+聊天气泡与输入框都是玻璃卡片，消息滚过页面边缘时被柔化，
 背景为主题底色的纯色（截图来自本地 GUI）：
 
 <details>
@@ -213,7 +213,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 在 **设置 → 常规** 的 **Catppuccin 主题** 正下方找到 **玻璃质感** 行：
 
-- **总开关**：开启后顶栏、侧边栏、输入框、统计行、轨迹视图变为磨砂玻璃；
+- **总开关**：开启后顶栏、侧边栏、输入框、轨迹视图变为磨砂玻璃；
   关闭即完全还原原生界面（无需刷新）。
 - **模式**：**云母效果**把界面改成悬浮磨砂卡片；**兼容模式**保持原版排版，
   只把材质换成玻璃。
@@ -258,9 +258,11 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 本插件的具体效果：
 
-- **七个区域玻璃化**：顶栏、侧边栏、输入框、统计行、轨迹视图、聊天气泡
+- **六个区域玻璃化**：顶栏、侧边栏、输入框、轨迹视图、聊天气泡
   和新会话按钮；云母模式下成为带圆角的悬浮卡片，聊天内容滚动时从玻璃
-  下方穿过、被模糊；折叠侧边栏时导航条同样悬浮在聊天区边缘；
+  下方穿过、被模糊；折叠侧边栏时导航条同样悬浮在聊天区边缘
+  （「性能与用量」统计行不在此列——它保持上游原样，留在玻璃卡之外；见
+  CHANGELOG 的 `0.6.2`「拆除融合带」）；
 - **页面边缘渐变模糊**：视口上下各有一条渐变模糊带，消息滚到边缘时被
   柔化穿过——内容在边界「融化」（借鉴
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
@@ -277,7 +279,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 | 族 | 锚点 |
 |---|---|
 | 输入框卡片 | `[data-composer-card]`（材质画在它的 `::before` 上，见 issue #19） |
-| 菜单 | `[role='menu']` |
+| 菜单 | `[data-menu-material='translucent']`（宿主 MenuSurface 的材质钩子；配方覆写它自带材质面读的 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`）+ 手写菜单兜底 `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | 弹出层 | `[class*='popover']` / `[class*='dropdown']`（仍是子串） |
 | 模态框 | `[role='dialog'][aria-modal='true']` |
 | 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |

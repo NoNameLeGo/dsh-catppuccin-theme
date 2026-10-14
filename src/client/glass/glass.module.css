@@ -590,17 +590,9 @@
   pointer-events: none;
 }
 
-/* ---------- Composer + stats line (统计行): ONE glass slab (ported from
-   Aqua v1.3). Once the stats line is docked underneath, the WHOLE inputbar
-   becomes a single pane — one background, blur, border and shadow for the
-   wrapper (the material rides its `::before` plane, issue #19); the card and
-   the stats band turn transparent inside it, so
-   their frost and tone can never drift apart. The only seam cue is one
-   hairline divider where the two pieces meet.
-   The shell constrains the dock's child to the chat content width
-   (specificity (0,4,1), max-width 620px), so the slab pins its width with
-   the card's own max-width variable plus !important — the fused footer
-   aligns exactly with the card. ---------- */
+/* ---------- Composer bar spacing (the "fused slab" is gone — see the note
+   below). Keeps a 12px bottom pad on the session view's inputbar when no stats
+   row sits inside it; the hero view has its own spacing. ---------- */
 [data-dsh-glass-float] [data-dsh-glass-inputbar]:not([class*='hero']):not(:has([data-dsh-glass-stats])) {
   padding-bottom: 12px;
 }

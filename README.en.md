@@ -60,7 +60,7 @@ remapping the whole interface to the matching palette, with a **Catppuccin** row
 restored after restarts.
 
 It also includes an optional **glassmorphism** skin: the top bar, sidebar, composer,
-stats line, trajectory view, chat bubbles and the new-session button become frosted-glass
+trajectory view, chat bubbles and the new-session button become frosted-glass
 cards, with adjustable blur, frost and backdrop brightness. Glass colours follow the active
 Catppuccin theme automatically.
 
@@ -73,7 +73,7 @@ Catppuccin theme automatically.
 - 🔧 **Custom token overrides**: override individual colour tokens with `--dsw-* var: value` pairs (e.g. turn comments blue); persisted alongside the selected flavour
 - 🖍️ **Code-block highlight style**: default / italic-comments shiki themes
 - 🌐 Seven UI languages (Chinese / English / Japanese / Korean / Spanish / French / German, follows the system language)
-- 🪟 **Glass skin** (Mica mode): frosted glass for the top bar / sidebar / composer / stats line /
+- 🪟 **Glass skin** (Mica mode): frosted glass for the top bar / sidebar / composer /
   trajectory view / chat bubbles / new-session button, one-click toggle in Settings;
   mica & compatibility modes (Compatibility keeps the stock layout and only frosts the composer
   card and floating layers), adjustable blur, frost and backdrop brightness
@@ -115,7 +115,7 @@ Actual screenshots from a local GUI (the header image is a diagonal blend of the
 ### Glass skin (Mica mode)
 
 The frosted-glass effect in light (Latte) and dark (Mocha): the top bar, sidebar,
-chat bubbles, composer and stats line are all glass cards; messages soften as they scroll
+chat bubbles and composer are all glass cards; messages soften as they scroll
 past the page edges; the background is the theme's solid base colour:
 
 <details>
@@ -245,7 +245,7 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 
 Right below the **Catppuccin theme** row in **Settings → General** you'll find the **Glass** row:
 
-- **Master switch**: on — the top bar, sidebar, composer, stats line and trajectory view
+- **Master switch**: on — the top bar, sidebar, composer and trajectory view
   become frosted glass; off — the UI reverts to stock instantly (no refresh needed).
 - **Mode**: **Mica** turns the interface into floating frosted cards; **Compatibility** keeps
   the stock layout and swaps only the material.
@@ -291,10 +291,12 @@ soft shadow) — letting the content behind show through, softened.
 
 What this plugin does:
 
-- **Seven glass areas**: top bar, sidebar, composer, stats line, trajectory view, chat
+- **Six glass areas**: top bar, sidebar, composer, trajectory view, chat
   bubbles and the new-session button; in Mica mode they become rounded floating cards and
   chat content scrolls *under* the glass, blurred; the collapsed sidebar becomes a
-  floating rail at the edge of the chat area;
+  floating rail at the edge of the chat area (the "performance & usage" stats line is
+  *not* one of them — it stays stock, outside the glass card; see the `0.6.2`
+  "fused band removed" entry in the changelog);
 - **Page-edge gradient blur**: a blur band at the top and bottom of the viewport so
   messages are softened as they melt past the edges (borrowed from
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)'s
@@ -315,7 +317,7 @@ matches are exactly these:
 | Family | Anchor |
 |---|---|
 | Composer card | `[data-composer-card]` (the material is painted on its `::before`, see issue #19) |
-| Menus | `[role='menu']` |
+| Menus | `[data-menu-material='translucent']` (the host MenuSurface's own material hook — the recipe overrides the `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter` its material plane reads) plus the hand-rolled-menu fallback `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | Popovers | `[class*='popover']` / `[class*='dropdown']` (still substrings) |
 | Modal dialogs | `[role='dialog'][aria-modal='true']` |
 | Host right sidebar (open state only) | `[data-sidebar-right-panel][data-sidebar-right-open]` |

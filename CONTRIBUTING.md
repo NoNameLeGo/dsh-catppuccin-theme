@@ -12,7 +12,7 @@ Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取�
 | 面 | 位置 | 说明 |
 |---|---|---|
 | Host half | `src/index.ts`、`src/update-check/host.ts` | cordis 插件入口：settings namespace 注册 + `/catppuccin/check-update` 路由 |
-| Client half | `src/client/` | 浏览器 bundle（`exports["./client"]`）：主题注册、**三个 settings slot**（`catppuccin` = 主题 + 代码高亮风格 / `catppuccin-glass` = 玻璃质感 / `catppuccin-update` = 检查更新，见 `src/client/index.ts` 的三处 `slots.inject('settings.general.item')`）、玻璃皮肤 |
+| Client half | `src/client/` | 浏览器 bundle（`exports["./client"]`）：主题注册、**四个 settings row**（`catppuccin` = 主题 + 代码高亮风格 / `catppuccin-glass` = 玻璃质感 / `catppuccin-update` = 检查更新 / `catppuccin-links` = 反馈与支持（纯静态、无 inject），见 `src/client/index.ts` 的四排 `slots.inject('settings.general.item')`）、玻璃皮肤 |
 | TUI half | `src/tui-themes.ts` | 子路径 `./tui-themes`：把四套主题 JSON 同步进 `~/.dsh-tui/themes/` |
 | 调色板 | `scripts/generate-palettes.mjs` → `src/client/palettes.ts` | **AUTO-GENERATED，不要手改** |
 | 玻璃 CSS | `src/client/glass/glass.module.css` → 构建时生成 `glass-css.gen.ts` | 样式源文件；改完跑 `pnpm build` |
@@ -125,7 +125,7 @@ PATH 上的 `dsh` 管理）。
 
 - 每次改动跑 `pnpm typecheck && pnpm typecheck:tests && pnpm test`，保持绿
   （前两条分别是 src 与 tests 两个 tsconfig 的类型检查，CI 也跑它们）。
-- **行级组件测试**在 `tests/rows.spec.tsx`（RTL + jsdom）。约定：两个 row 的依赖
+- **行级组件测试**在 `tests/rows.spec.tsx`（RTL + jsdom）。约定：四个 row 的依赖
   全部是 props，所以用**注入面 fake** 渲染，不碰模块全局；fake 的快照函数必须返回
   **稳定引用**（`useSyncExternalStore` 按引用比较，每次新建对象会无限重渲染）。
   新增交互时优先在这里补断言——纯逻辑测试盖不到“打字时那行会不会消失”这类缺陷。

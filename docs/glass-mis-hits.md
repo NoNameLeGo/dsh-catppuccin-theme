@@ -1,6 +1,6 @@
 # 兼容模式误命中了别的面：取证、止血与反馈
 
-- 适用版本：`0.5.8+`（`0.5.8` 按 issue #17 的证据收窄了最宽的三族，见下「历史」）
+- 适用版本：`0.5.8+`（`0.5.8` 按 issue #17 的证据收窄了最宽的三族；`0.6.2` 把菜单族换到了 MenuSurface 材质面，见下「历史」）
 - 相关：`README.md` 的「兼容模式会命中哪些面」只保留命中族清单与三步索引，细节都在这里
 - 相关：issue [#16](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/16)（右侧栏残带）、
   [#17](https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/17)（三族退场）、
@@ -12,12 +12,12 @@
 代价是子串匹配**无法区分「面」与「面里的行级容器」**：同一个 `[class*='card']` 既能命中一张卡片，
 也能命中卡片里的一行。
 
-自 `0.5.8` 起，明确会被命中的族只剩这些（与 README 的表格一致）：
+自 `0.5.8`（并经 `0.6.2` 的菜单换座）起，明确会被命中的族只剩这些（与 README 的表格一致）：
 
 | 族 | 锚点 |
 |---|---|
 | 输入框卡片 | `[data-composer-card]`（宿主自己的属性；材质画在它的 `::before` 上，见 issue #19） |
-| 菜单 | `[role='menu']` |
+| 菜单 | `[data-menu-material='translucent']`（宿主 MenuSurface 自己的材质钩子；配方覆写它自带材质面读的 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`，不在表面上画填充/blur）+ 手写菜单兜底 `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | 弹出层 | `[class*='popover']` / `[class*='dropdown']`（这两个仍是子串） |
 | 模态框 | `[role='dialog'][aria-modal='true']` |
 | 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |
@@ -85,6 +85,7 @@
 | `0.5.7` | compat 不再给 DSH 原生右侧栏的**布局壳**加模糊（`[class*='panel']` 曾命中 `P3OORG_panel` / `P3OORG_panelBody` 这类透明布局壳，关闭右栏后仍留 DOM，blur 继续绘制成右缘残带）；改为排除该容器整棵子树（按 `data-sidebar-right-panel`）并用 `data-sidebar-right-open` 回填展开态。issue #16 |
 | `0.5.8` | 三族退场：`[class*='panel']` 与 `[role='tooltip']` 从 compat 规则里移除，`[class*='card']` 收窄到 `[data-composer-card]`。离线扫描 `0.1.7-rc.2` 全套客户端包 957 个文件里的 20 个 `*_card` 类名：18 个自绘 `background` ⇒ 我们的填充等于替换上游设计 token；2 个无任何 `background` 声明 ⇒ 规则是唯一把它们画出来的东西，正是报告人看到的灰纹与孤线。issue #17 |
 | `0.5.9` | 命令面板恢复毛玻璃（浮层容器的 backdrop root 问题），详见 [`issue-19-palette-blur.md`](issue-19-palette-blur.md) |
+| `0.6.2` | 菜单族换座（issue #22）：`[role='menu']` 不再是菜单表面的身份——0.2.0 起模型弹层把外表面变 `role=group`、内层滚动列表拿了 `role=menu`，配方挂在 role 上会画到列表内部（双框 + 末项贴底）。改为挂 MenuSurface 自己的 `[data-menu-material='translucent']`，填充/blur 一律不画在表面上，改覆写自带材质面读的两个 token（`--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`，避开 backdrop root）；`[role='menu']` 降为手写菜单兜底并带守卫对 `:not([data-menu-material]):not([data-menu-material] *)`。同批去掉了座位上的 `outline` 与分组标题胶囊的 `border`。 |
 
 判定手法（毛玻璃到底画没画、为什么这个浮层没有模糊）见技能 `css-backdrop-root-probe`，
 以及 [`issue-19-palette-blur.md`](issue-19-palette-blur.md)。
