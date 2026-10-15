@@ -317,7 +317,7 @@ describe('glass blur budget (issue #13)', () => {
     const entry = rules.filter((rule) =>
       /animation\s*:[^;]*(dsh-glass-in|dsh-glass-rise|dsh-glass-dialog-in)/.test(rule.decls),
     )
-    expect(entry.length, 'the five entry animations changed count — re-check the gate').toBe(5)
+    expect(entry.length, 'the entry animations changed count — re-check the gate').toBe(3)
     for (const rule of entry) {
       expect(
         rule.selector,
@@ -328,6 +328,26 @@ describe('glass blur budget (issue #13)', () => {
         '--dsh-glass-entry-scale',
       )
     }
+
+    // issue #24 (2026-10-15): the conversation roots must carry NO animation at
+    // all. Upstream re-mounts the whole `[data-phase]` subtree (== the
+    // `div.wSkVaW_root` conversation column, header card and composer card
+    // included) on EVERY conversation switch — `main.conversation` is a
+    // `session-maybe` slot keyed by the session-generation epoch
+    // (`useMaybeIncarnation(binding)` in dsh-client-ui-renderer) — so a fresh
+    // element is inserted per switch and any animation declared on it replays:
+    // measured on the live GUI, `animationstart: dsh-glass-in` fired 39~63 ms
+    // after the click and the column faded in from opacity 0 for 300 ms, i.e.
+    // the reported glass "flicker". Stock declares no animation there, and the
+    // phase roots are switch-driven, not entry-driven. Evidence:
+    // docs/issue-24-switch-flicker.md.
+    const phaseAnims = rules.filter(
+      (rule) => /animation\s*:/.test(rule.decls) && rule.selector.includes('[data-phase'),
+    )
+    expect(
+      phaseAnims.map((rule) => rule.selector),
+      'the conversation roots must never animate — they are re-mounted per switch (issue #24)',
+    ).toEqual([])
 
     // The clock itself: 1 in mica, 0 in compat (the compat rule wins on source
     // order at equal specificity, so it must come after).
