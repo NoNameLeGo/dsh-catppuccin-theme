@@ -79,8 +79,8 @@ Catppuccin theme automatically.
   card and floating layers), adjustable blur, frost and backdrop brightness
   (interaction reference: [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin))
 - 🌫️ **Glass details**: gradient blur bands at the top/bottom page edges, a floating glass
-  rail when the sidebar is collapsed, a solid background in the theme's own base colour —
-  content softens as it scrolls under the panes
+  rail when the sidebar is collapsed, an ambient theme-following ground (a same-family
+  wash + two soft glows) — content softens as it scrolls under the panes
 - 🎨 Glass colours follow the current Catppuccin theme
 - 🔄 **Update check**: one-click "Check for updates" in Settings compares the latest npm
   version and gives you a copyable upgrade command; **auto-check is on by default** (once at
@@ -116,7 +116,7 @@ Actual screenshots from a local GUI (the header image is a diagonal blend of the
 
 The frosted-glass effect in light (Latte) and dark (Mocha): the top bar, sidebar,
 chat bubbles and composer are all glass cards; messages soften as they scroll
-past the page edges; the background is the theme's solid base colour:
+past the page edges (screenshots from the local GUI):
 
 <details>
 <summary>🌻 Latte (light glass)</summary>
@@ -258,7 +258,8 @@ Right below the **Catppuccin theme** row in **Settings → General** you'll find
   afterwards (a preset lights up when the current knob values match it).
 - **Blur** (0–40 px) and **Frost** (0–100%): the blur radius and opacity of the glass.
 - **Backdrop brightness**: dark mode darkens 0–50, light mode brightens 50–100 (50 = as-is),
-  mixed straight into the solid background.
+  mixed straight into the ground; at the extremes the ambience fades out and the ground
+  collapses back to pure white / pure black.
 
 Glass colours follow the active theme live; all settings persist across restarts.
 
@@ -302,8 +303,9 @@ What this plugin does:
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)'s
   Aqua skin);
 - **Theme-following colours**: Latte is light glass, Mocha dark glass — switching flavours
-  recolours instantly. The page ground is the theme's solid colour; the brightness knob
-  mixes white/black straight into it;
+  recolours instantly. The page ground rides the theme's own tokens plus a same-family
+  wash and two soft glows (see `docs/issue-25-ambient-ground.md`); the brightness knob
+  mixes white/black straight into its base stop;
 - **One-click toggle**: off restores the stock UI exactly; uninstalling the plugin leaves
   nothing behind.
 

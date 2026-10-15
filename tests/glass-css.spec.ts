@@ -7,18 +7,21 @@
  * blur radius is irrelevant, and `blur(0px)` costs the same as `blur(20px)`.
  * That only pays for itself where the surface actually covers CHANGING content.
  *
- * This skin paints a SOLID page ground (`glass.module.css`, the body rule), so
- * every surface that floats over nothing but that ground blurs an identity —
- * measured on the live GUI, the frosted fill is pixel-identical with the blur
- * removed (0 of 19184 pixels once the surface's own content is hidden); the
- * only pixels that move are the glyphs drawn above it, which get re-antialiased
- * because the surface becomes a composited layer (≤16/255 on the sidebar sheet,
- * ≤64/255 on a chat bubble). Issue #13 measured the bill for that: ~80% GPU on
- * the 3D engine during streaming with mica, <30% with compat, and no
- * sensitivity to the blur slider.
+ * This skin paints an AMBIENT page ground (`glass.module.css`, the body rule —
+ * since issue #25 a same-family wash plus two low-alpha glows; before that a
+ * single flat colour). Either way the field is LOW-FREQUENCY — a gradient with
+ * a hundreds-of-px period, which `blur(≤40px)` cannot visibly move — so every
+ * surface that floats over nothing but that ground blurs an identity —
+ * measured when the ground was still flat (issue #13), the frosted fill was
+ * pixel-identical with the blur removed (0 of 19184 pixels once the surface's
+ * own content is hidden); the only pixels that move are the glyphs drawn above
+ * it, which get re-antialiased because the surface becomes a composited layer
+ * (≤16/255 on the sidebar sheet, ≤64/255 on a chat bubble). Issue #13 measured
+ * the bill for that: ~80% GPU on the 3D engine during streaming with mica,
+ * <30% with compat, and no sensitivity to the blur slider.
  *
  * The guard below locks the two halves of the answer:
- *  - surfaces over the flat ground (sidebar sheet, chat bubbles, trajectory
+ *  - surfaces over the ground field (sidebar sheet, chat bubbles, trajectory
  *    panel) must NOT carry a backdrop-filter — blurring them is pure waste;
  *  - the surfaces that do cover moving content (top bar over the transcript,
  *    composer, edge fades) must keep it — deleting those would be a silent
@@ -44,7 +47,9 @@ const CSS = readFileSync(
   'utf8',
 )
 
-/** Selectors known to sit over the flat page ground (issue #13). */
+/** Selectors known to sit over the page ground field (issue #13; ambient
+ *  since issue #25 — the field stays low-frequency, so the blur verdict is
+ *  unchanged). */
 const GROUND_ONLY = /sidebarCol|bubble|trajectory/
 
 /** Selectors whose backdrop is genuinely moving/heterogeneous content.
@@ -371,6 +376,88 @@ describe('glass blur budget (issue #13)', () => {
         'data-dsh-glass-float',
       )
     }
+  })
+})
+
+describe('ground ambience (issue #25)', () => {
+  // The ground used to be a single flat colour, so every glass pane read as
+  // "the same colour as the page": the card fill is layer-1 @ α over bg-base —
+  // ΔRGB ≤ 2/255 on the dark flavours at the default frost and EXACTLY 0 on
+  // Latte (layer-1 === bg-base there). The ground now carries a low-frequency
+  // ambient field the translucent fills can TRANSMIT; reverting to a flat fill
+  // must fail loudly. Evidence and the reasoning: docs/issue-25-ambient-ground.md.
+  const ground = rules.find(
+    (rule) => rule.selector === '[data-dsh-glass] body' && /(?:^|;)\s*background\s*:/.test(rule.decls),
+  )
+
+  it('paints a wash plus glows from mapped tokens, never a flat fill again', () => {
+    expect(ground, 'the ground background rule disappeared').toBeDefined()
+    expect(ground!.decls, 'the ground lost its radial glows').toMatch(/radial-gradient/)
+    expect(ground!.decls, 'the ground lost its same-family wash').toMatch(/linear-gradient/)
+    // The glow colours must ride the flavour's own tokens — the whole point of
+    // the design is that all four flavours follow with zero hardcoding.
+    expect(ground!.decls, 'glow 1 moved off the brand token').toContain(
+      'var(--dsw-alias-brand-primary-new-colorprimary-new-color)',
+    )
+    expect(ground!.decls, 'glow 2 moved off the success token').toContain(
+      'var(--dsw-alias-state-success-tertiary)',
+    )
+    // …and the glows must fade with the brightness knob's ambience scale.
+    expect(ground!.decls, 'the glows must fade with the ambience').toContain(
+      'var(--dsh-glass-ambience)',
+    )
+  })
+
+  it('keeps the brightness knob authoritative: ambience fades at the extremes', () => {
+    // --dsh-glass-ground carries the brightness mix (the one stop the knob
+    // moves) and --dsh-glass-ambience = 1 − white − black, purely in CSS:
+    // exactly one fraction is non-zero (glass-layer.ts writes them), so a
+    // maxed-out slider collapses back to the pure-white / pure-black ground.
+    const groundVar = rules.find((rule) => /--dsh-glass-ground\s*:/.test(rule.decls))
+    expect(groundVar, 'the ground base variable disappeared').toBeDefined()
+    expect(groundVar!.decls).toContain('--dsh-glass-brightness-white')
+    expect(groundVar!.decls).toContain('--dsh-glass-brightness-black')
+
+    const ambience = rules.find((rule) => /--dsh-glass-ambience\s*:/.test(rule.decls))
+    expect(ambience, 'the ambience scale variable disappeared').toBeDefined()
+    expect(ambience!.decls, 'the ambience scale stopped deriving from the knob').toMatch(
+      /calc\([^)]*--dsh-glass-brightness-white/,
+    )
+    expect(ambience!.decls).toContain('--dsh-glass-brightness-black')
+
+    // The wash's ambience weighting must live in the `background` rule
+    // itself, USED directly — an intermediate custom property did NOT follow
+    // `--dsh-glass-ambience` when the knob moved on the live GUI (probed
+    // 2026-10-15: the property kept its folded weight while the glows, used
+    // directly in `background`, collapsed correctly). Keep it inline.
+    expect(ground!.decls, 'the wash must weight itself by the ambience scale').toMatch(
+      /var\(--dsh-glass-wash-mix\)\s*\*\s*var\(--dsh-glass-ambience\)/,
+    )
+  })
+
+  it('defines the wash for both schemes (the Latte ladder collapses)', () => {
+    // On Latte `layer-1 === bg-base`, so a wash tinted by a layer token is a
+    // no-op there — the light end must tint white; the dark flavours tint
+    // bg-layer-1 instead. Dropping either arm re-flattens one scheme.
+    const light = rules.find(
+      (rule) => rule.selector === '[data-dsh-glass] body' && /--dsh-glass-wash-tint\s*:/.test(rule.decls),
+    )
+    const dark = rules.find(
+      (rule) =>
+        rule.selector === '[data-dsh-glass] body[data-ds-dark-theme]' &&
+        /--dsh-glass-wash-tint\s*:/.test(rule.decls),
+    )
+    expect(light, 'the light-scheme wash tint disappeared').toBeDefined()
+    expect(dark, 'the dark-scheme wash tint disappeared').toBeDefined()
+    expect(light!.decls, 'the light wash must tint white (layer tokens collapse)').toMatch(
+      /--dsh-glass-wash-tint\s*:\s*#ffffff/,
+    )
+    expect(dark!.decls, 'the dark wash must tint bg-layer-1').toMatch(
+      /--dsh-glass-wash-tint\s*:\s*var\(--dsw-alias-bg-layer-1\)/,
+    )
+    // Both arms must carry a mix weight (the background rule consumes it).
+    expect(light!.decls).toMatch(/--dsh-glass-wash-mix\s*:\s*[\d.]+%/)
+    expect(dark!.decls).toMatch(/--dsh-glass-wash-mix\s*:\s*[\d.]+%/)
   })
 })
 

@@ -6,6 +6,35 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+### 变更
+
+- **地面氛围层：纯色底 → 同色系渐变 + 两枚静态柔光斑（issue #25）**（2026-10-15）。
+  报告人（`TWFU-wcy`）指出「纯色背景下毛玻璃效果不明显，界面失去层次感」。根因两层：
+  ① 地面纯色，玻璃没有内容可透 / 可模糊；② 卡填充与地面本来就同色——填充 = `bg-layer-1 × α`
+  叠在 `bg-base` 上，暗色三风味 ΔRGB ≈ 2/255（默认 frost 20），**Latte 恒 0**
+  （`layer-1 === bg-base`），每块玻璃都读作「和页面同一块颜色」。修法：`[data-dsh-glass] body`
+  的多层背景——同色系 wash（light 混白 22% / dark 混 `bg-layer-1` 68%）+ 两枚低 alpha
+  柔光斑（brand 12% / success 10%），全部取自已映射 token，四风味自动跟随。CDP 实测
+  （Mocha / Latte，mica + frost 20，报告人同款配置）：光斑中心 ΔRGB = 25 / 19，无光斑区
+  Δ = 0；亮度旋钮离中时氛围整体塌缩（`--dsh-glass-ambience` 纯 CSS 由亮度变量算出）——
+  拉到两端即回到纯白 / 纯黑。**不新增任何 `backdrop-filter`**（低频渐变对 blur 仍近似
+  恒等，issue #13 的判定不变）。护栏 = `tests/glass-css.spec.ts`「ground ambience
+  (issue #25)」三组，经变异验证（回退即红）。
+
+### 修复
+
+- **修复 issue #24 —— 切换会话时顶栏 / 对话框的毛玻璃「闪烁」**（2026-10-15）。
+  上游按 session 世代 key 重挂载整个会话子树（`main.conversation` = `session-maybe` 槽位，
+  `useMaybeIncarnation`），而本皮肤给 `[data-phase='hero'|'active']` 挂了入场动画
+  `dsh-glass-in`，新挂载元素自动重播 ⇒ 每次切会话整列（含顶栏卡与输入卡）从 opacity 0
+  淡入 300ms。修法：删除两条 phase 根动画（它们由切换驱动，不是入场驱动；其余三条
+  入场动画保留）。CDP 实测（web GUI）：修前 `animationstart` 在点击后 39~63ms、随后整列
+  空白（帧亮度 18.0 对常态 22.7~25.0）；对照（只注入 `animation: none`）opacity 恒 1.000、
+  零动画事件。护栏 = `glass-css.spec.ts`「the conversation roots must never animate」
+  断言。根因与取证详见 `docs/issue-24-switch-flicker.md`。
+
 ## [0.6.2] - 2026-10-13
 
 > 本版 = `0.6.2-beta.0/.1/.2` 一路**转正** + 一批新修复；原计划的 `0.6.2-beta.3`

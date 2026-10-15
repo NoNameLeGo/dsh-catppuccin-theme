@@ -7,11 +7,14 @@
  * switching the flag off (or unloading the plugin) restores the stock UI
  * exactly: no residue, no reload.
  *
- * The page ground is a SOLID colour: the active theme's own `bg-base`
- * token (Latte / Frappé / Macchiato / Mocha), with the brightness knob
- * mixing white/black straight into it. The earlier animated ambient scene
- * (gradient wash + drifting blobs + hue rotation) was removed in favour of
- * this flat ground.
+ * The page ground is an AMBIENT field built from the active theme's own
+ * tokens (issue #25): a same-family wash plus two low-alpha glows over the
+ * `bg-base` colour (the CSS lives in glass.module.css). The brightness knob
+ * mixes white/black straight into the base stop AND fades the ambience out
+ * at the extremes, so a maxed-out slider still collapses to the pure-white /
+ * pure-black ground. The 0.2.x animated scene (drifting blobs + hue rotation
+ * + a hue knob) stays removed — the STATIC field is what makes the glass
+ * fills readable; blur is not involved.
  *
  * The enable flag and every knob persist in localStorage — the in-browser
  * cache and cross-tab sync bus. The DURABLE copy of the same state lives in

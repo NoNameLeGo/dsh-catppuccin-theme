@@ -74,7 +74,8 @@ Catppuccin 主题。
   只给输入框卡片与浮层上玻璃），模糊度、磨砂度、
   背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
-  纯色背景跟随主题底色——内容滚入视口边缘时柔化穿过，层次更立体
+  随主题的氛围地面（同色系渐变 + 两枚柔光斑）——内容滚入视口边缘时柔化穿过，
+  玻璃透着地面的明暗，层次更立体
 - 🎨 玻璃配色自动跟随当前 Catppuccin 主题
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令；**默认开启自动检查**（启动后一次 + 每 6 小时），更新渠道可选稳定版 / Beta
 - 💬 **反馈与支持**：设置区底部与插件详情页附 GitHub 链接——遇到问题可提 Issue，喜欢就点个 Star ⭐
@@ -104,8 +105,8 @@ Catppuccin 主题。
 ### 玻璃质感（Mica 云母模式）
 
 同一会话在浅色（Latte）与深色（Mocha）下的磨砂玻璃效果：顶栏、侧边栏、
-聊天气泡与输入框都是玻璃卡片，消息滚过页面边缘时被柔化，
-背景为主题底色的纯色（截图来自本地 GUI）：
+聊天气泡与输入框都是玻璃卡片，消息滚过页面边缘时被柔化
+（截图来自本地 GUI）：
 
 <details>
 <summary>🌻 Latte（浅色玻璃）</summary>
@@ -226,7 +227,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - **玻璃模糊度**（0–40 px）、**磨砂度**（0–100%）：控制玻璃的模糊半径与
   不透明度。
 - **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样），
-  直接调和进纯色背景。
+  直接调和进地面底色；拉到两端时氛围层淡出，回到纯白 / 纯黑。
 
 玻璃配色自动跟随当前主题，切换 Latte / Frappé / Macchiato / Mocha 时即时
 变色；所有设置跨重启自动恢复。
@@ -268,7 +269,8 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
   的 Aqua 皮肤）；
 - **配色自动跟随主题**：Latte 是浅色玻璃、Mocha 是深色玻璃，切换主题即时
-  变色；页面底色取当前主题纯色，背景亮度旋钮直接往纯色里调和白/黑；
+  变色；页面地面取当前主题色，叠同色系渐变与柔光斑，背景亮度旋钮调和进
+  地面底色（详见 `docs/issue-25-ambient-ground.md`）；
 - **一键开关**：关闭即完全还原原生界面，插件卸载不留任何残留。
 
 ### 兼容模式误命中了别的面？
