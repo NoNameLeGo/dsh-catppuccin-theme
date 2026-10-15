@@ -283,7 +283,14 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.2-beta.2`**（2026-10-13；Publish run `38287525195` success 32 s、日志
+> `beta` = **`0.6.3-beta.0`**（2026-10-15；Publish run `38737646305` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.3-beta.0` 带 provenance；CI `38737619544` check + boot-e2e 双绿）
+> = **地面氛围层（issue #25，方案 L2）**：纯色地面 → 同色系 wash + 两枚静态柔光斑（全部取自已映射
+> token、四风味自动跟随；亮度拉满整体塌缩回纯白 / 纯黑）+ **issue #24 修复**（删除会话根入场动画，
+> 切换会话不再闪；`918f18b`）。CDP 实测：光斑中心 ΔRGB = 25（Mocha）/ 19（Latte）、无光斑区 Δ = 0。
+> **测试 292 全绿**（289 → 292；新增 ground ambience 3 条，变异验证过）。实施与两处实测偏差见
+> `docs/issue-25-ambient-ground.md` §10。
+> 上一版 `beta` = **`0.6.2-beta.2`**（2026-10-13；Publish run `38287525195` success 32 s、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.2-beta.2` 带 provenance；CI `38287240048` check + boot-e2e 全绿，
 > **测试 289 全绿**（281 → 289））= 输入区「拆融合」（玻璃卡只包输入区、统计行回卡外）+ 主输入面双重
 > 影 + 标准预设默认模糊度 2 → 5px + **issue #23 注册容错**（与语言包共存不再炸 boot）+
@@ -301,7 +308,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.2-beta.2`（2026-10-14 复核，显式带 registry 直读
+> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.0`（2026-10-15 复核，显式带 registry 直读
 > `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
 > 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
