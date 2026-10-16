@@ -188,6 +188,35 @@
   background: transparent;
 }
 
+/* The layout's CENTER column is the last opaque painter in the chrome stack,
+   and it only exists on the DESKTOP shells. Upstream `AppFrame.module.css`
+   paints it with `--dsw-alias-bg-base` twice — `[data-windows-titlebar]
+   .…_centerCol` (plus the 16px content-corner radius under the title bar) and
+   `[data-platform=darwin] .…_centerCol` — while the web shell's center column
+   carries no background at all. So the web harness and the CI boot check never
+   see this pane, and the frame / sidebar column (its fill released above) /
+   conversation root are transparent: the page ground shows through everything
+   EXCEPT the transcript, which stayed a flat crust plate — i.e. it could not
+   transmit the #26 wash.
+   Measured on the real layout with the desktop marker simulated (Windows
+   shell, Mocha / mica / frost 20, 2026-10-16): at the top of the window the
+   sidebar area read rgb(19,20,31) and its card rgb(21,21,33), while the
+   transcript read exactly rgb(17,17,27) top to bottom — a hard left/right
+   step of up to (4,4,6) (the reporter's "还是有色差" screenshot), on a page
+   whose whole point is one continuous ground. After releasing this fill both
+   panes read the same ground: rgb(21,21,32) at the top, rgb(17,17,27) at
+   mid-height, rgb(16,16,26) at the bottom.
+   Scoped to the frame's own child (so no other package's `*centerCol` can
+   match; the doubled compound also outranks upstream's attribute+class
+   variants no matter which stylesheet lands last), and gated to float/mica:
+   compat keeps the official opaque sidebar, and an official sidebar beside a
+   ground-showing transcript would be the opposite mismatch. NO geometry
+   change — the corner radius stays exactly as upstream declares it; it simply
+   stops being visible once the pane is transparent. */
+[data-dsh-glass-float] [data-dsh-glass-frame] > [class*='centerCol'] {
+  background: transparent;
+}
+
 /* The floating header card sits ABOVE the transcript: the scroll body slides
    up behind the frosted glass (negative margin) and its padding starts
    content below the card, so scrolling text passes under the header and stays
@@ -455,54 +484,108 @@
    Two DOM shapes must hold: a single changed file renders NO list (the header
    is then the direct first child), several files render `ul > li > button`.
    The `ul` rule is load-bearing for shape B only; the header rule covers both.
-   ⚠️ The selectors anchor on `body` on purpose: the plugin's own dark-scheme
-   override is `body[data-ds-dark-theme] .…_card` (0,2,1), which out-specifies a
-   plain `[data-dsh-glass-float] [data-changed-files]` (0,2,0). Measured in the
-   live cascade: without the `body` step the fill silently stayed
-   `--dsw-static-neutral-850` while only the BORDER went themed — the tell was
-   Mocha keeping 16% (upstream's `border-l2` white 12% over the plate) against
-   Latte's 12% (our rim-soft), i.e. a dark-only regression. `body[…]` is (0,2,1)
-   and wins on source order, which is how the seat was then verified live. */
-body[data-dsh-glass-float] [data-changed-files],
-body[data-dsh-glass-float] [data-presented-file] {
+   ⚠️ The selectors anchor on `html`, not `body`: `GlassLayer.applySettings()`
+   writes the mode attributes with
+   `document.documentElement.toggleAttribute(GLASS_FLOAT_ATTRIBUTE, …)`, so a
+   `body[data-dsh-glass-float]` step NEVER matches — 0.6.3-beta.1 shipped this
+   seat with exactly that anchor and it was dead on the real app while the
+   acceptance fixture (which parked the attribute on <body>,
+   `.debug/ui-adapt/artifacts-page.mjs`) stayed green. Proven in real Chromium
+   with both placements: `.debug/ui-adapt/notice-lab.mjs`, variants 3 vs 4.
+   The `html` type selector keeps the weight the dark-scheme override needs: the
+   plugin's own `body[data-ds-dark-theme] .…_card` is (0,2,1), which
+   out-specifies a plain `[data-dsh-glass-float] [data-changed-files]` (0,2,0);
+   `html[data-dsh-glass-float] [data-changed-files]` is also (0,2,1) and wins on
+   source order (our <style> is appended after the app's own sheets). */
+html[data-dsh-glass-float] [data-changed-files],
+html[data-dsh-glass-float] [data-presented-file] {
   --changes-fill: var(--dsh-glass-card);
   --deliverable-fill: var(--dsh-glass-card);
   border-color: var(--dsh-glass-rim-soft);
   border-radius: 14px;
 }
 
-/* The changed-files card reaches the sidebar sheet through its BODY rule, the
+/* The changed-files card reaches the sidebar sheet through its ROOT rule, the
    presented-file cards through their OWN `background: var(--deliverable-fill)`
    declaration — and an element's own declaration is not overridden by
    re-anchoring the variable it reads, so those need the fill written on the
    element too (same (0,2,1) anchor discipline as above). */
-body[data-dsh-glass-float] [data-presented-file] {
+html[data-dsh-glass-float] [data-presented-file] {
   background: var(--dsh-glass-card);
 }
 
 /* One sheet, not three: the card body reaches the sidebar's exact token, the
    header stops painting its own opaque plate (its 60px geometry stays), and the
    list's own stock divider becomes the themed hairline. */
-body[data-dsh-glass-float] [data-changed-files] {
+html[data-dsh-glass-float] [data-changed-files] {
   background: var(--dsh-glass-card);
 }
 
-body[data-dsh-glass-float] [data-changed-files] > :first-child,
-body[data-dsh-glass-float] [data-changed-files] ul > li > :first-child,
-body[data-dsh-glass-float] [data-changed-files] ul {
+html[data-dsh-glass-float] [data-changed-files] > :first-child,
+html[data-dsh-glass-float] [data-changed-files] ul > li > :first-child,
+html[data-dsh-glass-float] [data-changed-files] ul {
   background: transparent;
 }
 
-body[data-dsh-glass-float] [data-changed-files] ul {
+html[data-dsh-glass-float] [data-changed-files] ul {
   border-top: 0.5px solid var(--dsh-glass-rim-soft);
 }
 
 /* The little tone tiles stay a step ABOVE the sheet (the raised share), the
    same step the small controls use; the stock 5% white would read as holes
    once the plate behind them is translucent. */
-body[data-dsh-glass-float] [data-changed-files] > :first-child > :first-child,
-body[data-dsh-glass-float] [data-presented-file] > :first-child {
+html[data-dsh-glass-float] [data-changed-files] > :first-child > :first-child,
+html[data-dsh-glass-float] [data-presented-file] > :first-child {
   background: var(--dsh-glass-card-raised);
+}
+
+/* ---------- Official transcript surface: the turn-trigger notice
+   (「继续执行目标」, `TurnTriggerNodeView` in `@deepseek-ai/dsh-client-ui-chat`
+   0.2.0-rc.2 — the bundle inside the desktop shell's app.asar; reported
+   2026-10-16 as 「没有被配色覆盖，也没有玻璃质感」).
+   The card is INSIDE the token system — the section carries upstream's own
+   `data-turn-trigger` hook — but the stock material is a colourless plate:
+   `background: var(--dsw-alias-turn-trigger-bg, …)`, and the official table
+   defines that alias as `--dsw-alias-interactive-bg-hover` on the DARK
+   flavours, i.e. a NEUTRAL white overlay: `rgba(255,255,255,.08)` at rest,
+   `.14` while hovered, over a `.5px` `border-l1` hairline (white 6%) at the
+   20px `--dsw-radius-xl`. Measured on the Mocha ground
+   (`--dsw-alias-bg-base` = #11111b): #24242d at rest, #32323b hovered — the
+   reporter's screenshot reads exactly #32323b / rgb(52,52,62), so it was taken
+   while the card was hovered (they had just expanded it). This is not a missing
+   token: the notice is the only transcript block this skin never seated.
+   The seat changes ALPHA / RIM / RADIUS only (rule 4 — the same ladder step the
+   sidebar and the deliverables block use), so the frost knob keeps driving the
+   card and all four flavours follow automatically. Same Mocha ground:
+   #141420 at frost 45 (#12121d at the shipped frost 20) with the
+   `--dsh-glass-rim-soft` hairline (#323342) instead of the neutral 6% white
+   (#1f1f29) — i.e. it joins the sidebar/artifact family (#151520 / #141420)
+   rather than floating on it as a grey plate. On Latte the fill lands back on
+   the ground (#eff1f5) and only the rim reads — the same behaviour as the
+   sidebar sheet there, so do not "fix" it by inventing a darker fill.
+   NO backdrop-filter: a block in the transcript FLOW has nothing but the
+   low-frequency page ground behind it — the blur would be an identity read that
+   still promotes the card to a compositing layer (issue #13's blur budget; the
+   same verdict as the deliverables rows and the reasoning card).
+   Only mica: compat deliberately keeps the official transcript material, the
+   same decision as the deliverables seat above (thin the notice there alone and
+   the official sidebar beside it reads as the opposite of the request). If
+   compat should follow, move the sidebar AND the artifacts in the same change.
+   Hook provenance: `data-turn-trigger` is written as a literal in the bundle's
+   React tree; if upstream renames it this seat stops matching and the card
+   returns to its own stock material — a soft failure, hence
+   `tests/glass-css.spec.ts` locks the selector shape and bans the `body[…]`
+   anchor the 0.6.3-beta.1 deliverables seat shipped with.
+   `:hover` is re-stated on purpose: our (0,2,1) seat out-specifies upstream's
+   `.oE-XyW_root:hover` (0,2,0), so without it the hover step would freeze. */
+html[data-dsh-glass-float] [data-turn-trigger] {
+  background: var(--dsh-glass-card);
+  border-color: var(--dsh-glass-rim-soft);
+  border-radius: 14px;
+}
+
+html[data-dsh-glass-float] [data-turn-trigger]:hover {
+  background: var(--dsh-glass-card-hover);
 }
 
 /* ---------- Settings dialog (设置 → 通用设置 / 插件 / Agent 预设) ----------
@@ -715,6 +798,52 @@ body[data-dsh-glass-float] [data-presented-file] > :first-child {
   z-index: -1;
   pointer-events: none;
   transition: border-radius 150ms var(--ds-ease-in-out);
+}
+
+/* ---------- Native caption (Windows title bar): the SAME sheet ----------
+   The official desktop shell colours its native caption from
+   `--dsw-specific-sidebar-fill`: `syncWindowsAppearance()` in the shell's
+   `lib/preload-app.cjs` appends a hidden span to <body> whose
+   `background-color` is that token, reads it back through `getComputedStyle`
+   plus a 1x1 canvas into `rgba()`, and hands it to `setTitleBarOverlay`.
+   That token is what upstream paints the sidebar COLUMN with — the colour we
+   deliberately released in mica mode — so the caption kept reading mantle
+   (#181825) while the sidebar card right below it read the 52% frost sheet
+   over the ground (#151521): a 3-4/255 band along the seam at the top-left
+   that the reporter's screenshot shows.
+   The value here is the card's own colour built from the card's own
+   ingredients, so no colour is invented (rules 1/4): the sheet's fill mixed
+   into the wash's 0% stop — the ground directly under the caption — which is
+   exactly what the card composites to at its top edge. Verified on the live
+   layout (Mocha / mica / frost 20, desktop marker simulated): the probe's
+   computed colour becomes rgb(21,21,33), the shell's canvas conversion yields
+   rgba(21, 21, 33, 1), and the caption matches the card's top edge (delta 0)
+   where it used to differ by 4.
+   `!important` is REQUIRED and not a smell: the theme writes the entire
+   palette into <body>'s INLINE style attribute, and only an important author
+   declaration outranks an inline one (measured: without it the token stays
+   #181825 no matter how the rule is written). The scope stays on <body>
+   because the shell's probe is a body child and inherits from it; the sidebar
+   column re-declares the token as `transparent` for its own subtree, so the
+   card is untouched.
+   Same token, three other consumers outside the sidebar column, all now on
+   the mica sidebar tone instead of mantle (measured delta (3,3,4) on Mocha,
+   i.e. the same step the caption gains): the trajectory table header, the
+   schedule notice chip and the session-list bottom fade. Anything INSIDE the
+   sidebar column keeps the `transparent` release. The opt-in ground glows
+   (#26) are not modelled: with them on, the card's top edge lifts while the
+   caption keeps the wash floor. */
+[data-dsh-glass-float] body {
+  --dsw-specific-sidebar-fill: color-mix(
+      in srgb,
+      var(--dsw-alias-bg-layer-1) calc(52% * var(--dsh-glass-frost, 1)),
+      color-mix(
+        in srgb,
+        var(--dsh-glass-ground),
+        var(--dsh-glass-wash-tint) calc(var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience))
+      )
+    )
+    !important;
 }
 
 /* Collapsed rail: floats too (mica mode) — same geometry as the original

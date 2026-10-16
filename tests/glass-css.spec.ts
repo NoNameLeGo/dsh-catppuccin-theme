@@ -950,12 +950,16 @@ describe('official artifact rows: the deliverables block (2026-10-16)', () => {
       ).not.toContain('[data-dsh-glass-compat]')
       // The upstream dark-scheme override `body[data-ds-dark-theme] .…_card` is
       // (0,2,1); a bare `[attr] [attr]` seat is (0,2,0) and silently loses the
-      // fill on the DARK flavours only (measured: the fill stayed neutral-850
-      // while the border still turned themed). The `body` step is load-bearing.
+      // fill on the DARK flavours only. The `<html>` step is load-bearing — and
+      // it MUST be `<html>`, never `<body>`: `GlassLayer.applySettings()` writes
+      // the mode attributes with `document.documentElement.toggleAttribute(...)`,
+      // so `body[data-dsh-glass-float]` can never match (0.6.3-beta.1 shipped
+      // that anchor and the seat was dead on the real app; the fixture that
+      // "verified" it parked the attribute on <body>).
       expect(
         rule.selector,
-        'the seat must out-specify the plugin own dark-scheme override (body anchor)',
-      ).toContain('body[data-dsh-glass-float]')
+        'the seat must out-specify the plugin own dark-scheme override — anchored on <html>, where the mode attribute actually lives',
+      ).toContain('html[data-dsh-glass-float]')
       expect(rule.decls, 'the fill must be the sidebar card token').toContain('var(--dsh-glass-card)')
       expect(
         rule.decls,
@@ -1032,6 +1036,202 @@ describe('official artifact rows: the deliverables block (2026-10-16)', () => {
     expect(
       blurred.map((rule) => rule.selector),
       'one card per changed-file set plus one per presented file: a blur is an identity read that still composites',
+    ).toEqual([])
+  })
+})
+
+describe('center column: the desktop shell s last opaque pane (2026-10-16)', () => {
+  // The reporter's "还是有色差" screenshot, in the official Windows shell: the
+  // sidebar side read rgb(19..21, 20..21, 31..33) while the transcript read a
+  // flat rgb(17,17,27). Upstream `AppFrame.module.css` paints that column with
+  // `--dsw-alias-bg-base` on the desktop shells only (`[data-windows-titlebar]
+  // .…_centerCol` — plus the 16px content corner — and `[data-platform=darwin]
+  // .…_centerCol`); the web shell's center column has no background, which is
+  // why neither the local harness nor the CI boot check ever showed the pane.
+  // With the frame, the sidebar column and the conversation root already
+  // transparent, this column was the only surface left that could not transmit
+  // the #26 wash. Releasing the fill is verified on the live layout in
+  // `.debug/ui-adapt/pane-diff.mjs` (both panes rgb(21,21,32) at the top).
+  const seat = rules.filter((rule) => rule.selector.includes("class*='centerCol'"))
+
+  it('releases the fill on the frame s own center column, float only', () => {
+    const hit = seat.find((rule) =>
+      /background\s*:\s*transparent/.test(rule.decls),
+    )
+    expect(
+      hit?.selector,
+      'the desktop center column must not paint --dsw-alias-bg-base, or the transcript stays a flat crust plate',
+    ).toBeDefined()
+    expect(hit!.selector).toContain('[data-dsh-glass-float]')
+    // Scoped to the frame's own child: a bare `[class*=centerCol]` could match
+    // another package's column, and this rule must never reach the official
+    // compat layout.
+    expect(hit!.selector).toContain('[data-dsh-glass-frame]')
+    expect(hit!.selector).toContain('>')
+    expect(hit!.selector).not.toContain('[data-dsh-glass-compat]')
+    expect(seat.filter((rule) => rule.selector.includes('compat'))).toEqual([])
+  })
+
+  it('never invents a fill colour or a blur there — the ground does the painting', () => {
+    expect(
+      seat.some((rule) => /background\s*:(?!\s*transparent)/.test(rule.decls)),
+      'the point is to RELEASE the pane, not to re-tint it',
+    ).toBe(false)
+    expect(
+      seat.some((rule) => blurOf(rule.decls) !== undefined),
+      'the pane sits on the page ground (issue #13 budget)',
+    ).toBe(false)
+    // Geometry stays upstream's: the Windows content corner is declared there,
+    // and re-stating a radius here would silently reshape the title bar area.
+    expect(seat.some((rule) => /border-radius/.test(rule.decls))).toBe(false)
+  })
+
+  it('leaves the other three column releases in place (the fix is additive)', () => {
+    const released = (needle: string): boolean =>
+      rules.some(
+        (rule) =>
+          rule.selector.includes(needle) && /background\s*:\s*transparent/.test(rule.decls),
+      )
+    expect(released('[data-dsh-glass] [data-dsh-glass-frame]')).toBe(true)
+    expect(released('[data-dsh-glass] [data-phase]')).toBe(true)
+    expect(released('[data-dsh-glass-details]')).toBe(true)
+  })
+})
+
+describe('native caption rides the mica sheet (option C, 2026-10-16)', () => {
+  // The official desktop shell colours the Windows title bar from
+  // `--dsw-specific-sidebar-fill`: `syncWindowsAppearance()` in the shell's
+  // `lib/preload-app.cjs` appends a hidden span to <body> whose
+  // `background-color` is that token and reads it through getComputedStyle plus
+  // a 1x1 canvas into `rgba()` -> `setTitleBarOverlay`. In mica mode the
+  // sidebar no longer IS that colour (the column's fill is released and the
+  // 52%-frost sheet draws instead), so the caption kept reading mantle while
+  // the card below read the sheet over the ground: a 3-4/255 band on the
+  // top-left seam. The override re-points the token at the card's own colour —
+  // no new hue, and only while float/mica is on.
+  const caption = rules.filter(
+    (rule) => rule.decls.includes('--dsw-specific-sidebar-fill') && !rule.selector.includes('sidebarCol'),
+  )
+
+  it('is built from the card s own ingredients, over the wash s top stop', () => {
+    const hit = caption.find((rule) => rule.selector.includes('[data-dsh-glass-float]'))
+    expect(
+      hit?.selector,
+      'the desktop caption is back on the stock sidebar fill — the top-left seam returns',
+    ).toBeDefined()
+    expect(hit!.selector, 'the probe is a <body> child: the token must be overridden there').toContain('body')
+    // The mode attribute lives on <html>, so only the ancestor form matches;
+    // the `body[data-dsh-glass-…]` form was silently dead once (P0 entry).
+    expect(hit!.selector).not.toMatch(/\bbody\[data-dsh-glass/)
+    const decls = hit!.decls.replace(/\s+/g, ' ')
+    expect(decls).toContain('--dsw-alias-bg-layer-1') // the sheet's own fill token
+    expect(decls).toContain('var(--dsh-glass-frost') // ... at the frost knob's alpha
+    expect(decls).toContain('--dsh-glass-wash-tint') // the wash's 0% stop = the
+    expect(decls).toContain('--dsh-glass-wash-mix') //   ground right under the
+    expect(decls).toContain('--dsh-glass-ambience') //   caption (brightness-aware)
+    // The theme writes the whole palette INLINE on <body>, and only an
+    // important author declaration outranks an inline one.
+    expect(decls).toContain('!important')
+    // NOT `var(--dsh-glass-card)`: that token carries alpha, and mixing a
+    // translucent colour 50/50 is not compositing it over the ground.
+    expect(decls, 'the caption must be an opaque composite, not a blend of a translucent fill').not.toContain(
+      '--dsh-glass-card',
+    )
+  })
+
+  it('never invents a colour and never leaves the alpha open', () => {
+    for (const rule of caption) {
+      expect(rule.decls, 'caption colour must stay token-derived (rules 1/4)').not.toMatch(/#[0-9a-f]{3,8}\b/i)
+      expect(rule.decls, 'a translucent caption would reach setTitleBarOverlay as rgba(...,<1)').not.toContain(
+        'transparent',
+      )
+    }
+  })
+
+  it('is float-only: compat keeps the official sidebar fill', () => {
+    expect(caption.length).toBeGreaterThan(0)
+    expect(caption.every((rule) => rule.selector.includes('[data-dsh-glass-float]'))).toBe(true)
+    expect(caption.some((rule) => rule.selector.includes('compat'))).toBe(false)
+  })
+})
+
+describe('official transcript surface: the turn-trigger notice (2026-10-16)', () => {
+  // 「继续执行目标」 — upstream `TurnTriggerNodeView` in
+  // `@deepseek-ai/dsh-client-ui-chat` (0.2.0-rc.2, the bundle inside the desktop
+  // shell's app.asar). The section carries upstream's own `data-turn-trigger`
+  // hook, and its stock material is a NEUTRAL plate: the official table defines
+  // `--dsw-alias-turn-trigger-bg` as `--dsw-alias-interactive-bg-hover` on the
+  // dark flavours, i.e. `rgba(255,255,255,.08)` / `.14` hovered, over a `.5px`
+  // `border-l1` hairline at the 20px `--dsw-radius-xl`. Measured on the Mocha
+  // ground (#11111b): #24242d at rest, #32323b hovered — the reporter's
+  // screenshot reads exactly #32323b.
+  const seat = rules.filter((rule) => rule.selector.includes('[data-turn-trigger]'))
+
+  it('seats the notice on the sidebar sheet — mica only, at the card radius', () => {
+    expect(seat.length, 'the turn-trigger notice lost its glass seat').toBeGreaterThan(0)
+    const fill = seat.filter((rule) =>
+      /background\s*:\s*var\(--dsh-glass-card\)/.test(rule.decls),
+    )
+    expect(
+      fill.length,
+      'the notice must take our own sheet token, not a hand-picked colour',
+    ).toBeGreaterThan(0)
+    for (const rule of fill) {
+      expect(rule.selector, 'the fill rule must carry the mica gate').toContain(
+        'html[data-dsh-glass-float]',
+      )
+      expect(
+        rule.selector,
+        'compat deliberately keeps the official transcript material',
+      ).not.toContain('data-dsh-glass-compat')
+    }
+    expect(
+      seat.some((rule) => /border-color\s*:\s*var\(--dsh-glass-rim-soft\)/.test(rule.decls)),
+      'the stock 6% neutral hairline must become the themed rim',
+    ).toBe(true)
+    expect(
+      seat.some((rule) => /border-radius\s*:\s*14px/.test(rule.decls)),
+      'corner language: 14px surfaces',
+    ).toBe(true)
+  })
+
+  it('never blurs it and never invents a hue', () => {
+    for (const rule of seat) {
+      expect(
+        blurOf(rule.decls),
+        'a block in the transcript flow sits over the page ground (issue #13 budget)',
+      ).toBeUndefined()
+      expect(
+        rule.decls,
+        'no literal colour: the frost knob must keep driving the card',
+      ).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+    }
+  })
+
+  it('keeps the hover step on our own raised token', () => {
+    const hover = seat.filter((rule) => rule.selector.includes(':hover'))
+    expect(
+      hover.length,
+      "our (0,2,1) seat out-specifies upstream's .oE-XyW_root:hover (0,2,0) — it must be re-stated or the hover step freezes",
+    ).toBeGreaterThan(0)
+    expect(hover.some((rule) => /var\(--dsh-glass-card-hover\)/.test(rule.decls))).toBe(true)
+  })
+
+  it('never anchors the mode attributes on <body> — they live on <html>', () => {
+    // GlassLayer.applySettings() writes data-dsh-glass / -float / -compat with
+    // `document.documentElement.toggleAttribute(...)` (and data-ds-dark-theme is
+    // the only one that lives on <body>). A `body[data-dsh-glass-*]` step can
+    // therefore NEVER match: 0.6.3-beta.1 shipped the deliverables seat that way
+    // and it was dead on the real app, while the acceptance fixture (attribute
+    // parked on <body>, `.debug/ui-adapt/artifacts-page.mjs`) stayed green.
+    // Real-Chromium proof of both placements: `.debug/ui-adapt/notice-lab.mjs`,
+    // variants 3 (html, seat applies) vs 4 (html, `body[…]` seat, no effect).
+    // Comments are stripped first: the sheet's own prose cites the dead anchor.
+    const withoutComments = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(withoutComments).not.toMatch(/body\[data-dsh-glass-(float|compat)\]/)
+    expect(
+      rules.filter((rule) => /body\[data-dsh-glass-(float|compat)\]/.test(rule.selector)),
+      'the mode attributes live on <html>, so a body-anchored rule is dead CSS',
     ).toEqual([])
   })
 })

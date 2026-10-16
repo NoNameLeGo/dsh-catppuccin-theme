@@ -45,6 +45,20 @@ export const GLASS_FLOAT_ATTRIBUTE = 'data-dsh-glass-float'
 /** html attribute selecting the compatibility (stock-layout) rules. */
 export const GLASS_COMPAT_ATTRIBUTE = 'data-dsh-glass-compat'
 
+/** The knob-driven custom properties `applySettings()` publishes. They live on
+ *  <html> (the stylesheet's root scope) and are MIRRORED onto <body> for one
+ *  reason: the official desktop shell re-reads its native caption colour when
+ *  <body>'s style attribute changes (`syncWindowsAppearance` in the shell's
+ *  `lib/preload-app.cjs` observes that attribute, `data-ds-dark-theme` and
+ *  the <head> subtree) — see `applySettings`. */
+const GLASS_KNOB_PROPERTIES = [
+  '--dsh-glass-blur',
+  '--dsh-glass-frost',
+  '--dsh-glass-brightness-black',
+  '--dsh-glass-brightness-white',
+  '--dsh-glass-glow',
+] as const
+
 /** localStorage key carrying the layer enable flag. */
 export const GLASS_ENABLED_KEY = 'dsh.catppuccin.glass.enabled'
 
@@ -430,30 +444,43 @@ export class GlassLayer {
   /** Write the knob-driven CSS variables and mode attributes onto <html>. */
   private applySettings(): void {
     const style = document.documentElement.style
-    style.setProperty('--dsh-glass-blur', `${this.settings.blur}px`)
-    // Frost 0-100 → a 0-1.4 alpha multiplier (50 = 1x). Capped so max frost
-    // stays translucent frosted glass instead of collapsing to a solid slab.
-    style.setProperty('--dsh-glass-frost', String(Math.min(this.settings.frost / 50, 1.4)))
-    // Backdrop brightness: dark mode darkens (0 = pure black, 50 = off),
-    // light mode brightens (50 = off, 100 = pure white) — the knob's range
-    // and the mix direction both follow the resolved scheme. The body
-    // background rule mixes these fractions straight into the solid ground.
     const dark = this.dark
-    style.setProperty('--dsh-glass-brightness-black', String(dark ? Math.max(0, (50 - this.settings.brightness) / 50) : 0))
-    style.setProperty('--dsh-glass-brightness-white', String(dark ? 0 : Math.max(0, (this.settings.brightness - 50) / 50)))
-    // Ground glows (issue #26): 1 = on, 0 = off. The stylesheet multiplies the
-    // two radial layers' alpha by this, so the shipped ground is the wash alone
-    // and the switch restores the 0.6.3-beta.0 look without editing the sheet.
-    // The expression stays INLINE in the `background` declaration (the #25
-    // invalidation trap): it is read directly there, never through a
-    // intermediate custom property.
-    style.setProperty('--dsh-glass-glow', this.settings.glow ? '1' : '0')
+    const knobs: Record<(typeof GLASS_KNOB_PROPERTIES)[number], string> = {
+      '--dsh-glass-blur': `${this.settings.blur}px`,
+      // Frost 0-100 → a 0-1.4 alpha multiplier (50 = 1x). Capped so max frost
+      // stays translucent frosted glass instead of collapsing to a solid slab.
+      '--dsh-glass-frost': String(Math.min(this.settings.frost / 50, 1.4)),
+      // Backdrop brightness: dark mode darkens (0 = pure black, 50 = off),
+      // light mode brightens (50 = off, 100 = pure white) — the knob's range
+      // and the mix direction both follow the resolved scheme. The body
+      // background rule mixes these fractions straight into the solid ground.
+      '--dsh-glass-brightness-black': String(dark ? Math.max(0, (50 - this.settings.brightness) / 50) : 0),
+      '--dsh-glass-brightness-white': String(dark ? 0 : Math.max(0, (this.settings.brightness - 50) / 50)),
+      // Ground glows (issue #26): 1 = on, 0 = off. The stylesheet multiplies the
+      // two radial layers' alpha by this, so the shipped ground is the wash alone
+      // and the switch restores the 0.6.3-beta.0 look without editing the sheet.
+      // The expression stays INLINE in the `background` declaration (the #25
+      // invalidation trap): it is read directly there, never through a
+      // intermediate custom property.
+      '--dsh-glass-glow': this.settings.glow ? '1' : '0',
+    }
+    for (const [property, value] of Object.entries(knobs)) style.setProperty(property, value)
 
     // Rendering mode: the float rules key off data-dsh-glass-float; the
     // compat (generic glass) rules key off data-dsh-glass-compat.
     const compat = this.settings.mode === 'compat'
     document.documentElement.toggleAttribute(GLASS_FLOAT_ATTRIBUTE, !compat)
     document.documentElement.toggleAttribute(GLASS_COMPAT_ATTRIBUTE, compat)
+
+    // Desktop caption sync (2026-10-16): the official shell re-reads its native
+    // caption colour only when <body>'s style attribute (or the <head> subtree)
+    // changes — and its first read happens when this plugin's <style> tag lands,
+    // i.e. BEFORE the mode attributes above exist. Mirroring the knobs onto
+    // <body> is therefore what makes that probe see the mica caption override at
+    // mount time, and what carries a slider move to the title bar afterwards.
+    // Same values as <html>'s, so nothing else in the page moves.
+    const body = document.body
+    if (body !== null) for (const [property, value] of Object.entries(knobs)) body.style.setProperty(property, value)
   }
 
   private mount(): void {
@@ -472,6 +499,12 @@ export class GlassLayer {
     this.seamDisposer?.()
     this.seamDisposer = undefined
     this.releaseStyle()
+    // Drop the mirrored knobs too: with the mode attributes gone the caption
+    // override no longer applies, and removing them from <body>'s style is what
+    // makes the shell's caption observer re-read (and pick the theme's own
+    // sidebar fill back up) instead of keeping the last mica colour.
+    const body = document.body
+    if (body !== null) for (const property of GLASS_KNOB_PROPERTIES) body.style.removeProperty(property)
   }
 
   /** Mount the glass stylesheet <style> tag (lazy — first enable only;

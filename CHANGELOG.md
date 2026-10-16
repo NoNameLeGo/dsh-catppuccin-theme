@@ -40,6 +40,73 @@
 
 ### 修复
 
+- **桌面壳的主区不再是一块不透明板 —— 左右色差消失（2026-10-16）**。报告人贴图（新会话页、
+  Windows 壳、Mocha + mica）指出「还是有色差」。逐像素实读确认：标题栏 `#181825`、卡片上方地面
+  rgb(20,20,32)、侧栏卡片 rgb(21,21,33)，而**主区自上而下恒为 rgb(17,17,27)**。根因不是配色：
+  上游 `AppFrame.module.css` 在 `[data-windows-titlebar] .…_centerCol`（以及 `[data-platform=darwin]`
+  同一条）把布局的 **center 列**画成 `--dsw-alias-bg-base`，而 Web 壳的同一列**没有背景**——
+  所以本地夹具与 CI 的 boot 检查都看不见这块面板。我们早已放开 frame / 侧栏列 / 会话根
+  （`[data-phase]`）三处，只漏了它 ⇒ 页面地面（含 #26 wash）能透过一切，**只有转录区是死的
+  crust**，于是同一高度左侧读 20–21、右侧读 17，顶部差到 (4,4,6)。修法：
+  `[data-dsh-glass-float] [data-dsh-glass-frame] > [class*='centerCol'] { background: transparent }`
+  （锚 frame 直接子元素、只 gate mica，不动上游的 16px 内容圆角）。真页 A/B
+  （`.debug/ui-adapt/pane-diff.mjs`，属性层次与桌面壳一致）：主区顶 **rgb(17,17,27) → rgb(21,21,32)**
+  （= 卡片顶 rgb(21,21,33)，Δ1）、主区底 rgb(16,16,26)，左右极差 **6 → 1**；compat 保持官方面
+  （实测 centerCol 仍 rgb(17,17,27)）。护栏 = `tests/glass-css.spec.ts`「center column: the desktop
+  shell s last opaque pane」三条，**5 组变异全部验证会红**。
+
+- **原生标题栏（Windows 标题栏条）改吃 mica 侧栏那张面（方案 C，2026-10-16）**。左右极差压到 1
+  之后，剩下的就是**接缝本身**：Windows 的标题栏由壳进程按 `--dsw-specific-sidebar-fill` 上色
+  （preload 的 `syncWindowsAppearance()` 往 `<body>` 塞一个隐藏 span，经 `getComputedStyle` + 1×1
+  canvas 折算 `rgba()` → `setTitleBarOverlay`），而该 token 在 mica 下**已不是侧栏的颜色**
+  （侧栏列的填充被放开、改用 52% frost 面）⇒ 标题栏保持 mantle `#181825`，其下的卡片是 `#151521`，
+  差 3–4 档。修法：在 `[data-dsh-glass-float] body` 把该 token 覆写成**卡片自身的配方**——
+  `--dsw-alias-bg-layer-1` 按 `52% × --dsh-glass-frost` 混进 wash 的 0% 停靠色（= 标题栏正下方
+  那块地面），不新增任何颜色。两个必须：① **`!important` 不可省**——主题把整套调色板写在 `<body>`
+  的**内联 style** 上，只有 important 声明压得住（实测：不加则 token 恒为 `#181825`）；
+  ② `GlassLayer.applySettings()` 把旋钮变量**镜像到 `<body>`**——壳只在 `<body>[style]` / `<head>`
+  变化时重读，而它第一次读发生在本插件 `<style>` 落地时（那时模式属性还没写）：镜像既是首次命中的
+  前提，也是滑杆拖动传到底层标题栏的通道（卸载时移除，触发退回官方填充）。
+  端到端实测（`.debug/ui-adapt/caption-accept.mjs`，完整复刻壳的探针 + 观察者 + 去重）：
+  送进 `setTitleBarOverlay` 的序列 **`(22,22,34) → (24,24,37) → (22,22,34) → (23,23,35)`**；
+  mica/frost20 标题栏 `rgba(22,22,34,1)` = 卡片顶 (21,21,33)（差 1），页面标题条像素与之相等；
+  frost 20→45 标题栏跟着走；**compat 回落到官方 `rgba(24,24,37,1)`**（float 门控实测）。
+  ⚠️ 同一 token 另有三处消费者（轨迹表头 / 计划通知条 / 会话列表底部渐隐）随之从 mantle 变成侧栏
+  玻璃调，Mocha 实测 Δ(3,3,4) —— 与标题栏自己拿到的档位一致；侧栏列内部仍是 `transparent` 放开。
+  **光斑开关（#26）未建模**：开了光斑后卡片顶会上浮，而标题栏仍是 wash 地板色。
+  护栏 = `tests/glass-css.spec.ts`「native caption rides the mica sheet」三条 +
+  `tests/glass-layer.spec.ts` 的镜像用例，**8 组变异全部验证会红**。
+
+- **「继续执行目标」通知卡补上玻璃座位**（2026-10-16）。报告人贴图指出这一块「似乎没有被配色
+  覆盖，也没有玻璃质感」。**不是漏映射**：该卡是上游 `@deepseek-ai/dsh-client-ui-chat` 的
+  `TurnTriggerNodeView`（`<section class="…_root" data-turn-trigger>`，钩子是上游自己写的字面量），
+  消费 `--dsw-alias-turn-trigger-bg`——而官方 token 表在**暗色三风味**把它定义成
+  `--dsw-alias-interactive-bg-hover` = `rgba(255,255,255,.08)`（hover = `…-active` = `.14`），
+  **一个中性白叠层**；我们逐字照搬了官方（不是偏离）。截图反解：卡内 rgb(51,51,59) 减地面
+  rgb(17,17,27)（= Mocha `--dsw-alias-bg-base` `#11111b`）⇒ alpha ≈ 0.143 = **hover 态**，
+  即截图时报告人刚点过展开。修法：补一条 mica 门控座位——填充取侧栏同一张 `--dsh-glass-card`、
+  发线 `--dsh-glass-rim-soft`、圆角并到 14px，并**复述 `:hover`**（座位 (0,2,1) 会压过上游
+  `.oE-XyW_root:hover` (0,2,0)，不复述则 hover 冻结）；不加 `backdrop-filter`（转录流里的面，
+  背后只有低频地面，issue #13）。真 Chromium 实测（Mocha，frost 45）：**rgb(35,35,44) →
+  rgb(20,20,31) = `#141420`**，与侧栏 / 产物块同族；Latte 侧填充落回地面色
+  （`layer-1 === bg-base`），只剩发线可读——与侧栏在 Latte 的表现一致，属预期而非缺陷。
+  护栏 = `tests/glass-css.spec.ts`「official transcript surface: the turn-trigger notice」四条
+  （座位形状 / 无 blur 无写死色 / hover 档 / 通用锚点禁令），**4 组变异全部验证会红**；
+  前后对照图 `.debug/ui-adapt/out/notice-preview.png`（不入库）。
+
+- **[P0] 产物块座位的选择器锚点 `body[…]` → `html[…]`（0.6.3-beta.1 里那 10 条规则是死代码）**
+  （2026-10-16）。上一条产物块座位锚的是 `body[data-dsh-glass-float]`，但
+  `GlassLayer.applySettings()` 是用 `document.documentElement.toggleAttribute(...)` 写这三个
+  模式属性的（`data-ds-dark-theme` 才是唯一挂在 `<body>` 上的）⇒ **该选择器在真机上永远不匹配**，
+  产物块在 0.6.3-beta.1 实际仍是 stock 板。之所以完全没被发现：验收夹具恰好把属性放在 `<body>`
+  （`.debug/ui-adapt/artifacts-page.mjs`）⇒「夹具绿、真机死」，而 `glass-css.spec.ts` 里那条断言
+  还用 `toContain('body[data-dsh-glass-float]')` 把错误锚点写死。真 Chromium 三变体对照
+  （`.debug/ui-adapt/notice-lab.mjs`）：同一条规则，属性在 `<html>` ⇒ 毫无变化，在 `<body>` ⇒ 命中。
+  修法：10 条规则全部改锚 `html[data-dsh-glass-float]`（权重仍是 (0,2,1)，靠源序压过上游
+  `body[data-ds-dark-theme] .…_card`），那条断言改为正向锁 `html[…]`，并新增一条**通用禁令**：
+  样式表（剥注释后）与所有规则选择器里都不得出现 `body[data-dsh-glass-(float|compat)]`。
+  变异验证：锚点改回 `body[…]` ⇒ 红。
+
 - **产物块（「已编辑 N 个文件」+ 交付文件卡）改用与侧栏同一张玻璃面**（2026-10-16）。
   报告人指出转录里的产物块「和侧边栏不像一套配色」。它不是第三方 UI，而是官方
   `@deepseek-ai/dsh-client-ui-deliverables`（0.2.0-rc.2，桌面壳 `app.asar` 内同版本）：
@@ -56,7 +123,8 @@
   与侧栏玻璃片 `#151520` / `#eff0f4` 同一张面。
   两个实现陷阱都写进了注释与护栏：① 上游暗色覆盖 `body[data-ds-dark-theme] .…_card`
   （0,2,1）会压过 `[data-dsh-glass-float] [data-changed-files]`（0,2,0），**暗色下只改到边框、
-  填充静默回退**——选择器因此锚在 `body` 上；② 交付文件卡自己声明
+  填充静默回退**——选择器因此要在类型选择器上多一档，即 `html[…]`（**不是** `body[…]`；
+  0.6.3-beta.1 原实现锚的 `body[data-dsh-glass-float]` 是死代码，见本版 P0 条目）；② 交付文件卡自己声明
   `background: var(--deliverable-fill)`，**只改变量不够**，填充要写在元素上。
   护栏 = `tests/glass-css.spec.ts`「official artifact rows: the deliverables block」四条
   （含特异性锚点与「填充写在元素上」两条），**8 组变异全部验证会红**。样张与读数见
@@ -1101,8 +1169,9 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
+[0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...HEAD
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2

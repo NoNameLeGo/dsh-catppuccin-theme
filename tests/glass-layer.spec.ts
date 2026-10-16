@@ -110,4 +110,45 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
     crossTabWrite('dsh.catppuccin.flavor', 'catppuccin-mocha')
     expect(layer.getSnapshot()).toBe(before) // same reference — nothing republished
   })
+
+  it('mirrors the knobs onto <body> so the desktop caption probe re-reads (option C)', () => {
+    // The official shell (`syncWindowsAppearance` in `lib/preload-app.cjs`)
+    // re-reads its caption colour only when <body>'s style attribute or the
+    // <head> subtree mutates — and its first read lands with the plugin's
+    // <style> tag, before the mode attributes exist. The mirror is what makes
+    // the probe see the mica caption override at mount, and what carries a
+    // slider move to the native title bar afterwards.
+    document.documentElement.append(document.createElement('body'))
+    const body = document.body
+    expect(body).not.toBeNull()
+    const layer = new GlassLayer(fakeCtx())
+    expect(body!.style.getPropertyValue('--dsh-glass-frost')).toBe('') // off: no mirror
+
+    crossTabWrite(GLASS_ENABLED_KEY, 'true')
+    // Identical to <html>'s value — the mirror must not become a second source.
+    for (const property of [
+      '--dsh-glass-blur',
+      '--dsh-glass-frost',
+      '--dsh-glass-brightness-black',
+      '--dsh-glass-brightness-white',
+      '--dsh-glass-glow',
+    ]) {
+      expect(body!.style.getPropertyValue(property)).toBe(
+        document.documentElement.style.getPropertyValue(property),
+      )
+    }
+    expect(body!.style.getPropertyValue('--dsh-glass-frost')).toBe('0.4') // 20 / 50
+
+    crossTabWrite('dsh.catppuccin.glass.frost', '45')
+    crossTabWrite('dsh.catppuccin.glass.glow', 'true')
+    expect(body!.style.getPropertyValue('--dsh-glass-frost')).toBe('0.9')
+    expect(body!.style.getPropertyValue('--dsh-glass-glow')).toBe('1')
+
+    // Disabling the layer clears the mirror: with the mode attributes gone the
+    // caption override no longer applies, and this style mutation is what makes
+    // the shell re-read the theme's own fill instead of keeping the mica colour.
+    crossTabWrite(GLASS_ENABLED_KEY, 'false')
+    expect(body!.style.getPropertyValue('--dsh-glass-frost')).toBe('')
+    expect(body!.style.getPropertyValue('--dsh-glass-glow')).toBe('')
+  })
 })
