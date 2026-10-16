@@ -66,6 +66,19 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
     expect(snapshot.brightness).toBe(80)
   })
 
+  it('tracks the glow switch too (issue #26)', () => {
+    const layer = new GlassLayer(fakeCtx())
+    expect(layer.getSnapshot().glow).toBe(false) // shipped default: wash only
+    // The knob only reaches the DOM while the layer is mounted (applySettings is
+    // gated on the enable flag), matching every other knob.
+    crossTabWrite(GLASS_ENABLED_KEY, 'true')
+    crossTabWrite('dsh.catppuccin.glass.glow', 'true')
+    expect(layer.getSnapshot().glow).toBe(true)
+    expect(document.documentElement.style.getPropertyValue('--dsh-glass-glow')).toBe('1')
+    crossTabWrite('dsh.catppuccin.glass.glow', 'false')
+    expect(document.documentElement.style.getPropertyValue('--dsh-glass-glow')).toBe('0')
+  })
+
   it('keeps the mode and enable-flag branches working', () => {
     const layer = new GlassLayer(fakeCtx())
 

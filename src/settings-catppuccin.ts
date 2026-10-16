@@ -85,6 +85,12 @@ export function catppuccinSchemaFields(): Record<string, Schema> {
       blur: Schema.number().min(0).max(40).default(DEFAULT_GLASS.blur),
       frost: Schema.number().min(0).max(100).default(DEFAULT_GLASS.frost),
       brightness: Schema.number().min(0).max(100).default(DEFAULT_GLASS.brightness),
+      // Issue #26: the optional ground glows (the wash-only ground is the
+      // shipped default, so this must default to the same value as
+      // `DEFAULT_GLASS.glow` — the client reads "resolves to the shipped
+      // defaults" as "no user choice yet", and a wrong default here would make
+      // every visit look like an explicit choice).
+      glow: Schema.boolean().default(DEFAULT_GLASS.glow),
     }),
     autoCheck: Schema.boolean().default(DEFAULT_AUTO_CHECK),
     updateChannel: Schema.union(['latest', 'beta']).default(DEFAULT_UPDATE_CHANNEL),

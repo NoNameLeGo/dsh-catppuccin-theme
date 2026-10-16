@@ -71,6 +71,16 @@ export interface GlassSettings {
   frost: number
   /** Backdrop brightness, 0-100 (0 = pure black, 50 = transparent, 100 = pure white; half-range per scheme). */
   brightness: number
+  /**
+   * Enable the two static ground glows (issue #26). OFF by default: the page
+   * ground is the same-family WASH only, because the glows are fixed to screen
+   * coordinates and every translucent pane therefore transmits a different
+   * slice of them (measured: one sidebar card read ΔRGB (12,15,21) between its
+   * own top and bottom with the glows on, ≤(4,4,5) with the wash alone — the
+   * reporter's "三块玻璃读出三种底色"). The switch keeps the 0.6.3-beta.0 look
+   * available on request instead of deleting it (issue #25 asked for it).
+   */
+  glow: boolean
 }
 
 /** The full state the settings row mirrors (settings + enable flag + scheme). */
@@ -94,6 +104,7 @@ export const SETTINGS_DEFAULTS: GlassSettings = {
   blur: DEFAULT_GLASS.blur,
   frost: DEFAULT_GLASS.frost,
   brightness: DEFAULT_GLASS.brightness,
+  glow: DEFAULT_GLASS.glow,
 }
 
 /** Numeric knob keys and their localStorage names. */
@@ -113,6 +124,9 @@ type NumericKey = keyof typeof NUMERIC_KEYS
 const NUMERIC_STORAGE_KEYS: readonly string[] = Object.values(NUMERIC_KEYS)
 
 const MODE_KEY = 'dsh.catppuccin.glass.mode'
+
+/** localStorage key of the ground-glow switch (issue #26). */
+const GLOW_KEY = 'dsh.catppuccin.glass.glow'
 
 /** Clamp a numeric knob into its sane range. */
 function clampSetting(key: NumericKey, value: number): number {
@@ -176,6 +190,25 @@ function writeEnabled(value: boolean): void {
   }
 }
 
+/** Read the ground-glow switch (absent storage means the shipped default: off). */
+function readGlow(): boolean {
+  try {
+    const raw = localStorage.getItem(GLOW_KEY)
+    return raw === null ? SETTINGS_DEFAULTS.glow : raw === 'true'
+  } catch {
+    return SETTINGS_DEFAULTS.glow
+  }
+}
+
+/** Persist the ground-glow switch. */
+function writeGlow(value: boolean): void {
+  try {
+    localStorage.setItem(GLOW_KEY, String(value))
+  } catch {
+    /* in-memory state still applies for this tab */
+  }
+}
+
 /** Resolved scheme from the theme service (falls back to the body attribute). */
 function resolveDark(ctx: Context): boolean {
   try {
@@ -229,7 +262,7 @@ export class GlassLayer {
         else if (event.key === GLASS_ENABLED_KEY) {
           this.enabled = readEnabled()
           this.sync()
-        } else if (event.key === MODE_KEY || NUMERIC_STORAGE_KEYS.includes(event.key)) {
+        } else if (event.key === MODE_KEY || event.key === GLOW_KEY || NUMERIC_STORAGE_KEYS.includes(event.key)) {
           this.reloadSettings()
           if (this.enabled) this.applySettings()
           this.publish()
@@ -275,6 +308,7 @@ export class GlassLayer {
       blur: this.settings.blur,
       frost: this.settings.frost,
       brightness: this.settings.brightness,
+      glow: this.settings.glow,
     }
   }
 
@@ -288,12 +322,14 @@ export class GlassLayer {
       blur: clampSetting('blur', remote.blur),
       frost: clampSetting('frost', remote.frost),
       brightness: clampSetting('brightness', remote.brightness),
+      glow: remote.glow === true,
     }
     writeEnabled(this.enabled)
     writeMode(this.settings.mode)
     writeSetting('blur', this.settings.blur)
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
+    writeGlow(this.settings.glow)
     this.sync()
   }
 
@@ -344,6 +380,15 @@ export class GlassLayer {
     this.publish()
   }
 
+  /** Toggle the two static ground glows (issue #26; wash-only is the default). */
+  setGlow(value: boolean): void {
+    if (value === this.settings.glow) return
+    this.settings.glow = value
+    writeGlow(value)
+    if (this.enabled) this.applySettings()
+    this.publish()
+  }
+
   /** Restore every knob to the shipped defaults (persisted immediately). */
   resetDefaults(): void {
     this.settings = { ...SETTINGS_DEFAULTS }
@@ -351,6 +396,7 @@ export class GlassLayer {
     writeSetting('blur', this.settings.blur)
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
+    writeGlow(this.settings.glow)
     if (this.enabled) this.applySettings()
     this.publish()
   }
@@ -362,6 +408,7 @@ export class GlassLayer {
       blur: readSetting('blur'),
       frost: readSetting('frost'),
       brightness: readSetting('brightness'),
+      glow: readGlow(),
     }
   }
 
@@ -394,6 +441,13 @@ export class GlassLayer {
     const dark = this.dark
     style.setProperty('--dsh-glass-brightness-black', String(dark ? Math.max(0, (50 - this.settings.brightness) / 50) : 0))
     style.setProperty('--dsh-glass-brightness-white', String(dark ? 0 : Math.max(0, (this.settings.brightness - 50) / 50)))
+    // Ground glows (issue #26): 1 = on, 0 = off. The stylesheet multiplies the
+    // two radial layers' alpha by this, so the shipped ground is the wash alone
+    // and the switch restores the 0.6.3-beta.0 look without editing the sheet.
+    // The expression stays INLINE in the `background` declaration (the #25
+    // invalidation trap): it is read directly there, never through a
+    // intermediate custom property.
+    style.setProperty('--dsh-glass-glow', this.settings.glow ? '1' : '0')
 
     // Rendering mode: the float rules key off data-dsh-glass-float; the
     // compat (generic glass) rules key off data-dsh-glass-compat.

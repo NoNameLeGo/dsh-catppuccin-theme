@@ -40,6 +40,7 @@ describe('durable state defaults', () => {
         blur: 5,
         frost: 20,
         brightness: 50,
+        glow: false,
       },
       autoCheck: true,
       updateChannel: 'latest',
@@ -87,6 +88,12 @@ describe('sanitizeState', () => {
     expect(glass.frost).toBe(0)
     expect(glass.brightness).toBe(50)
     expect(sanitizeState({ glass: {} }).glass).toEqual(DEFAULT_GLASS)
+  })
+
+  it('keeps the glow switch boolean-only and OFF by default (issue #26)', () => {
+    expect(sanitizeState({ glass: {} }).glass.glow).toBe(false)
+    expect(sanitizeState({ glass: { glow: 'true' } }).glass.glow).toBe(false)
+    expect(sanitizeState({ glass: { glow: true } }).glass.glow).toBe(true)
   })
 
   it('keeps the layer flag and mode boolean/enum-only', () => {

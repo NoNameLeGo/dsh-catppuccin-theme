@@ -38,6 +38,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_GLASS } from '../src/state.ts'
 
 // Resolved to a STRING path on purpose: this spec runs under jsdom, where the
 // global `URL` is jsdom's own implementation, and handing that object to
@@ -379,33 +380,71 @@ describe('glass blur budget (issue #13)', () => {
   })
 })
 
-describe('ground ambience (issue #25)', () => {
+describe('ground ambience (issue #25, revised by #26)', () => {
   // The ground used to be a single flat colour, so every glass pane read as
   // "the same colour as the page": the card fill is layer-1 @ α over bg-base —
   // ΔRGB ≤ 2/255 on the dark flavours at the default frost and EXACTLY 0 on
-  // Latte (layer-1 === bg-base there). The ground now carries a low-frequency
-  // ambient field the translucent fills can TRANSMIT; reverting to a flat fill
-  // must fail loudly. Evidence and the reasoning: docs/issue-25-ambient-ground.md.
+  // Latte (layer-1 === bg-base). Issue #25 added an ambient field the
+  // translucent fills can TRANSMIT; reverting to a flat fill must fail loudly.
+  // Evidence and the reasoning: docs/issue-25-ambient-ground.md.
+  //
+  // 2026-10-16 (issue #26): the two radial GLOWS became OPT-IN. They are pinned
+  // to screen coordinates while the panes sit elsewhere, so every pane transmits
+  // a DIFFERENT slice of them — measured on the live page, one sidebar card read
+  // ΔRGB (12,15,21) between its own top and bottom with the glows on, and
+  // ≤(4,4,5) across the window with the wash alone ("三块玻璃读出三种底色").
+  // The WASH stays unconditional — it is the depth cue, horizontally uniform to
+  // ≤2/255 — and the glows are gated on the 光斑 switch through
+  // `--dsh-glass-glow`, whose shipped default is 0.
   const ground = rules.find(
     (rule) => rule.selector === '[data-dsh-glass] body' && /(?:^|;)\s*background\s*:/.test(rule.decls),
   )
 
-  it('paints a wash plus glows from mapped tokens, never a flat fill again', () => {
+  it('keeps the wash unconditional and never a flat fill again', () => {
     expect(ground, 'the ground background rule disappeared').toBeDefined()
-    expect(ground!.decls, 'the ground lost its radial glows').toMatch(/radial-gradient/)
     expect(ground!.decls, 'the ground lost its same-family wash').toMatch(/linear-gradient/)
-    // The glow colours must ride the flavour's own tokens — the whole point of
-    // the design is that all four flavours follow with zero hardcoding.
+    // The wash's ambience weighting must live in the `background` rule itself,
+    // USED directly — an intermediate custom property did NOT follow
+    // `--dsh-glass-ambience` when the knob moved on the live GUI (probed
+    // 2026-10-15). Keep it inline; and it must NOT read the glow switch: the
+    // wash is what #26 keeps, the glows are what it gates.
+    expect(ground!.decls, 'the wash must weight itself by the ambience scale').toMatch(
+      /var\(--dsh-glass-wash-mix\)\s*\*\s*var\(--dsh-glass-ambience\)/,
+    )
+    const wash = /linear-gradient\(([^;]*)\)\s*;/.exec(ground!.decls)?.[1] ?? ''
+    expect(
+      wash,
+      'the wash must stay independent of the glow switch — it IS the issue #26 default',
+    ).not.toContain('--dsh-glass-glow')
+  })
+
+  it('gates both glows on the opt-in switch, keeping their hues on mapped tokens', () => {
+    // The glows stay in the sheet (the switch must be able to restore the
+    // 0.6.3-beta.0 look), but every glow alpha carries the glow knob AND the
+    // ambience scale, inline in `background`.
+    const radials = (ground!.decls.match(/radial-gradient\([^;]*?(?=,\s*(?:radial|linear)-gradient|$)/g) ?? [])
+      .map((part) => part.trim())
+    expect(radials.length, 'expected the two glow layers to remain in the sheet').toBe(2)
     expect(ground!.decls, 'glow 1 moved off the brand token').toContain(
       'var(--dsw-alias-brand-primary-new-colorprimary-new-color)',
     )
     expect(ground!.decls, 'glow 2 moved off the success token').toContain(
       'var(--dsw-alias-state-success-tertiary)',
     )
-    // …and the glows must fade with the brightness knob's ambience scale.
-    expect(ground!.decls, 'the glows must fade with the ambience').toContain(
-      'var(--dsh-glass-ambience)',
-    )
+    for (const [index, radial] of radials.entries()) {
+      expect(radial, `glow ${index + 1} ignores the glow switch`).toContain('var(--dsh-glass-glow')
+      expect(radial, `glow ${index + 1} must fade with the ambience`).toContain('var(--dsh-glass-ambience)')
+    }
+  })
+
+  it('ships the glow switch OFF — the reported look is wash-only', () => {
+    // The default IS the fix: a user who changes nothing gets the wash-only
+    // ground. Reading the same constant the layer writes into
+    // `--dsh-glass-glow` keeps the two from drifting apart.
+    expect(
+      DEFAULT_GLASS.glow,
+      'the glows came back on by default — that is exactly the issue #26 report',
+    ).toBe(false)
   })
 
   it('keeps the brightness knob authoritative: ambience fades at the extremes', () => {
@@ -533,8 +572,11 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
       sidebar.filter((rule) => /border-right-color/.test(rule.decls)).map((rule) => rule.selector),
       'issue #22 c1: the accent right edge read as a half-drawn frame in Latte',
     ).toEqual([])
+    // 2026-10-16 (issue #26 follow-up ②): the sidebar rides the SOFT step now
+    // (see the rim block above); it is still one uniform rim on all four sides —
+    // only the alpha moved, and it moved for the whole card at once.
     expect(
-      sidebar.some((rule) => /border\s*:\s*1px solid var\(--dsh-glass-rim\)/.test(rule.decls)),
+      sidebar.some((rule) => /border\s*:\s*1px solid var\(--dsh-glass-rim-soft\)/.test(rule.decls)),
       'the sidebar lost its uniform rim',
     ).toBe(true)
   })
@@ -598,7 +640,7 @@ describe('main input surface rim (issue #22 follow-up)', () => {
     ).toEqual(['[data-dsh-glass-float] [data-composer-card]'])
   })
 
-  it('keeps every other rim consumer on the base token (no global swap)', () => {
+  it('keeps every OTHER rim consumer on the base token (sidebar soft, top bar base)', () => {
     // Spot checks the two surfaces the reporter's screenshots key on: the
     // top-bar card and the sidebar column stay at the 18% ink rim.
     const topBar = rules.find(
@@ -606,12 +648,17 @@ describe('main input surface rim (issue #22 follow-up)', () => {
     )
     expect(topBar?.decls, 'the top-bar card rim moved off the base token')
       .toContain('border: 1px solid var(--dsh-glass-rim)')
+    // 2026-10-16 (issue #26 follow-up ②): the sidebar card deliberately rides
+    // the SOFT step now — the reporter read the base 18% arc at the window's
+    // top-left as a pasted frame, and the chosen fix was to soften the outline
+    // (not to un-float the card). The top bar above keeps the base rim, so this
+    // stays a local decision, not a global swap.
     const sidebar = rules.filter(
       (rule) => rule.selector.includes('sidebarCol') && /border\s*:\s*1px solid/.test(rule.decls),
     )
     expect(sidebar.length, 'the sidebar lost its rim').toBeGreaterThan(0)
     for (const rule of sidebar) {
-      expect(rule.decls, `${rule.selector} must keep the base rim`).toContain('border: 1px solid var(--dsh-glass-rim)')
+      expect(rule.decls, `${rule.selector} must ride the soft rim (② B)`).toContain('border: 1px solid var(--dsh-glass-rim-soft)')
     }
   })
 })
@@ -738,7 +785,7 @@ describe('the top-bar card selector stays off the page head (issue #21)', () => 
   it('still styles the conversation top bar as a card, collapse rule included', () => {
     const card = rules.find(
       (rule) =>
-        rule.selector === '[data-dsh-glass-float] [data-phase] header' &&
+        /\[data-dsh-glass-float\][^,]*\[data-phase\][^,]*header/.test(rule.selector) &&
         /border\s*:\s*1px solid/.test(rule.decls),
     )
     expect(card, 'the conversation top bar lost its card recipe').toBeDefined()
@@ -747,11 +794,278 @@ describe('the top-bar card selector stays off the page head (issue #21)', () => 
     expect(
       rules.some(
         (rule) =>
-          rule.selector ===
-            '[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header' &&
-          /margin-left\s*:\s*28px/.test(rule.decls),
+          /\[data-dsh-glass-frame\]\[data-sidebar-collapsed\][^,]*\[data-phase\][^,]*header/.test(
+            rule.selector,
+          ) && /margin-left\s*:\s*28px/.test(rule.decls),
       ),
       'the collapsed rail must still step the top bar right — and only the top bar',
     ).toBe(true)
+  })
+
+  // 2026-10-16: the reporter's new-session (hero) view showed an EMPTY glass
+  // frame at the top of the conversation column. Upstream renders that top bar
+  // as a blank layout box (`…_headerBlank` + `…_headerSessionless`: no border,
+  // no min-height, no padding-top) and paints nothing — our card recipe turned
+  // it into a 50px rimmed slab (live page, 0.2.0-rc.2 + mica: y 12, h 50,
+  // `color(srgb .094 .094 .145 / .208)`, 1px rim, blur(5px)). Every rule in the
+  // family must therefore read that same blank signal; the suffix is
+  // CSS-module-stable and exists on both supported lines (0.1.7-rc.2 and
+  // 0.2.0-rc.2 both emit `headerBlank`).
+  const BLANK_GUARD = ":not([class*='headerBlank'])"
+
+  it('keeps the whole top-bar family off BLANK headers (issue: empty hero frame)', () => {
+    const family = gated.filter((rule) =>
+      rule.selector
+        .split(',')
+        .map((part) => part.trim())
+        .some((part) => /\[data-phase\][^,]*\bheader(?![\w-])/.test(part)),
+    )
+    expect(
+      family.length,
+      'the top-bar family shrank below 3 rules — re-check this guard against the sheet',
+    ).toBeGreaterThanOrEqual(3)
+    const unguarded = family.filter((rule) => !rule.selector.includes(BLANK_GUARD))
+    expect(
+      unguarded.map((rule) => rule.selector),
+      'a top-bar rule ignores the blank signal — the hero header would grow an empty card again',
+    ).toEqual([])
+  })
+
+  it('guards the card recipe, its ::after decoration and the rail step (acceptance shape)', () => {
+    for (const needle of [
+      "[data-dsh-glass-float] [data-phase] header:not([class*='headerBlank'])",
+      "[data-dsh-glass-float] [data-phase] header:not([class*='headerBlank'])::after",
+      "[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header:not([class*='headerBlank'])",
+    ]) {
+      expect(
+        rules.find((rule) => rule.selector === needle),
+        `missing guarded rule: ${needle}`,
+      ).toBeDefined()
+    }
+    // And the blank header must come out of the sheet with the STOCK box: no
+    // margin, no padding, no fill, no rim, no blur. Anything the family declares
+    // for it would defeat the guard, so the guard has to be the last word.
+    for (const rule of rules) {
+      const parts = rule.selector.split(',').map((part) => part.trim())
+      const unguardedPart = parts.find(
+        (part) => /\[data-phase\][^,]*\bheader(?![\w-])/.test(part) && !part.includes('headerBlank'),
+      )
+      expect(unguardedPart, `unguarded top-bar selector part: ${rule.selector}`).toBeUndefined()
+    }
+  })
+
+  it('compat never paints the top bar — the empty frame is a mica-only shape (D4)', () => {
+    const offenders = rules.filter(
+      (rule) =>
+        rule.selector.includes('data-dsh-glass-compat') && /(?:^|[\s,])header(?![\w-])/.test(rule.selector),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'compat keeps the stock layout — it must not grow a top-bar card either',
+    ).toEqual([])
+  })
+})
+
+describe("third-party surfaces: dsh-better-display's reasoning card (2026-10-16)", () => {
+  // The 「思考」 panel belongs to the third-party `dsh-better-display` bundle
+  // (`ReasoningCard`, hooks `data-reader-reasoning-card` / `-heading` /
+  // `-scroll` / `-text`). Its stock material is the only OPAQUE plate in the
+  // transcript — `background: var(--dsw-alias-bg-module-platform)` (Mocha
+  // #313244, measured rgb(49,50,68) on the live page) + a white-12% hairline
+  // (`--dsw-alias-border-l2`) + a 12px radius — while every surface our skin
+  // owns is translucent glass with the themed rim. The seat therefore changes
+  // ALPHA / RIM / RADIUS only and keeps the hue on the plugin's own token
+  // (rule 4). These assertions are what a future edit must not undo:
+  const seat = rules.filter((rule) => rule.selector.includes('data-reader-reasoning-card'))
+  /** The plugin's own "short and collapsed → inline text, no plate" state. */
+  const NO_CARD_STATE = ":not([data-overflow='false'][data-expanded='false'])"
+
+  it('seats both modes on the plugin s own fill token — alpha only, never a hue swap', () => {
+    const hits = seat.filter((rule) => /color-mix/.test(rule.decls))
+    expect(hits.length, 'the reasoning card lost its glass seat').toBeGreaterThan(0)
+    for (const rule of hits) {
+      expect(rule.selector, 'mica must follow the layout switch').toContain('[data-dsh-glass-float]')
+      expect(rule.selector, 'compat gets the same material (D4)').toContain('[data-dsh-glass-compat]')
+      expect(
+        rule.decls,
+        'hue must come from the plugin own token (rule 4: the glass layer does not repaint colours)',
+      ).toContain('var(--dsw-alias-bg-module-platform)')
+      expect(rule.decls, 'alpha must follow the frost knob').toContain('var(--dsh-glass-frost')
+      expect(rule.decls).toMatch(/border-color\s*:\s*var\(--dsh-glass-rim-soft\)/)
+      expect(rule.decls, 'corner language: 14px surfaces').toMatch(/border-radius\s*:\s*14px/)
+    }
+  })
+
+  it('never blurs it — its backdrop is the page ground (issue #13 budget)', () => {
+    const blurred = seat.filter((rule) => blurOf(rule.decls) !== undefined)
+    expect(
+      blurred.map((rule) => rule.selector),
+      'one card per reasoning step over the low-frequency ground: a blur is an identity read that still composites',
+    ).toEqual([])
+  })
+
+  it('never repaints the plugin own no-card state', () => {
+    // `data-overflow=false data-expanded=false` = the plugin degrades a short,
+    // collapsed reasoning into inline text (its own sheet drops the fill, the
+    // border and the radius there). Our seat has higher specificity, so without
+    // the guard it would glue a plate back onto inline text.
+    expect(seat.length).toBeGreaterThan(0)
+    const unguarded = seat.filter((rule) => !rule.selector.includes(NO_CARD_STATE))
+    expect(
+      unguarded.map((rule) => rule.selector),
+      'the seat must carry the no-card-state guard',
+    ).toEqual([])
+  })
+})
+
+describe('official artifact rows: the deliverables block (2026-10-16)', () => {
+  // 「已编辑 N 个文件」+ the presented-file cards come from the OFFICIAL
+  // `@deepseek-ai/dsh-client-ui-deliverables` bundle (0.2.0-rc.2). Its stock
+  // material is an opaque three-step stack — card body
+  // `--dsw-alias-bg-layer-1` (Mocha #181825), header / file-card fills
+  // `--dsw-static-neutral-850` (Mocha #1e1e2e, Latte #e6e9ef), rows painting
+  // nothing — while the mica sidebar is ONE 52% `--dsh-glass-card` sheet.
+  // The seat re-anchors the plugin's OWN fill variables onto that exact sheet
+  // (rule 4: alpha / rim / radius only, no invented hue) and flattens the inner
+  // layers so header + body + rows read as one sheet. These assertions are what
+  // a future edit must not undo.
+  const cardFamily = (rule: { selector: string }): boolean => /data-changed-files|data-presented-file/.test(rule.selector)
+  const seat = rules.filter(cardFamily)
+
+  it('seats the changed-files and presented-file cards on the sidebar s own sheet', () => {
+    expect(seat.length, 'the deliverables block lost its glass seat').toBeGreaterThan(0)
+    // The seat itself (the rule that writes the fill variables) must name BOTH
+    // card kinds: a tile-only rule carrying the attribute is not a seat.
+    const anchors = seat.filter((rule) => /--(changes|deliverable)-fill/.test(rule.decls))
+    expect(anchors.length, 'the fill variables must be re-anchored').toBeGreaterThan(0)
+    const seated = anchors.map((rule) => rule.selector).join(' | ')
+    for (const needle of ['data-changed-files', 'data-presented-file']) {
+      expect(seated, `${needle} is no longer seated on the glass sheet`).toContain(needle)
+    }
+    for (const rule of anchors) {
+      expect(rule.selector, 'mica only — compat keeps the stock sidebar').toContain('[data-dsh-glass-float]')
+      expect(
+        rule.selector,
+        'compat would thin the transcript while leaving the sidebar stock — the opposite of the request',
+      ).not.toContain('[data-dsh-glass-compat]')
+      // The upstream dark-scheme override `body[data-ds-dark-theme] .…_card` is
+      // (0,2,1); a bare `[attr] [attr]` seat is (0,2,0) and silently loses the
+      // fill on the DARK flavours only (measured: the fill stayed neutral-850
+      // while the border still turned themed). The `body` step is load-bearing.
+      expect(
+        rule.selector,
+        'the seat must out-specify the plugin own dark-scheme override (body anchor)',
+      ).toContain('body[data-dsh-glass-float]')
+      expect(rule.decls, 'the fill must be the sidebar card token').toContain('var(--dsh-glass-card)')
+      expect(
+        rule.decls,
+        'the stock neutral step must be gone (rule 4 keeps the hue on our own sheet)',
+      ).not.toContain('--dsw-static-neutral-850')
+    }
+    for (const rule of anchors.filter((rule) => /border-color/.test(rule.decls))) {
+      expect(rule.decls).toMatch(/border-color\s*:\s*var\(--dsh-glass-rim-soft\)/)
+      expect(rule.decls, 'corner language: 14px surfaces').toMatch(/border-radius\s*:\s*14px/)
+    }
+  })
+
+  it('flattens the inner opaque layers — header, rows and body are ONE sheet', () => {
+    const faces = rules.filter(
+      (rule) => /\[data-changed-files\]\s*$/.test(rule.selector) && /background\s*:\s*var\(--dsh-glass-card\)/.test(rule.decls),
+    )
+    expect(
+      faces.length,
+      'the card body must reach the sidebar token itself (otherwise the header sits on the darker stock layer)',
+    ).toBe(1)
+    const clears = rules.filter(
+      (rule) => /data-changed-files/.test(rule.selector) && /background\s*:\s*transparent/.test(rule.decls),
+    )
+    expect(clears.length, 'the header / rows / list must stop painting their own layers').toBeGreaterThan(0)
+    // Each layer needs its OWN entry in the selector list of a clearing rule —
+    // a union check would pass while the header silently kept its opaque plate,
+    // because the list and the row entries alone already name the needles. The
+    // header entry must be the DIRECT-child form: the tile rule
+    // (`> :first-child > :first-child`) also contains `:first-child` plus the
+    // list selector, so it must not be able to stand in for it.
+    const clearsBoth = clears.filter(
+      (rule) =>
+        /data-changed-files\]\s*>\s*:first-child(?!\s*>)/.test(rule.selector) &&
+        /ul\s*>\s*li\s*>\s*:first-child/.test(rule.selector) &&
+        /data-changed-files\]\s+ul/.test(rule.selector),
+    )
+    expect(
+      clearsBoth.length,
+      'the header, the file rows and the list must each be cleared to transparent in one rule',
+    ).toBeGreaterThan(0)
+    const dividers = rules.filter(
+      (rule) => /data-changed-files\]\s+ul/.test(rule.selector) && /border-top/.test(rule.decls),
+    )
+    expect(dividers.length, 'the stock white-12% divider must become the themed hairline').toBeGreaterThan(0)
+    for (const rule of dividers) {
+      expect(rule.decls).toMatch(/border-top\s*:\s*0?\.5px\s+solid\s+var\(--dsh-glass-rim-soft\)/)
+    }
+    // The presented-file cards paint `background: var(--deliverable-fill)`
+    // THEMSELVES, so re-anchoring the variable alone leaves the stock opaque
+    // fill in place (an element's own declaration is not toppled by the
+    // ancestor it reads the variable from). The fill must be written on the
+    // element — caught on the live cascade, not by reading the CSS.
+    const presentedFaces = rules.filter(
+      (rule) =>
+        /\[data-presented-file\]\s*$/.test(rule.selector) &&
+        /background\s*:\s*var\(--dsh-glass-card\)/.test(rule.decls),
+    )
+    expect(
+      presentedFaces.length,
+      'the presented-file fill must be written on the element, not only on the variable',
+    ).toBe(1)
+  })
+
+  it('keeps the tone tiles a step above the sheet (both card kinds)', () => {
+    const tiles = seat.filter((rule) => /background\s*:\s*var\(--dsh-glass-card-raised\)/.test(rule.decls))
+    expect(tiles.length, 'the 5% white tiles would read as holes on a translucent sheet').toBeGreaterThan(0)
+    const sel = tiles.map((rule) => rule.selector).join(' | ')
+    expect(sel).toMatch(/data-changed-files\]\s*>\s*:first-child\s*>\s*:first-child/)
+    expect(sel).toMatch(/data-presented-file\]\s*>\s*:first-child/)
+  })
+
+  it('never blurs them — the transcript flow sits on the page ground (issue #13 budget)', () => {
+    const blurred = seat.filter((rule) => blurOf(rule.decls) !== undefined)
+    expect(
+      blurred.map((rule) => rule.selector),
+      'one card per changed-file set plus one per presented file: a blur is an identity read that still composites',
+    ).toEqual([])
+  })
+})
+
+describe('stylesheet integrity (2026-10-16)', () => {
+  // The sheet ships as TEXT (`glass-css.gen.ts`) and is mounted as a <style>
+  // tag, so the BROWSER is the first parser that sees it — and a syntax error
+  // there is not local: the CSS parser recovers by dropping everything from the
+  // error point on. That happened once, on 2026-10-16: a new rule's block
+  // comment contained a nested `/* … */` marker, the comment ended early, and
+  // the top-bar family silently disappeared at runtime — while the build, the
+  // type checker and every existing glass test stayed green.
+  it('parses cleanly with the same parser the build uses', async () => {
+    const { transform } = await import('lightningcss')
+    expect(() =>
+      transform({ filename: 'glass.module.css', code: Buffer.from(CSS), minify: true }),
+    ).not.toThrow()
+  })
+
+  it('never nests a comment marker inside a comment', () => {
+    const offenders: number[] = []
+    let i = 0
+    while ((i = CSS.indexOf('/*', i)) !== -1) {
+      const end = CSS.indexOf('*/', i + 2)
+      if (end === -1) {
+        offenders.push(CSS.slice(0, i).split('\n').length)
+        break
+      }
+      if (CSS.slice(i + 2, end).includes('/*')) offenders.push(CSS.slice(0, i).split('\n').length)
+      i = end + 2
+    }
+    expect(
+      offenders,
+      'a nested /* inside a block comment ends it early — every rule after it is dropped at runtime',
+    ).toEqual([])
   })
 })

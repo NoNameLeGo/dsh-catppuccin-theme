@@ -226,6 +226,41 @@ describe('persistStateToScope', () => {
     expect(byPath['shikiStyle']).toBe('default')
   })
 
+  it('covers EVERY field of the durable section — a dropped op resets that knob', async () => {
+    // Issue #26 post-mortem (2026-10-16): the ground-glow switch was wired
+    // through the state type, the layer, the settings row, the Host schema and
+    // the CSS — but NOT through `stateToMutateOps`. Nothing failed loudly: the
+    // write simply omitted the field, the document kept its schema default, and
+    // the client's next adoption reset the switch (measured on the live page:
+    // the settings toggle flipped back within a second). This guard derives the
+    // expected paths from the section ITSELF, so a new field cannot be silently
+    // dropped again — a missing op shows up as a missing path, not as a UI bug.
+    const { scope, mutations } = scopeDouble()
+    const state = {
+      ...defaultState(),
+      flavor: 'catppuccin-latte' as const,
+      glass: { ...defaultState().glass, glow: true },
+    }
+    expect(await persistStateToScope(scope, state)).toBe('written')
+    const written = new Set(
+      (mutations[0] as { path: string[] }[]).map((op) => op.path.join('.')),
+    )
+    /** Leaf paths of a plain nested object (an empty object counts as a leaf). */
+    const leavesOf = (value: unknown, prefix = ''): string[] => {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) return [prefix]
+      const entries = Object.entries(value)
+      if (entries.length === 0) return [prefix]
+      return entries.flatMap(([key, child]) => leavesOf(child, prefix === '' ? key : `${prefix}.${key}`))
+    }
+    const expected = leavesOf(defaultSettingsSection())
+    expect(
+      expected.filter((path) => !written.has(path)),
+      'these durable fields are never written, so the next adoption resets them',
+    ).toEqual([])
+    // Sanity: the derivation really does reach the new knob.
+    expect(expected).toContain('glass.glow')
+  })
+
   it('reports error when the write fails at the transport layer', async () => {
     const local = { ...defaultState(), flavor: 'catppuccin-mocha' as never }
     const flaky = scopeDouble({

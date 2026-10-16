@@ -27,6 +27,8 @@ export interface GlassRowInjected {
   setFrost: (value: number) => void
   /** Set the backdrop brightness, 0-100. */
   setBrightness: (value: number) => void
+  /** Toggle the two static ground glows (issue #26; wash-only is the default). */
+  setGlow: (value: boolean) => void
   /** Restore every knob to the shipped defaults. */
   resetDefaults: () => void
 }
@@ -177,9 +179,9 @@ const GLASS_PRESETS: readonly { id: string; key: CatppuccinKey; blur: number; fr
  * @param props - composed slot props.
  * @returns the General section row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, resetDefaults }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGlow, resetDefaults }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, dark } = state
+  const { enabled, mode, blur, frost, brightness, glow, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -270,6 +272,25 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
             <div className={css.knobHint}>
               {t(dark ? 'glass.brightnessHintDark' : 'glass.brightnessHintLight')}
             </div>
+            {/* Issue #26: the ground glows are opt-in. The switch sits with the
+                other material knobs, AFTER the sliders, because it is a
+                different axis (a fixed-to-screen light field, not a property of
+                the glass panes) — the hint says what it buys and what it costs,
+                since the reporter's complaint was exactly the cost. */}
+            <div className={css.row}>
+              <span className={css.rowLabel}>{t('glass.glow')}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={glow}
+                aria-label={t('glass.glow')}
+                className={glow ? css.toggleOn : css.toggle}
+                onClick={() => { setGlow(!glow) }}
+              >
+                <span className={css.check} aria-hidden="true">{glow ? '✓' : ''}</span>
+              </button>
+            </div>
+            <div className={css.rowHint}>{t('glass.glowHint')}</div>
             <div className={css.row}>
               <button type="button" className={css.resetButton} onClick={() => { resetDefaults() }}>
                 {t('glass.reset')}

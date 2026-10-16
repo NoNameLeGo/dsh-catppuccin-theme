@@ -277,6 +277,14 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
     { op: 'set', path: ['glass', 'blur'], value: section.glass.blur },
     { op: 'set', path: ['glass', 'frost'], value: section.glass.frost },
     { op: 'set', path: ['glass', 'brightness'], value: section.glass.brightness },
+    // Issue #26: the ground-glow switch is part of the durable section like every
+    // other knob. MISSING HERE IS SILENT: the write simply never carries the
+    // field, the document keeps its schema default, and the client's next
+    // adoption resets the switch — measured on the live page (2026-10-16): the
+    // settings switch toggled back to OFF within a second because this op was
+    // absent. Any new field must be added here AND to
+    // `settingsSectionsEqual` / `sanitizeState` / the Host schema.
+    { op: 'set', path: ['glass', 'glow'], value: section.glass.glow },
     { op: 'set', path: ['autoCheck'], value: section.autoCheck },
     { op: 'set', path: ['updateChannel'], value: section.updateChannel },
     { op: 'set', path: ['overrides'], value: section.overrides },

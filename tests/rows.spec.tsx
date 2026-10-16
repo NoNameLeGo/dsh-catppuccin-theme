@@ -298,17 +298,26 @@ function makeGlassRow(state: {
   blur: number
   frost: number
   brightness: number
+  /** Issue #26 ground-glow switch. */
+  glow?: boolean
   dark: boolean
 }) {
+  // The glow switch is issue #26's; an unset state renders as OFF (the shipped
+  // default), which also keeps every older call site above valid. The object is
+  // hoisted ON PURPOSE: `useSyncExternalStore` needs a cached snapshot, and a
+  // fresh object per call is an infinite re-render ("getSnapshot should be
+  // cached") — every GlassRow test in this file breaks if this moves back inline.
+  const snapshot = { glow: false, ...state }
   return {
     t,
-    getState: () => state,
+    getState: () => snapshot,
     subscribe: () => () => {},
     setEnabled: vi.fn(),
     setMode: vi.fn(),
     setBlur: vi.fn(),
     setFrost: vi.fn(),
     setBrightness: vi.fn(),
+    setGlow: vi.fn(),
     resetDefaults: vi.fn(),
   } as unknown as GlassRowProps
 }
@@ -378,6 +387,22 @@ describe('GlassRow presets tab stop (audit F3)', () => {
     const cells = presetCells()
     expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
     expect(cells[1]?.tabIndex).toBe(0)
+  })
+})
+
+describe('GlassRow ground-glow switch (issue #26)', () => {
+  it('renders OFF by default and writes through on click', () => {
+    const props = makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })
+    render(<GlassRow {...props} />)
+    const toggle = screen.getByRole('switch', { name: t('glass.glow') })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(toggle)
+    expect((props as unknown as { setGlow: (value: boolean) => void }).setGlow).toHaveBeenCalledWith(true)
+  })
+
+  it('renders ON when the state says so', () => {
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, glow: true, dark: true })} />)
+    expect(screen.getByRole('switch', { name: t('glass.glow') }).getAttribute('aria-checked')).toBe('true')
   })
 })
 

@@ -27,17 +27,29 @@ const sourceBuffer = readFileSync(SOURCE)
 // lightningcss is a devDependency (always present in this repo's build).
 // When it is missing (e.g. a bare node_modules checkout running `prepare`),
 // fall back to the raw stylesheet text — only the byte size differs.
+//
+// ⚠️ 2026-10-16: AVAILABILITY and PARSE RESULTS are now handled separately.
+// The old single try/catch swallowed BOTH, so a stylesheet that lightningcss
+// could not parse silently shipped as raw text — and the browser, the first
+// real parser, then drops every rule from the error point on. That is exactly
+// what happened when a new rule's block comment contained a nested `/* … */`
+// marker: the header family silently vanished at runtime while `pnpm build`
+// stayed green and the only signal was a console warning nobody read. A parse
+// error is a BUILD FAILURE now; only "module missing" still falls back.
 let cssText = sourceBuffer.toString('utf8')
+let lightningcss
 try {
-  const { transform } = await import('lightningcss')
-  const { code } = transform({ filename: SOURCE, code: sourceBuffer, minify: true })
-  cssText = code.toString()
+  lightningcss = await import('lightningcss')
 } catch (error) {
   // Loud on purpose (audit F9): the fallback ships the stylesheet UNMINIFIED and
   // unprocessed, so the emitted artifact silently differs from every other
   // build. Today that only costs bytes, but any future transform here would
   // degrade invisibly.
   console.warn(`[gen-glass-css] lightningcss unavailable — shipping the raw stylesheet: ${String(error)}`)
+}
+if (lightningcss !== undefined) {
+  const { code } = lightningcss.transform({ filename: SOURCE, code: sourceBuffer, minify: true })
+  cssText = code.toString()
 }
 
 const lines = [

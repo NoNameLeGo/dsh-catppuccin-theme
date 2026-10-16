@@ -23,7 +23,101 @@
   恒等，issue #13 的判定不变）。护栏 = `tests/glass-css.spec.ts`「ground ambience
   (issue #25)」三组，经变异验证（回退即红）。
 
+- **地面默认改为「wash 常驻 + 光斑可选」（issue #26，2026-10-16）**。报告人（`TWFU-wcy`，
+  即 #25 的同一位）实测 0.6.3-beta.0 后指出：两枚光斑**固定在屏幕坐标**上，而玻璃面板散布在别处，
+  于是每块面板透出的是光斑的不同部位——「三块玻璃读出三种底色」，像三块没对齐的玻璃贴在渐变纸上。
+  本机复现（真页 1×1 采样，Mocha，mica + frost 20）：**同一张侧栏卡片自己**上端与下端读出
+  ΔRGB **(12,15,21)**，顶栏左段与右段差 (7,10,15)，输入卡 Δ 0；把光斑去掉后跨面板极差降到
+  **(4,4,5)**，而 wash 的水平不一致本来就 ≤2/255（165° 渐变的倾斜量级），所以**默认只留 wash**
+  既消掉割裂又保住「上浅下深」的层次（报告人选项 A 会把 #25 的诉求一起退回，故选 C）。
+  两枚光斑没有删除：玻璃质感里新增 **「地面光斑」开关**（默认**关**，`--dsh-glass-glow`，
+  与 blur / frost / brightness 同一套持久化与跨窗口同步），打开即回到 0.6.3-beta.0 的观感——
+  实测开/关的侧栏上下极差 **ΔRGB (4,4,5) ↔ (12,15,21)**，与旧版一致。
+  实现要点：光斑 alpha 在 `background` 里**内联**乘 `--dsh-glass-glow`（#25 的失效传播陷阱：
+  经中间变量不重算），wash 不读这个开关；亮度拉满仍使整场塌缩回纯白 / 纯黑。
+  ⚠️ **默认值变更**：0.6.3-beta.0 的「有光斑」不再是默认观感；想要旧观感在
+  设置 → 通用设置 → 玻璃质感里打开开关即可。
+
 ### 修复
+
+- **产物块（「已编辑 N 个文件」+ 交付文件卡）改用与侧栏同一张玻璃面**（2026-10-16）。
+  报告人指出转录里的产物块「和侧边栏不像一套配色」。它不是第三方 UI，而是官方
+  `@deepseek-ai/dsh-client-ui-deliverables`（0.2.0-rc.2，桌面壳 `app.asar` 内同版本）：
+  卡身 `--dsw-alias-bg-layer-1`（Mocha #181825）、卡头与交付文件卡 `--changes-fill`
+  / `--deliverable-fill` = `--dsw-static-neutral-850`（Mocha #1e1e2e、Latte #e6e9ef）、
+  文件行不画底 ⇒ **一层不透明三台阶的板子**，而 mica 侧栏是一张 52% `--dsh-glass-card`
+  半透明面——浅色侧最刺眼（卡头比近白地面还深）。修法（用户选定的 B 方案）：卡根 / 卡头 /
+  文件行 / 交付文件卡全部落到**侧栏同一个 token**（`--dsh-glass-card`，frost 继续驱动），
+  发线换 `--dsh-glass-rim-soft`、圆角并到 14px、列表自带的白 12% 分隔线换成主题发线，
+  卡头与行背景清成透明（卡头 60px 几何不变），小图标砖抬到 `--dsh-glass-card-raised` 档；
+  仍**不加 `backdrop-filter`**（转录流里的面背后只有低频地面，issue #13）。仅 mica 生效
+  （compat 下侧栏是官方面，单改产物块会反过来更不统一）。渲染实测（真 Chromium 2×，
+  mica/frost 20）：卡头 / 卡身 / 文件行 / 文件卡 **全部 `#141420`（Latte `#edeff3`）**，
+  与侧栏玻璃片 `#151520` / `#eff0f4` 同一张面。
+  两个实现陷阱都写进了注释与护栏：① 上游暗色覆盖 `body[data-ds-dark-theme] .…_card`
+  （0,2,1）会压过 `[data-dsh-glass-float] [data-changed-files]`（0,2,0），**暗色下只改到边框、
+  填充静默回退**——选择器因此锚在 `body` 上；② 交付文件卡自己声明
+  `background: var(--deliverable-fill)`，**只改变量不够**，填充要写在元素上。
+  护栏 = `tests/glass-css.spec.ts`「official artifact rows: the deliverables block」四条
+  （含特异性锚点与「填充写在元素上」两条），**8 组变异全部验证会红**。样张与读数见
+  `.debug/ui-adapt/out/art-compare-<风味>.png`（不入库）。
+
+- **左上角侧栏卡片描边降到 `--dsh-glass-rim-soft`（issue #26 追办 ②）**（2026-10-16）。
+  报告人反馈窗口左上角「过于突兀」：那里是三道台阶叠加——原生标题栏条、被光斑抬亮的地面、
+  以及浮空侧栏卡的亮描边弧。光斑一默认关闭（上一条）就只剩描边这一层，故把侧栏卡从 18%
+  的基准 rim 降到 soft 档（其余消费面一律不变）。真页实测（Mocha，mica）：卡片上边缘像素
+  **rgb(73,78,98) → rgb(51,52,67)**；Latte 侧同向变淡（rgb(195,202,221) → rgb(222,223,230)，
+  浅色下 rim 比底暗，数值变大即更淡）。选型前渲染并对比过另外三种方案（完全去描边 /
+  贴住标题栏 / 不再浮空），对比图见 `.debug/ui-adapt/out/combo-CB-*.png`。护栏 =
+  `glass-css.spec.ts` 的两条 rim 断言（侧栏 soft、顶栏仍基准档），变异验证会红。
+
+- **接线护栏：durable section 的每个字段都必须出现在持久化写操作里**（2026-10-16）。
+  实现「地面光斑」开关时踩到仓库反复强调的那类坑——state / layer / 设置行 / Host schema / CSS
+  全部接好，唯独 `stateToMutateOps()` 的逐字段列表漏了新字段：**没有任何测试变红**，表现是
+  点一下开关、一秒后自己弹回（写操作不带该字段 ⇒ 文档保持 schema 默认 ⇒ 客户端下一次采纳
+  把它重置）。修掉之后补了一条**系统性**护栏：`tests/client.spec.ts` 的
+  「covers EVERY field of the durable section」从 `defaultSettingsSection()` 自身推导叶子路径，
+  与写操作的 path 集合求差——以后新增字段漏接线会直接红，而不是留一个「点了没用」的 UI。
+  变异验证：删掉 `glass.glow` 那一行 op ⇒ 该用例红。
+
+- **新会话（hero）顶端不再出现空白玻璃框**（2026-10-16）。上游把会话顶栏分两种状态渲染，
+  只有一种是我们该画卡的：`[data-phase]` 的 `<header>` 在「无 session」或「会话还是 blank」时
+  带 `…_headerBlank`（上游自己的「无 chrome」信号：`border-bottom:none; min-height:0;
+  padding-bottom:0`，非 darwin 下再加 `padding-top:0`），**stock 完全不画**——它的子节点只有
+  一个 30px 的 `headerLeading` 槽（内含右上角折叠图标）和一个空 titleRow。我们那条
+  `[data-dsh-glass-float] [data-phase] header` 是裸元素选择器，于是把它画成了高 50px、
+  带 1px 描边 / 20px 圆角 / `blur(5px)` 的空卡（真页实测 0.2.0-rc.2 + mica：`background:
+  color(srgb .094 .094 .145 / .208)`）。修法：卡片配方 + `::after` 装饰 + 侧栏折叠位移规则
+  三条一起加 `:not([class*='headerBlank'])` 守卫，blank 顶栏回到与 stock 逐项一致
+  （实测四风味：`border 0px` / `radius 0px` / `margin 0px` / 背景透明 / 无 blur，高度 40px），
+  而**会话态顶栏仍是玻璃卡**（h=85、1px 描边）——守卫精确，不是关掉整个族。该后缀在两条支持
+  线上都存在（2026-10-16 复核 `dsh-client-ui-conversation` 0.1.7-rc.2 与 0.2.0-rc.2）。
+  护栏 = `tests/glass-css.spec.ts` 的「keeps the whole top-bar family off BLANK headers」
+  等三条，经变异验证（去掉 `:not()` 即红）。
+
+- **第三方「思考」卡片（dsh-better-display）接入玻璃语言**（2026-10-16）。报告人指出思考
+  部分看着不适配。根因：那块面板来自第三方插件 `dsh-better-display`（`ReasoningCard`，钩子
+  `data-reader-reasoning-card`），其自带材质是全转录里**唯一的不透明板**——
+  `background: var(--dsw-alias-bg-module-platform)`（Mocha #313244，真页实测 rgb(49,50,68)）
+  + 白 12% 发线（`--dsw-alias-border-l2`）+ 12px 圆角，而本皮肤每一块转录面都是半透明玻璃 +
+  主题 rim。修法：新增座位，**只改 alpha / 发线 / 圆角**——填充用**插件自己的 token**
+  `color-mix(bg-module-platform × 52% × frost, transparent)`（规则 4：不换色相，四风味自动
+  跟随，frost 旋钮继续生效）、边框换 `--dsh-glass-rim-soft`、圆角并到 14px 面档；mica 与
+  compat 同一配方，**两模式都不加 `backdrop-filter`**（卡片背后只有低频地面，issue #13 判据）。
+  必带守卫 `:not([data-overflow='false'][data-expanded='false'])`：插件在「短且折叠」时自己
+  会把卡片降级成无框行内文本，我们不能把它重新画成板子。四风味实测（合成后正文对比度）：
+  Mocha 5.65 → 7.89、Latte 5.14 → 5.44、Frappé **4.26 → 6.23**、Macchiato 5.03 → 7.25
+  （顺序 = 实色 → 玻璃；Frappé 原实色**低于 AA**，本改动顺带修好）；compat 模式活体验收同值。
+  护栏 = `tests/glass-css.spec.ts`「third-party surfaces: dsh-better-display's reasoning
+  card」三条，变异验证（换错 token / 加 blur / 去掉状态守卫各自即红）。
+
+- **构建链加固：不可解析的样式表不再静默降级**（2026-10-16）。`scripts/gen-glass-css.mjs`
+  原本把「lightningcss 缺失」与「解析失败」合在一个 try/catch 里，于是语法错误会静默回落到
+  未压缩原文——而浏览器是第一个真正的解析器，遇到错误会从错误点起丢弃**其后所有规则**。
+  这正是本轮踩到的坑：新规则的块注释里嵌了一个 `/* … */` 标记，注释提前闭合，顶栏族在运行时
+  整族消失，而 `pnpm build`、typecheck 与既有测试全绿。现在可用性与解析结果分开处理：
+  模块缺失仍回落（并告警），**解析失败直接让构建失败**；并加两条护栏
+  （`stylesheet integrity`：同一解析器必须解析通过 + 禁止注释内再出现注释标记），变异验证会红。
 
 - **修复 issue #24 —— 切换会话时顶栏 / 对话框的毛玻璃「闪烁」**（2026-10-15）。
   上游按 session 世代 key 重挂载整个会话子树（`main.conversation` = `session-maybe` 槽位，
@@ -1007,7 +1101,8 @@
   devDependencies 在安装时不生效）。
 - 0.1.1：补充 repository / homepage / keywords 字段。
 
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...HEAD
+[0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...HEAD
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2

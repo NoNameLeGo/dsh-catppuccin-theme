@@ -111,6 +111,23 @@ export interface GlassState {
   frost: number
   /** Backdrop brightness, 0-100. */
   brightness: number
+  /**
+   * The optional ground GLOWS (issue #26, 2026-10-16). The page ground is
+   * always a same-family wash (the "C" answer to the reporter's report: the
+   * wash gives the glass something to transmit without localising the
+   * brightness); this knob adds back the two static radial glows that shipped
+   * in 0.6.3-beta.0 (issue #25) for users who liked them.
+   *
+   * Default OFF, and that default IS the reported fix: the glows are fixed to
+   * screen coordinates while the glass panes sit elsewhere, so each pane
+   * transmits a different slice of them — measured on the live page, one
+   * sidebar card read ΔRGB (12,15,21) between its own top and bottom with the
+   * glows on, and ≤(4,4,5) with the wash alone (see
+   * `docs/issue-26-ambient-ground.md` / the CHANGELOG entry). The knob exists
+   * because #25 was filed by the same reporter: rather than deleting the look
+   * outright, it stays an opt-in.
+   */
+  glow: boolean
 }
 
 /** The whole durable state the plugin persists. */
@@ -157,6 +174,7 @@ export const DEFAULT_GLASS: GlassState = {
   blur: 5,
   frost: 20,
   brightness: 50,
+  glow: false,
 }
 
 /** Shipped update-check preference: automatic checks on. */
@@ -243,6 +261,8 @@ export function sanitizeState(input: unknown): CatppuccinState {
   state.glass.blur = clampFinite(glass.blur, 0, 40, DEFAULT_GLASS.blur)
   state.glass.frost = clampFinite(glass.frost, 0, 100, DEFAULT_GLASS.frost)
   state.glass.brightness = clampFinite(glass.brightness, 0, 100, DEFAULT_GLASS.brightness)
+  // Issue #26: boolean-only, shipped OFF (the wash-only ground is the fix).
+  state.glass.glow = glass.glow === true
 
   // Preference fields: absent values keep their shipped defaults, so a v1
   // document (predating them) rolls forward without a migration step.
@@ -286,6 +306,7 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.blur === expected.glass.blur
     && state.glass.frost === expected.glass.frost
     && state.glass.brightness === expected.glass.brightness
+    && state.glass.glow === expected.glass.glow
     && state.autoCheck === expected.autoCheck
     && state.updateChannel === expected.updateChannel
     && Object.keys(state.overrides).length === 0
@@ -332,6 +353,7 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.blur === b.glass.blur
     && a.glass.frost === b.glass.frost
     && a.glass.brightness === b.glass.brightness
+    && a.glass.glow === b.glass.glow
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
     && a.shikiStyle === b.shikiStyle
