@@ -289,7 +289,17 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.3-beta.0`**（2026-10-15；Publish run `38737646305` success、日志
+> `beta` = **`0.6.3-beta.1`**（2026-10-16；Publish run `38869618718` success ~40 s、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.3-beta.1` 带 provenance；CI `38869601455` check 29 s + boot-e2e
+> 1 m 21 s 双绿、boot 21/21 项通过）= **产物块（官方 `dsh-client-ui-deliverables`）改用与侧栏同一张
+> `--dsh-glass-card` 面**（卡头/文件行/交付文件卡全落同一 token，rim-soft、14px、分隔线换主题发线；
+> 仅 mica，不加 blur；实测 #141420 / Latte #edeff3 ≈ 侧栏 #151520 / #eff0f4）+ **地面光斑转开关
+> （issue #26，默认关）** + **侧栏 rim 降档（issue #26 追办 ②）** + 接线护栏（durable section 每个字段
+> 必须进写操作）+ 构建加固（样式表解析失败即构建失败）+ 新会话空玻璃框修复（`headerBlank` 守卫）+
+> 思考卡玻璃座位。**测试 311 全绿**（307 → 311：产物块 4 条护栏，**8 组变异全部验证会红**）。
+> 两个实现陷阱写进了代码注释：上游暗色覆盖 `body[data-ds-dark-theme] .…_card` 是 (0,2,1)，
+> 选择器必须锚在 `body` 上；交付文件卡自带 `background: var(--deliverable-fill)`，只改变量不够。
+> 上一版 `beta` = **`0.6.3-beta.0`**（2026-10-15；Publish run `38737646305` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.3-beta.0` 带 provenance；CI `38737619544` check + boot-e2e 双绿）
 > = **地面氛围层（issue #25，方案 L2）**：纯色地面 → 同色系 wash + 两枚静态柔光斑（全部取自已映射
 > token、四风味自动跟随；亮度拉满整体塌缩回纯白 / 纯黑）+ **issue #24 修复**（删除会话根入场动画，
@@ -314,7 +324,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.0`（2026-10-15 复核，显式带 registry 直读
+> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.1`（2026-10-16 复核，显式带 registry 直读
 > `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
 > 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
