@@ -1,0 +1,62 @@
+/* Shared settings-row shell (issue #27).
+ *
+ * Every row in this plugin uses the official rhythm: 16px vertical padding plus
+ * a .5px hairline, title 14/22, hint 12/18, all on --dsw-* tokens. The `.stack`
+ * container strips the last row's hairline, the same way ui-settings-general's
+ * own section does for `settings.general.item`.
+ *
+ * Keep this file free of component-specific layout: it is the seam that makes
+ * the settings page and the plugin detail card look like the same UI. */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Specificity beats `.row`, so the last row drops its divider without !important. */
+.stack > :last-child {
+  border-bottom: none;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.desc {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* "?" help affordance — rows keep their own badge: the official Tooltip
+ * primitive wants an anchor/focus contract these rows do not own, and the badge
+ * is pure decoration around the native `title` attribute. */
+.help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+}

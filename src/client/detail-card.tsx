@@ -36,6 +36,7 @@ import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
 import { LinksRow } from './LinksRow.tsx'
 import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
+import rowCss from './settings-row.module.css'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
@@ -86,7 +87,7 @@ export type CatppuccinDetailCardProps =
  */
 export function CatppuccinDetailCard(props: CatppuccinDetailCardProps): React.JSX.Element {
   return (
-    <div data-catppuccin-detail-card style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className={rowCss.stack} data-catppuccin-detail-card>
       <CatppuccinRow {...props.flavor} t={props.t} />
       <GlassRow {...props.glass} t={props.t} />
       <UpdateRow {...props.update} t={props.t} />

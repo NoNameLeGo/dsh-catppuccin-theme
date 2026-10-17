@@ -6,6 +6,8 @@
 
 /** Simplified Chinese dictionary. */
 export const zh = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Catppuccin 外观设置',
   'row.title': 'Catppuccin 主题',
   'row.description': 'Latte / Frappé / Macchiato / Mocha 四款配色，一键切换。',
   'row.off': '跟随系统',
@@ -89,6 +91,8 @@ export const zh = {
 
 /** English dictionary, checked complete against the zh key set. */
 export const en: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Catppuccin appearance',
   'row.title': 'Catppuccin theme',
   'row.description': 'Latte / Frappé / Macchiato / Mocha, one click away.',
   'row.off': 'Follow system',
@@ -172,6 +176,8 @@ export const en: Record<keyof typeof zh, string> = {
 
 /** Japanese dictionary. */
 export const ja: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Catppuccin 外観設定',
   'row.title': 'Catppuccin テーマ',
   'row.description': 'Latte / Frappé / Macchiato / Mocha の4色をワンクリックで切替。',
   'row.off': 'システムに従う',
@@ -255,6 +261,8 @@ export const ja: Record<keyof typeof zh, string> = {
 
 /** Korean dictionary. */
 export const ko: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Catppuccin 모양 설정',
   'row.title': 'Catppuccin 테마',
   'row.description': 'Latte / Frappé / Macchiato / Mocha 네 가지 배색, 한 번의 클릭으로 전환.',
   'row.off': '시스템 팔로우',
@@ -338,6 +346,8 @@ export const ko: Record<keyof typeof zh, string> = {
 
 /** Spanish dictionary. */
 export const es: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Aspecto de Catppuccin',
   'row.title': 'Tema Catppuccin',
   'row.description': 'Latte / Frappé / Macchiato / Mocha, a un clic.',
   'row.off': 'Seguir al sistema',
@@ -421,6 +431,8 @@ export const es: Record<keyof typeof zh, string> = {
 
 /** French dictionary. */
 export const fr: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Apparence Catppuccin',
   'row.title': 'Thème Catppuccin',
   'row.description': 'Latte / Frappé / Macchiato / Mocha, en un clic.',
   'row.off': 'Suivre le système',
@@ -504,6 +516,8 @@ export const fr: Record<keyof typeof zh, string> = {
 
 /** German dictionary. */
 export const de: Record<keyof typeof zh, string> = {
+  'nav.title': 'Catppuccin',
+  'page.title': 'Catppuccin-Darstellung',
   'row.title': 'Catppuccin-Design',
   'row.description': 'Latte / Frappé / Macchiato / Mocha, mit einem Klick.',
   'row.off': 'System folgen',

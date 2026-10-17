@@ -73,6 +73,9 @@ function makeLocale(options: { collision?: boolean; explode?: boolean } = {}) {
       }
       return () => {}
     },
+    bind() {
+      return (key: string) => key
+    },
     addLanguage(input: { id: string }) {
       attempts.push({ kind: 'addLanguage', id: input.id })
       if (options.explode === true) throw new TypeError('locale service exploded')
@@ -168,10 +171,11 @@ describe('issue #23: slot registrations survive a duplicate id', () => {
     const { slots, attempted, registered } = makeSlots({ collision: true })
     const { ctx } = mount({ slots })
 
-    // All four General rows were attempted; every registration was skipped…
-    expect(attempted).toHaveLength(4)
+    // Issue #27: the settings page is the only slot registration left, and the
+    // duplicate install's attempt was skipped…
+    expect(attempted).toHaveLength(1)
     expect(registered).toHaveLength(0)
-    // …quietly, because the occupant is the same row (duplicate install).
+    // …quietly, because the occupant is the same page (duplicate install).
     expect(warn).not.toHaveBeenCalled()
     await ctx.fiber.dispose()
   })

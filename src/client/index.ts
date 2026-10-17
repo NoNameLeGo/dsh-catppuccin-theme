@@ -44,15 +44,15 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the settings-surface SlotMap merge (settings.general.item)
 // and, on 0.1.7+, the configForms Context merge the durable scope binds.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { CatppuccinRow, type CatppuccinRowInjected } from './CatppuccinRow.tsx'
+import type { CatppuccinRowInjected } from './CatppuccinRow.tsx'
 import { CatppuccinDetailCard, type CatppuccinDetailCardInjected } from './detail-card.tsx'
+import { CatppuccinSettingsPage, type CatppuccinSettingsPageInjected } from './settings-section.tsx'
 import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
-import { LinksRow } from './LinksRow.tsx'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
 import { SHIKI_TOKENS } from './shiki-tokens.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
-import { GlassRow, type GlassRowInjected } from './glass/glass-row.tsx'
-import { UpdateRow, type UpdateRowInjected } from './UpdateRow.tsx'
+import type { GlassRowInjected } from './glass/glass-row.tsx'
+import type { UpdateRowInjected } from './UpdateRow.tsx'
 import type { UpdateCheckPayload } from '../update-check.ts'
 import { PACKAGE_NAME, UPDATE_CHECK_CLIENT_TIMEOUT_MS, UPDATE_ROUTE_PATH } from '../update-check.ts'
 import { tolerantRegistration } from '../registration-tolerance.ts'
@@ -900,14 +900,6 @@ export function apply(ctx: ClientContext): void {
   // (`list slot "…" already has an entry with id "…"`, e.g. a duplicate
   // install) would otherwise throw straight through apply() and fail the
   // boot. A skipped row costs nothing: the occupant is the same row.
-  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'catppuccin',
-    order: 20,
-    locale: NS,
-    inject: injected,
-  }, CatppuccinRow)))
-
   const glassInjected = (): GlassRowInjected => ({
     getState: () => glass.getSnapshot(),
     subscribe: (listener) => glass.subscribe(listener),
@@ -919,14 +911,6 @@ export function apply(ctx: ClientContext): void {
     setGlow: (glow) => { glass.setGlow(glow) },
     resetDefaults: () => { glass.resetDefaults() },
   })
-
-  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'catppuccin-glass',
-    order: 21,
-    locale: NS,
-    inject: glassInjected,
-  }, GlassRow)))
 
   // Update check: the Host owns the npm lookup (Node fetch, no CORS); the row
   // only fetches the same-origin route and renders the verdict. Upgrade stays
@@ -978,26 +962,33 @@ export function apply(ctx: ClientContext): void {
     subscribeLocale: (listener: () => void) => ctx.locale.subscribe(listener),
   })
 
-  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'catppuccin-update',
-    order: 22,
-    locale: NS,
-    inject: updateInjected,
-  }, UpdateRow)))
+  // The plugin's OWN settings page (issue #27). One nav entry, and every
+  // preference row lives on it instead of being spliced into General. Two
+  // contracts, both load-bearing:
+  //  - `tolerantRegistration`: with the slot already declared the callback runs
+  //    SYNCHRONOUSLY, so a duplicate install (same section id) would otherwise
+  //    throw straight through apply() and fail the boot (issue #23 / AGENTS.md
+  //    rule 5). A skipped registration costs nothing: the occupant is the same
+  //    page.
+  //  - `label` is a THUNK: the shell resolves it on every read, so switching the
+  //    interface language re-renders the nav row without re-registering.
+  // `order: 25` keeps the official sections (account -10 / general 0 /
+  // models 10 / plugins 15 / agent-presets 20) ahead of ours.
+  const t = ctx.locale.bind(NS)
+  const sectionInjected = (): CatppuccinSettingsPageInjected => ({
+    flavor: injected(),
+    glass: glassInjected(),
+    update: updateInjected(),
+  })
 
-  // Feedback & support row (2026-10-11): closes the section with two static
-  // GitHub links — the issue tracker and the repo (the star ask). Pure copy,
-  // so it registers WITHOUT an inject factory (only the locale seat); live
-  // edits to the URLs belong in LinksRow.tsx. Rendered in both homes: the
-  // General section here and the plugin detail card below.
-  ctx.slots.inject('settings.general.item', () => tolerantRegistration(() => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'catppuccin-links',
-    order: 23,
+  ctx.slots.inject('settings.section', () => tolerantRegistration(() => ctx.slots.register({
+    name: 'settings.section',
+    id: 'catppuccin',
+    order: 25,
+    label: () => t('nav.title'),
     locale: NS,
-  }, LinksRow)))
-
+    inject: sectionInjected,
+  }, CatppuccinSettingsPage)))
   // Plugins-page card: the settings section on this plugin's OWN detail page in
   // the Plugin manager (DSH >= 0.2.0-rc.2). Three things about this
   // registration are contracts, not style (see `src/client/detail-card.tsx`):

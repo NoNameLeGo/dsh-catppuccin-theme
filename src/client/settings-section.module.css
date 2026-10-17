@@ -1,0 +1,15 @@
+/* Catppuccin settings page (issue #27).
+ *
+ * The page lives in the settings shell's content column, which already owns the
+ * horizontal padding and the scroll container. The heading follows the official
+ * page-title recipe (ui-settings-models: 16px / 24px / 500 / label-primary) —
+ * this is the one thing the shell does not supply, because General-style rows
+ * carry their own titles. */
+
+.title {
+  margin: 16px 0 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}

@@ -13,6 +13,7 @@
  * click would navigate the DSH UI itself away from the app.
  */
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import rowCss from './settings-row.module.css'
 
 /**
  * GitHub repository — where a star lands. Keep the `-theme` name: it is the
@@ -43,10 +44,8 @@ const linkStyle: React.CSSProperties = {
  */
 export function LinksRow({ t }: LinksRowProps): React.JSX.Element {
   return (
-    <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
-      <div style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 14, lineHeight: '22px' }}>
-        {t('links.title')}
-      </div>
+    <div className={rowCss.row} data-catppuccin-row="links">
+      <div className={rowCss.title}>{t('links.title')}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         <a href={ISSUES_URL} target="_blank" rel="noreferrer noopener" style={linkStyle}>
           {t('links.issue')}

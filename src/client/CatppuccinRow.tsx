@@ -1,9 +1,10 @@
 /**
- * Catppuccin settings row — one General-section preference row listing the
- * four flavour themes plus a "follow system" (off) choice. Selecting a
- * flavour calls the injected `select`, which switches the official
- * ThemeRuntime and persists the choice. The row subscribes to `theme/change`
- * so the highlighted flavour tracks the live preference.
+ * Catppuccin flavour row — the first row of the plugin's own settings page
+ * (issue #27) and of the plugin detail card. It lists the four flavour themes
+ * plus a "follow system" (off) choice. Selecting a flavour calls the injected
+ * `select`, which switches the official ThemeRuntime and persists the choice.
+ * The row subscribes to `theme/change` so the highlighted flavour tracks the
+ * live preference.
  *
  * Beyond the flavour pick the row carries:
  *  - per-flavour localized subtitles (item DD) under the button labels;
@@ -12,12 +13,22 @@
  *  - a "?" help affordance (item J) — no framework tooltip API exists in
  *    dsh-client-ui-slots yet, so the help text rides the native `title`
  *    attribute plus an accessible name.
+ *
+ * Issue #27 (visual language): the controls here are no longer hand-drawn
+ * shapes. The flavour picker follows the official Appearance row's cube
+ * geometry (see CatppuccinRow.module.css for the two deliberate deviations),
+ * and the shiki pick is the official `SegmentedControl` atom — the same one
+ * the official Models page uses as a plain mode picker.
  */
 import { useRef, useState, useSyncExternalStore } from 'react'
+import { Button, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FlavorChoice } from './index.ts'
 import type { ShikiStyle } from '../state.ts'
 import type { CatppuccinKey } from './locales.ts'
+import { HelpBadge } from './HelpBadge.tsx'
+import css from './CatppuccinRow.module.css'
+import rowCss from './settings-row.module.css'
 
 /** One flavour button shown by the row. */
 export interface CatppuccinFlavorButton {
@@ -54,119 +65,21 @@ export interface CatppuccinRowInjected {
 /** Full component props: runtime share + locale seat + injected face. */
 export type CatppuccinRowProps = PropsRuntime<'settings.general.item'> & PropsLocale<'catppuccin'> & CatppuccinRowInjected
 
-/** 普通按钮行内样式。 */
-const buttonBase: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 12px',
-  borderRadius: 8,
-  border: '1px solid var(--dsw-alias-border-l1)',
-  background: 'transparent',
-  color: 'var(--dsw-alias-label-primary)',
-  cursor: 'pointer',
-  font: 'inherit',
-}
-
-/** 选中态按钮行内样式。 */
-const buttonActive: React.CSSProperties = {
-  ...buttonBase,
-  border: '1px solid var(--dsw-alias-border-l3)',
-  background: 'var(--dsw-alias-interactive-bg-active)',
-}
-
-const inputBase: React.CSSProperties = {
-  background: 'var(--dsw-alias-bg-layer-2)',
-  border: '1px solid var(--dsw-alias-border-l1)',
-  borderRadius: 6,
-  padding: '4px 8px',
-  color: 'var(--dsw-alias-label-primary)',
-  fontSize: 12,
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+/** Per-flavour one-line subtitle (item DD). */
+function subtitleText(id: string, t: (key: CatppuccinKey) => string): string | null {
+  switch (id) {
+    case 'catppuccin-latte': return t('flavor.latte.subtitle')
+    case 'catppuccin-frappe': return t('flavor.frappe.subtitle')
+    case 'catppuccin-macchiato': return t('flavor.macchiato.subtitle')
+    case 'catppuccin-mocha': return t('flavor.mocha.subtitle')
+    default: return null
+  }
 }
 
 /**
- * A "?" help affordance: an accessible button that carries the full help
- * text in the native `title` tooltip. No visual styling beyond the token
- * palette — the affordance follows the row's label colour.
- */
-function HelpIcon({ label, help }: { label: string; help: string }): React.JSX.Element {
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={help}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 16,
-        height: 16,
-        borderRadius: '50%',
-        border: '1px solid var(--dsw-alias-border-l2)',
-        color: 'var(--dsw-alias-label-tertiary)',
-        fontSize: 11,
-        lineHeight: 1,
-        cursor: 'help',
-        userSelect: 'none',
-        marginLeft: 6,
-        flex: 'none',
-      }}
-    >
-      ?
-    </span>
-  )
-}
-
-/** The localised subtitle of one flavour button (`flavor.<id>.subtitle`);
- *  null when the active locale carries no such key. */
-function subtitleText(buttonId: string, t: (key: CatppuccinKey) => string): string | null {
-  const flavorId = buttonId.replace('catppuccin-', '')
-  if (flavorId === buttonId) return null
-  const key = `flavor.${flavorId}.subtitle` as CatppuccinKey
-  const text = t(key)
-  return text === key ? null : text
-}
-
-/** One two-sided segmented pick using the row's token colours. */
-function Segmented<T extends string>(props: {
-  label: string
-  value: T
-  options: readonly { id: T; label: string }[]
-  onSelect: (value: T) => void
-}): React.JSX.Element {
-  const { label, value, options, onSelect } = props
-  return (
-    <div style={{ display: 'inline-flex', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden' }} role="group" aria-label={label}>
-      {options.map((option, index) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={option.id === value}
-          onClick={() => { onSelect(option.id) }}
-          style={{
-            height: 26,
-            padding: '0 12px',
-            border: 'none',
-            borderLeft: index > 0 ? '1px solid var(--dsw-alias-border-l2)' : undefined,
-            background: option.id === value ? 'var(--dsw-alias-state-business-tertiary)' : 'transparent',
-            color: option.id === value ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-label-secondary)',
-            fontSize: 12,
-            lineHeight: '18px',
-            cursor: 'pointer',
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/**
- * Render the Catppuccin row: title, one swatch button per flavour, and a
- * follow-system button. The active flavour is highlighted; clicking a flavour
- * applies it immediately (live, no restart) and persists the choice.
+ * Render the Catppuccin row: title, one cube per flavour, and a follow-system
+ * cube. The active flavour is highlighted; clicking a flavour applies it
+ * immediately (live, no restart) and persists the choice.
  * @param props - composed slot props.
  * @returns the row element tree.
  */
@@ -267,15 +180,17 @@ export function CatppuccinRow({
   }
 
   return (
-    <div style={{ borderBottom: '1px solid var(--dsw-alias-border-l2)', display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }}>
-      <div style={{ color: 'var(--dsw-alias-label-primary)', fontSize: 14, lineHeight: '22px', display: 'flex', alignItems: 'center' }}>
+    <div className={rowCss.row} data-catppuccin-row="flavor">
+      <div className={rowCss.title}>
         {t('row.title')}
-        <HelpIcon label={t('row.helpLabel')} help={t('row.help')} />
+        <HelpBadge label={t('row.helpLabel')} help={t('row.help')} />
       </div>
-      <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
+      <div className={rowCss.desc}>
         {t('row.description')}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+
+      {/* Flavour cubes — official Appearance cube geometry (see the module CSS). */}
+      <div className={css.cubes} role="group" aria-label={t('row.title')}>
         {themes.map((flavor) => {
           const selected = choice === flavor.id
           const subtitle = subtitleText(flavor.id, t)
@@ -285,22 +200,14 @@ export function CatppuccinRow({
               type="button"
               aria-pressed={selected}
               onClick={() => void select(flavor.id)}
-              style={{
-                ...(selected ? buttonActive : buttonBase),
-                flexDirection: subtitle !== null ? 'column' : 'row',
-                alignItems: subtitle !== null ? 'flex-start' : 'center',
-                gap: subtitle !== null ? 2 : 6,
-                padding: subtitle !== null ? '5px 12px' : '6px 12px',
-              }}
+              className={selected ? `${css.cube} ${css.selected}` : css.cube}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: 3, background: flavor.accent, flex: 'none' }} />
+              <span className={css.cubeHead}>
+                <span aria-hidden="true" className={css.swatch} style={{ background: flavor.accent }} />
                 {flavor.label}
               </span>
               {subtitle !== null && (
-                <span style={{ fontSize: 10, lineHeight: '14px', color: 'var(--dsw-alias-label-tertiary)' }}>
-                  {subtitle}
-                </span>
+                <span className={css.subtitle}>{subtitle}</span>
               )}
             </button>
           )
@@ -310,57 +217,53 @@ export function CatppuccinRow({
           type="button"
           aria-pressed={choice === 'off'}
           onClick={() => void select('off')}
-          style={choice === 'off' ? buttonActive : buttonBase}
+          className={choice === 'off' ? `${css.cube} ${css.selected}` : css.cube}
         >
-          {t('row.off')}
+          <span className={css.cubeHead}>{t('row.off')}</span>
         </button>
       </div>
 
       {/* Shiki style pick (item M). */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-        <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' }}>
-          {t('row.shikiStyle')}
-        </span>
-        <Segmented
+      <div className={css.shikiRow}>
+        <span className={css.shikiLabel}>{t('row.shikiStyle')}</span>
+        <SegmentedControl
+          id="catppuccin-shiki-style"
           label={t('row.shikiStyle')}
           value={style}
           options={[
-            { id: 'default' as const, label: t('row.shikiDefault') },
-            { id: 'italic-comments' as const, label: t('row.shikiItalicComments') },
+            { value: 'default' as ShikiStyle, label: t('row.shikiDefault') },
+            { value: 'italic-comments' as ShikiStyle, label: t('row.shikiItalicComments') },
           ]}
-          onSelect={setShikiStyle}
+          onChange={(next) => { setShikiStyle(next) }}
         />
       </div>
 
       {/* Power-user token overrides (item K). */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <button
-          type="button"
+      <div className={css.overrides}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={css.selfStart}
           aria-expanded={overridesOpen}
           onClick={() => { setOverridesOpen(!overridesOpen) }}
-          style={{ ...buttonBase, alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
         >
-          {overridesOpen ? `▾` : `▸`} {t('row.overrides')} ({Object.keys(overrideMap).length})
-        </button>
+          {overridesOpen ? '▾' : '▸'} {t('row.overrides')} ({Object.keys(overrideMap).length})
+        </Button>
         {overridesOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-              {t('row.overridesHint')}
-            </div>
+          <>
+            <div className={css.hint}>{t('row.overridesHint')}</div>
             {Object.keys(overrideMap).length === 0 && draftRows.length === 0 && (
-              <div style={{ color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: '18px' }}>
-                {t('row.overridesEmpty')}
-              </div>
+              <div className={css.hint}>{t('row.overridesEmpty')}</div>
             )}
             {Object.entries(overrideMap).map(([key, value]) => (
-              <div key={key} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <div key={key} className={css.overrideRow}>
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
                   defaultValue={key}
                   onBlur={(e) => { commitPersistedKey(key, e.target.value) }}
                   placeholder="--dsw-static-blue-500"
-                  style={{ flex: '1 1 220px', ...inputBase }}
+                  className={css.overrideInput}
                 />
                 <input
                   type="text"
@@ -368,27 +271,27 @@ export function CatppuccinRow({
                   defaultValue={value}
                   onBlur={(e) => { commitPersistedValue(key, e.target.value) }}
                   placeholder="#89b4fa"
-                  style={{ flex: '1 1 140px', ...inputBase }}
+                  className={`${css.overrideInput} ${css.overrideValue}`}
                 />
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="ghost"
                   aria-label={t('row.overridesRemove')}
                   onClick={() => { removePersisted(key) }}
-                  style={{ ...buttonBase, padding: '4px 8px', fontSize: 12 }}
                 >
                   ✕
-                </button>
+                </Button>
               </div>
             ))}
             {draftRows.map((row, index) => (
-              <div key={row.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <div key={row.id} className={css.overrideRow}>
                 <input
                   type="text"
                   aria-label={t('row.overridesKey')}
                   defaultValue={row.key}
                   onBlur={(e) => { commitDraftKey(index, e.target.value) }}
                   placeholder="--dsw-static-blue-500"
-                  style={{ flex: '1 1 220px', ...inputBase }}
+                  className={css.overrideInput}
                 />
                 <input
                   type="text"
@@ -396,29 +299,30 @@ export function CatppuccinRow({
                   defaultValue={row.value}
                   onBlur={(e) => { commitDraftValue(index, e.target.value) }}
                   placeholder="#89b4fa"
-                  style={{ flex: '1 1 140px', ...inputBase }}
+                  className={`${css.overrideInput} ${css.overrideValue}`}
                 />
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="ghost"
                   aria-label={t('row.overridesRemove')}
                   onClick={() => { setDraftRows(draftRows.filter((_, i) => i !== index)) }}
-                  style={{ ...buttonBase, padding: '4px 8px', fontSize: 12 }}
                 >
                   ✕
-                </button>
+                </Button>
               </div>
             ))}
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="ghost"
+              className={css.selfStart}
               onClick={() => {
                 nextDraftId.current += 1
                 setDraftRows([...draftRows, { id: nextDraftId.current, key: '', value: '' }])
               }}
-              style={{ ...buttonBase, alignSelf: 'flex-start', fontSize: 12, padding: '4px 10px' }}
             >
               + {t('row.overridesAdd')}
-            </button>
-          </div>
+            </Button>
+          </>
         )}
       </div>
     </div>

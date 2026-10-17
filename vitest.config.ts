@@ -1,5 +1,18 @@
+import { fileURLToPath } from 'node:url'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { defineConfig } from 'vitest/config'
+
+/**
+ * Runtime alias for the official UI atom package.
+ *
+ * The real entry loads its whole atom set at module scope (katex / shiki langs /
+ * mdast / anser / diff), none of which this repo depends on — the browser
+ * resolves that module from the host's seed table instead. The stub keeps only
+ * the DOM contract the rows are tested against; the TYPE surface still comes
+ * from the real package, so `pnpm typecheck` keeps our usage honest.
+ * See tests/stubs/primitives.tsx.
+ */
+const PRIMITIVES_STUB = fileURLToPath(new URL('./tests/stubs/primitives.tsx', import.meta.url))
 
 export default defineConfig({
   plugins: [tsconfigPaths({
@@ -7,6 +20,11 @@ export default defineConfig({
       './tsconfig.vitest.json',
     ],
   })],
+  resolve: {
+    alias: {
+      '@deepseek-ai/dsh-client-ui-primitives': PRIMITIVES_STUB,
+    },
+  },
   test: {
     include: ['tests/**/*.spec.{ts,tsx}'],
     pool: 'forks',

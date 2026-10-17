@@ -1,0 +1,132 @@
+/* Flavour picker + advanced overrides (issue #27).
+ *
+ * The flavour cubes are the official Appearance row's "theme cube" geometry
+ * (ui-theme AppearanceRow.module.css): .5px border-l4, radius-xl, transparent
+ * fill, hover = interactive-bg-hover, selected = bg-module-platform +
+ * neutral-bluish-400. Two deviations, both deliberate:
+ *  - `flex: 1 1 118px` instead of `180px` — we ship FIVE choices (four flavours
+ *    + follow-system) where the official row ships three, so 180px would wrap
+ *    to three rows;
+ *  - a per-flavour subtitle sits under the label (item DD copy).
+ * Everything else (radius, stroke width, colours, hover/selected recipe) is
+ * the official one, which is what "same visual language" means here. */
+
+.cubes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cube {
+  box-sizing: border-box;
+  flex: 1 1 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-xl);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cube:hover:not(.selected) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.cube:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+
+.selected {
+  background: var(--dsw-alias-bg-module-platform);
+  border-color: var(--dsw-static-neutral-bluish-400);
+}
+
+.cubeHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.subtitle {
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Shiki style picker: label + official SegmentedControl. */
+.shikiRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.shikiLabel {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* Power-user token overrides (item K). */
+.overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.overrideRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.overrideInput {
+  flex: 1 1 200px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.overrideInput:focus-visible {
+  outline: none;
+  border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);
+}
+
+.overrideValue {
+  flex: 1 1 140px;
+}
+
+.hint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.selfStart {
+  align-self: flex-start;
+}

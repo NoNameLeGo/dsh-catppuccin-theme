@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { FLAVOR_STORAGE_KEY, apply } from '../src/client/index.ts'
 import { CatppuccinDetailCard } from '../src/client/detail-card.tsx'
+import { CatppuccinSettingsPage } from '../src/client/settings-section.tsx'
 import { CATPPUCCIN_ENTRY_ID, defaultSettingsSection } from '../src/state.ts'
 import { PACKAGE_NAME, UPDATE_CHECK_CLIENT_TIMEOUT_MS } from '../src/update-check.ts'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -189,7 +190,7 @@ describe('issue #10: flavour restore must not re-enter the theme/change dispatch
     const theme = makeThemeRuntime(ctx, themeHost)
     ctx.provide('theme', theme)
     ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     const sss = makeSettingsScope()
     ctx.provide('settingsScope', sss.service as never)
 
@@ -223,7 +224,7 @@ describe('issue #10: flavour restore must not re-enter the theme/change dispatch
     const theme = makeThemeRuntime(ctx, themeHost)
     ctx.provide('theme', theme)
     ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     const sss = makeSettingsScope()
     ctx.provide('settingsScope', sss.service as never)
 
@@ -256,7 +257,7 @@ describe('issue #15: the client boots on either settings seam', () => {
     const theme = makeThemeRuntime(ctx, themeHost)
     ctx.provide('theme', theme)
     ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     provide(ctx)
     localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
     apply(ctx)
@@ -291,7 +292,7 @@ describe('issue #15: the client boots on either settings seam', () => {
     const theme = makeThemeRuntime(ctx, themeHost)
     ctx.provide('theme', theme)
     ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
     apply(ctx)
 
@@ -316,16 +317,16 @@ describe('issue #15: the client boots on either settings seam', () => {
     ctx.provide('theme', theme)
     const { slots, registered } = makeSlots()
     ctx.provide('slots', slots as never)
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
     apply(ctx)
 
     // The user picks a flavour while the settings service is still absent —
     // at this instant the durable push has nowhere to go.
-    const row = registered.find((entry) => entry.options.id === 'catppuccin')
-    if (row === undefined) throw new Error('flavour row was not registered')
-    const face = (row.options.inject as () => { select: (choice: string) => void })()
-    face.select('catppuccin-mocha')
+    const page = registered.find((entry) => entry.name === 'settings.section')
+    if (page === undefined) throw new Error('settings page was not registered')
+    const face = (page.options.inject as () => { flavor: { select: (choice: string) => void } })()
+    face.flavor.select('catppuccin-mocha')
     await new Promise((resolve) => setTimeout(resolve, 50)) // still inside the 300 ms debounce
 
     // The service lands and its document carries an OLDER choice (frappe)
@@ -371,7 +372,7 @@ describe('Plugins-page card', () => {
     ctx.provide('theme', theme)
     const { slots, registered } = makeSlots()
     ctx.provide('slots', slots as never)
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     provide(ctx)
     localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
     apply(ctx)
@@ -391,8 +392,18 @@ describe('Plugins-page card', () => {
     expect(card?.options.key).not.toBe(CATPPUCCIN_ENTRY_ID)
     expect(card?.options.locale).toBe('catppuccin')
     expect(card?.component).toBe(CatppuccinDetailCard)
-    // Additive: the General section keeps its four rows.
-    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(4)
+    // Issue #27: the preferences live on the plugin's OWN settings page, and
+    // the General section keeps none of our rows. This pair is the regression
+    // lock for the move — either half alone would let the old placement back in.
+    const section = registered.find((entry) => entry.name === 'settings.section')
+    expect(section?.options.id).toBe('catppuccin')
+    expect(section?.options.order).toBe(25)
+    expect(section?.options.locale).toBe('catppuccin')
+    // A thunk, not a string: the shell resolves it per read, so a language
+    // switch relabels the nav row without re-registering.
+    expect(typeof section?.options.label).toBe('function')
+    expect(section?.component).toBe(CatppuccinSettingsPage)
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(0)
   })
 
   it('keys the card by the manifest package name', () => {
@@ -422,8 +433,10 @@ describe('Plugins-page card', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     expect(registered.some((entry) => entry.name === 'plugins.bundle.config')).toBe(false)
-    // The rest of the plugin still registered on this host.
-    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(4)
+    // The rest of the plugin still registered on this host: the settings page
+    // is independent of the Plugin manager's card slot.
+    expect(registered.filter((entry) => entry.name === 'settings.section')).toHaveLength(1)
+    expect(registered.filter((entry) => entry.name === 'settings.general.item')).toHaveLength(0)
   })
 
   it('registers no card on the legacy settingsScope seam', async () => {
@@ -451,7 +464,7 @@ describe('setTheme wrapper ownership (R1)', () => {
     const theme = makeThemeRuntime(ctx, themeHost)
     ctx.provide('theme', theme)
     ctx.provide('slots', { inject: () => () => {}, register: () => () => {} })
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     return { ctx, theme }
   }
 
@@ -508,13 +521,16 @@ describe('client update-check fetch discipline (R3)', () => {
     ctx.provide('theme', theme)
     const { slots, registered } = makeSlots()
     ctx.provide('slots', slots as never)
-    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {} })
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
     apply(ctx)
-    const entry = registered.find((candidate) => candidate.options.id === 'catppuccin-update')
-    if (entry === undefined) throw new Error('update row was not registered')
+    // Issue #27: the rows live on the plugin's own page, so their faces are
+    // reached through the page's injected composition rather than through a
+    // top-level General row registration.
+    const entry = registered.find((candidate) => candidate.name === 'settings.section')
+    if (entry === undefined) throw new Error('settings page was not registered')
     const face = (entry.options.inject as () => {
-      check: (channel: 'latest' | 'beta') => Promise<unknown>
-    })()
+      update: { check: (channel: 'latest' | 'beta') => Promise<unknown> }
+    })().update
     return { ctx, face }
   }
 

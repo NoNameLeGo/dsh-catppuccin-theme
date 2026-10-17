@@ -1,28 +1,12 @@
-/* Catppuccin glass row in the General settings section: title, master
- * switch, and the knob stack — same hairline separator rhythm as the shipped
- * rows; the section column strips the last one. */
+/* Catppuccin glass row (issue #27).
+ *
+ * The row shell (title / description / divider) comes from settings-row.module.css;
+ * this file owns only the control stack. The toggles and the mode picker are now
+ * official atoms (Switch / SegmentedControl), so the only hand-drawn control left
+ * is the range slider — upstream ships no slider primitive — plus the editable
+ * number box beside it, which follows the official input geometry
+ * (.5px border-l3, radius-sm, brand focus ring). */
 
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
-}
-
-.title {
-  color: var(--dsw-alias-label-primary);
-  font-size: 14px;
-  line-height: 22px;
-}
-
-.description {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-/* Controls stack: one column of rows and knobs. */
 .controls {
   display: flex;
   flex-direction: column;
@@ -30,7 +14,7 @@
   margin-top: 6px;
 }
 
-/* Label + control row (master switch / mode picker). */
+/* Label + control row (master switch / mode picker / glow). */
 .row {
   display: flex;
   align-items: center;
@@ -47,8 +31,7 @@
 
 /* Hints under a row/knob: indented to the control column so every
  * explanation lines up with the control it describes. */
-.rowHint,
-.knobHint {
+.rowHint {
   margin-top: -4px;
   margin-left: 102px;
   font-size: 12px;
@@ -56,70 +39,18 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Glass toggle switch (the master switch): a frosted track with a sliding
- * glass knob. OFF = translucent hairline glass; ON = accent-tinted glass
- * with a soft glow. With the glass layer on, the track picks up the live
- * --dsh-glass-* recipe (the frost slider moves it with the rest of the
- * skin); without it, token-derived fallbacks keep the same look. */
-.toggle,
-.toggleOn {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  width: 44px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--dsh-glass-rim-soft, var(--dsw-alias-border-l2));
-  border-radius: 12px;
-  background: var(--dsh-glass-card-raised, color-mix(in srgb, var(--dsw-alias-bg-layer-2) 55%, transparent));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(0, 0, 0, 0.25);
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+/* Preset cells: official Button (sm) atoms in a group; the active preset takes
+ * the primary variant, the others stay outlined. Deliberately NOT a
+ * SegmentedControl: the group has a "no preset matches" state (hand-tuned
+ * knobs), and SegmentedControl derives its indicator from the selected index —
+ * a value outside its options lands on -1 and pushes the indicator off-track. */
+.presetGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.toggle:hover,
-.toggleOn:hover {
-  filter: brightness(1.12);
-}
-
-.toggle:focus-visible,
-.toggleOn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, transparent);
-  outline-offset: 2px;
-}
-
-.toggleOn {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 78%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 0 10px color-mix(in srgb, var(--dsw-alias-state-business-primary) 38%, transparent);
-}
-
-/* The knob: frosted-white glass circle with a top-edge light and a soft
- * drop; it rides the track and carries a small check while on. */
-.check {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.82));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  color: var(--dsw-alias-state-business-primary);
-  font-size: 10px;
-  line-height: 1;
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.toggleOn .check {
-  transform: translateX(22px);
-}
-
-/* Knob: label, slider, number box + unit. */
+/* Slider + number box. */
 .knob {
   display: flex;
   align-items: center;
@@ -137,88 +68,76 @@
 .slider {
   flex: 1;
   min-width: 0;
-  accent-color: var(--dsw-alias-state-business-primary);
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--dsw-alias-state-business-primary) 0 var(--fill, 0%),
+    var(--dsw-alias-bg-layer-3) var(--fill, 0%) 100%
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-elevation-soft);
+}
+
+.slider:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
 .numberWrap {
-  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  flex: none;
 }
 
+/* Editable value: text input, not `type=number` — the native spinner would sit
+ * inside the same 52px box and fight the drag handle (and cannot be themed). */
 .number {
-  width: 56px;
-  height: 26px;
-  padding: 0 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-2);
-  font-size: 12px;
-  line-height: 18px;
+  width: 52px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
   color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 26px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.number::-webkit-outer-spin-button,
-.number::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.number:focus-visible {
+  outline: none;
+  border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 35%, transparent);
 }
 
 .unit {
   flex: none;
-  width: 18px;
+  width: 14px;
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
-}
-
-/* Segmented picker: two cells in a hairline frame. */
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.seg,
-.segActive {
-  height: 26px;
-  padding: 0 12px;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-}
-
-.seg + .seg,
-.segActive + .seg,
-.seg + .segActive {
-  border-left: 1px solid var(--dsw-alias-border-l2);
-}
-
-.segActive {
-  background: var(--dsw-alias-state-business-tertiary);
-  color: var(--dsw-alias-state-business-primary);
-}
-
-/* Reset-to-defaults ghost button at the end of the knob stack. */
-.resetButton {
-  height: 26px;
-  padding: 0 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: transparent;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-}
-
-.resetButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
 }

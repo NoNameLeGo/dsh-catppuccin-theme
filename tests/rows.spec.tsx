@@ -16,6 +16,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { CatppuccinRow, type CatppuccinRowProps } from '../src/client/CatppuccinRow.tsx'
 import { CatppuccinDetailCard, type CatppuccinDetailCardProps } from '../src/client/detail-card.tsx'
 import { GlassRow, type GlassRowProps } from '../src/client/glass/glass-row.tsx'
+import { CatppuccinSettingsPage, type CatppuccinSettingsPageProps } from '../src/client/settings-section.tsx'
 import { ISSUES_URL, LinksRow, REPO_URL, type LinksRowProps } from '../src/client/LinksRow.tsx'
 import { UPDATE_RETRY_AFTER_MS, UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
 import type { UpdateChannel } from '../src/update-check.ts'
@@ -369,24 +370,26 @@ describe('UpdateRow auto-retry (audit F6)', () => {
   })
 })
 
-describe('GlassRow presets tab stop (audit F3)', () => {
-  // `value` is the active preset id, or '' when the knobs are hand-tuned. The
-  // roving tabindex anchored on it, so a custom combination left EVERY cell at
-  // -1 and the group dropped out of the tab order entirely.
-  it('keeps exactly one tab stop when the knobs match no preset', () => {
+describe('GlassRow presets (issue #27)', () => {
+  // The group used to be a hand-rolled roving-tabindex segmented control whose
+  // anchor fell to -1 when the knobs matched no preset (audit F3). Issue #27
+  // replaced it with official Button atoms: every cell is a native tab stop, so
+  // the group can never drop out of the tab order, and the active preset is
+  // announced with aria-pressed instead of position.
+  it('leaves every preset reachable when the knobs match no preset', () => {
     render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 7, frost: 33, brightness: 50, dark: true })} />)
     const cells = presetCells()
     expect(cells).toHaveLength(3)
-    expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
-    expect(cells[0]?.tabIndex).toBe(0) // the first cell is the fallback anchor
+    expect(cells.every((cell) => cell.tabIndex === 0)).toBe(true)
+    expect(cells.filter((cell) => cell.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
   })
 
-  it('anchors on the matching preset when there is one', () => {
+  it('marks the matching preset as pressed', () => {
     // blur 5 / frost 20 / brightness 50 === the shipped "standard" preset.
     render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })} />)
     const cells = presetCells()
-    expect(cells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1)
-    expect(cells[1]?.tabIndex).toBe(0)
+    expect(cells.filter((cell) => cell.getAttribute('aria-pressed') === 'true')).toHaveLength(1)
+    expect(cells[1]?.getAttribute('aria-pressed')).toBe('true')
   })
 })
 
@@ -429,6 +432,55 @@ describe('GlassRow knobs', () => {
     // the contract is value+unit, not a phrase.
     const ranges = screen.getAllByRole('slider')
     expect(ranges.map((range) => range.getAttribute('aria-valuetext'))).toEqual(['14px', '20%', '30%'])
+  })
+})
+
+describe('GlassRow knob value box (issue #27)', () => {
+  /** Mount the row and return the blur box plus the injected writer spies. */
+  function mountKnob(value = 14) {
+    const props = makeGlassRow({ enabled: true, mode: 'mica', blur: value, frost: 20, brightness: 30, dark: true })
+    render(<GlassRow {...props} />)
+    return { props, box: screen.getByRole('textbox', { name: t('glass.blur') }) }
+  }
+
+  it('does not write while the user is still typing', () => {
+    const { props, box } = mountKnob()
+    fireEvent.change(box, { target: { value: '22' } })
+    expect(props.setBlur).not.toHaveBeenCalled()
+  })
+
+  it('commits the typed value on Enter and clamps it to the axis', () => {
+    const { props, box } = mountKnob()
+    fireEvent.change(box, { target: { value: '99' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(props.setBlur).toHaveBeenCalledWith(40)
+  })
+
+  it('commits on blur and snaps to the 0.5 step', () => {
+    const { props, box } = mountKnob()
+    fireEvent.change(box, { target: { value: '7.3' } })
+    fireEvent.blur(box)
+    expect(props.setBlur).toHaveBeenCalledWith(7.5)
+  })
+
+  it('drops garbage and Escape drafts without writing', () => {
+    const { props, box } = mountKnob()
+    fireEvent.change(box, { target: { value: 'abc' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(props.setBlur).not.toHaveBeenCalled()
+
+    fireEvent.change(box, { target: { value: '12' } })
+    fireEvent.keyDown(box, { key: 'Escape' })
+    expect(props.setBlur).not.toHaveBeenCalled()
+    expect((box as HTMLInputElement).value).toBe('14')
+  })
+
+  it('steps by the axis step with the arrow keys', () => {
+    const { props, box } = mountKnob()
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(props.setBlur).toHaveBeenLastCalledWith(14.5)
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    expect(props.setBlur).toHaveBeenLastCalledWith(13.5)
   })
 })
 
@@ -514,5 +566,45 @@ describe('LinksRow (feedback & support)', () => {
       expect(link.getAttribute('target')).toBe('_blank')
       expect(link.getAttribute('rel')).toContain('noreferrer')
     }
+  })
+})
+
+/**
+ * The settings page (issue #27) is a composition, not a fifth implementation:
+ * it adds the page heading on top of the very rows the detail card stacks. The
+ * tests pin both facts — the heading copy and the row order — because a
+ * reordering here silently changes what the Settings nav entry opens.
+ */
+describe('settings page (issue #27)', () => {
+  function makePageProps() {
+    return {
+      t,
+      close: () => {},
+      flavor: makeRow().props,
+      glass: makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true }),
+      update: {
+        t,
+        check: async () => null,
+        autoCheck: () => false,
+        setAutoCheck: vi.fn(),
+        channel: () => 'latest',
+        setChannel: vi.fn(),
+        subscribePrefs: () => () => {},
+        lastAutoResult: () => null,
+        subscribeConflict: () => () => {},
+        conflictCount: () => 0,
+        activeLocale: () => 'zh-CN',
+        subscribeLocale: () => () => {},
+      },
+    } as unknown as CatppuccinSettingsPageProps
+  }
+
+  it('renders the page heading and the four rows in order', () => {
+    const { container } = render(<CatppuccinSettingsPage {...makePageProps()} />)
+    expect(container.querySelector('[data-catppuccin-settings]')).not.toBeNull()
+    expect(container.querySelector('h2')?.textContent).toBe(t('page.title'))
+    const rows = [...container.querySelectorAll('[data-catppuccin-row]')]
+      .map((row) => row.getAttribute('data-catppuccin-row'))
+    expect(rows).toEqual(['flavor', 'glass', 'update', 'links'])
   })
 })
