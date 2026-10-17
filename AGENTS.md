@@ -6,6 +6,17 @@
 > 硬约束（**不要 commit / push / 发版**）。另见同目录 `PLAN.md`（诊断与方案）与 `out/INDEX.md`（对比图索引）。
 > 该块是临时的：本轮工作落地发版后删掉本段即可（`git checkout -- AGENTS.md` 亦可）。
 
+> ⏸ **可选改动：做之前必须先让维护者选**。issue #28 有两条路，**只有 A 被批准做了**：
+>
+> - **A（已实施，已提交 `0ce81ff`，尚未发版）**：给输入卡下方的 dock 行（模型 / 统计 / 上下文用量）
+>   补一条地面色背板带，解决滚动正文穿透状态栏。文档 `docs/issue-28-composer-dock-backdrop.md`。
+> - **B（只是方案，未实施、不得自行开工）**：把输入卡与 dock 合成**一个** 24px 圆角框、中间加一条
+>   发丝分割线，并做成设置里的开关（默认关 = A 的观感）。全量方案在
+>   `docs/issue-28-fused-composer-plan.md`（CSS 草案 / 8 处改点 / 测试与变异 / 风险 / 约 3–4 小时）。
+>
+> **硬规矩**：B 属于特性（`0.7.0`），**动手前必须让维护者明确回答「做 / 不做」**。没点头就只读方案，
+> 不要改代码、不要 commit、不要顺手「顺便把开关加上」。同样地，B 的文档更新不等于批准实施。
+
 给本仓库的 Agent（以及人类维护者）的项目速览与发版 SOP。开始改代码前请先读「项目定位与核心目标」与「项目身份速览」，**惯例是这里踩过坑的集结点**；文末「与报告人协作」「本机测量资产」两节是本轮（issue #12 / #13）新增的。
 
 ## 项目定位与核心目标（判断「该不该做」的准绳）
@@ -446,6 +457,8 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - **启动级 e2e**：`scripts/e2e-boot-check.cjs`（**在仓库里**，不是本机探针目录）。做法：临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>` → `dsh web --no-open --port 0`（token 在 stdout）→ 走掉宿主首次运行引导（2 步：内测声明「继续」、API Key「稍后配置」）→ 打开设置断言行/风味/玻璃开关，并采样**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 下浮动面有 rim 而 `panel` 不被描边、**issue #16：右侧栏容器关闭态不得有 blur**——真会话下查宿主渲染出来的 `[data-sidebar-right-panel]`，新 `DSH_HOME` 无会话时跳过；另有**不依赖会话**的合成 markup 版本，往真页里塞一份 `P3OORG_panel` + `P3OORG_panelBody` 读计算样式，真 Chromium 真样式表，带「容器外的同名类仍必须被模糊」的对照组）。本地跑法：`pnpm build` 后 `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node scripts/e2e-boot-check.cjs`（想验证某个具体 DSH 版本就加 `DSH_BIN=<该版本>/node_modules/@deepseek-ai/dsh/lib/bin.js`）。**刻意不做整图 diff**（理由与方案取舍见 `docs/plugin-improvements.md` §3.9）。已知边界：新 `DSH_HOME` 没有工作区/会话 ⇒ PP 选中行采样**会跳过并打印 skipped**（不会假绿）；改过视觉后仍应手动重出四风味预览（上一条）。**2026-09-27 在 `0.1.7-rc.2` 上实测的三个坑都已在脚本里修掉**（别再改回去）：① 首次运行向导是多包拼的多步流程，**步骤切换的间隙整棵子树会短暂脱离 `role=dialog[aria-modal]`**，只看 dialog 会在第一步「继续」后就收工，之后每次点击都被残留的 `_mask_*` 遮罩拦下（30s 超时）⇒ 找不到 dialog 时按按钮文案在全页找、并轮询到遮罩消失；② **「兼容模式」那一次点击会静默不生效**，于是它下面所有 compat 断言都在「compat 其实没开」的状态下取样（rim 找不到 / `panel` 没描边 / 右侧栏没 blur 一起假绿）⇒ 必须轮询到 html 真挂上 `data-dsh-glass-compat` 再往下，并把这个切换本身也断出来；③ 本机 `%LOCALAPPDATA%\ms-playwright` 被清空时退到**系统 Chrome** 并加 `--no-proxy-server`（本机沙箱的 `HTTP_PROXY` 会吃掉 localhost）。另外：临时 `DSH_HOME` **可能会自动建出一个默认会话**（本机 rc.2 实测有），所以右侧栏那条真机断言不一定跳过——它跳过时说 skipped，跑到了就给出真数字。
 - **「已实现」≠「接线正确」（2026-09-22 审计教训）**：那轮两个 P1——跨窗口旋钮不同步、读侧陈旧写保护恒不成立——都通过了类型检查与当时全部 158 条用例，因为缺陷恰好落在**没有事件穿过的分支**（`event.key in NUMERIC_KEYS` 判的是属性名）和**时序假设**（两次 `getSnapshot()` 在同一同步块）上，只读代码看不出来。改交互/持久化代码时补两类测试：**接线测试**（每个 `if`/`switch` 分支至少被一个真实事件穿过——例：`tests/glass-layer.spec.ts` 把 `storage` 处理器的每个分支各走一遍）与**时序测试**（用可注入的 revision 模拟「防抖窗口内先被外部改过」——例：`createBaseRevisionTracker` 的用例）。修 bug 时**默认用变异测试证明新断言会红**（改回旧写法跑一遍），完整清单见 `docs/code-audit-2026-09-22.md`。
 - 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。**`rm` 也被 shim 拦**：删文件用 `node -e "require('node:fs').unlinkSync('x')"`。
+
+- **可选改动项要先问维护者**：`docs/issue-28-fused-composer-plan.md`（issue #28 的 **B 方案**——输入卡与 dock 合成一个圆角框 + 中间分割线 + 设置里的开关，默认关，特性 / `0.7.0`）**只是方案，未批准实施**。任何会话都不要自行开工、不要「顺手把开关加上」，先让维护者明确回答「做 / 不做」。同一 issue 的 **A 方案**（dock 补背板，修复 / `0.6.x`）已实施并提交 `0ce81ff`、尚未发版。
 
 ## 与报告人协作（issue / 评论 / 关闭）
 
