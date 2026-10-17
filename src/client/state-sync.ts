@@ -13,11 +13,12 @@
  *  - `ctx.settingsScope` (<= 0.1.6-alpha.2): a namespace the Host half
  *    registered, bound with `settingsScope.bind({ namespace })`.
  *
- * The two are not alike at the type level, but their SNAPSHOTS are
- * field-for-field identical (`status / value / base / user / revision /
- * writable / mode`), so one {@link DurableScope} interface covers both. Their
- * three behavioural differences are confined INSIDE the channel objects and
- * are deliberately not reachable by callers:
+ * The two are not alike at the type level, but their SNAPSHOTS agree field by
+ * field (`status / value / base / user / revision / writable`, plus `mode` on
+ * everything up to 0.2.0 — 0.2.1 dropped it, see
+ * {@link DurableSnapshot.mode}), so one {@link DurableScope} interface covers
+ * both. Their three behavioural differences are confined INSIDE the channel
+ * objects and are deliberately not reachable by callers:
  *
  *  1. "no user layer yet" — the new form's `user` is the profile patch's
  *     `override`, which defaults to `{}` (so `!== undefined` never fires
@@ -82,8 +83,24 @@ export interface DurableSnapshot<T> {
   /** Whether the Host document accepts writes; memory mode never does. */
   writable: boolean
   /** `host` syncs with the Host document; `memory` keeps a remote browser
-   *  process-local. */
-  mode: 'host' | 'memory'
+   *  process-local.
+   *
+   *  ⚠️ **OPTIONAL since DSH 0.2.1** — and an ABSENT value means `host`, not
+   *  `memory`. Upstream deleted the whole "pick the store by page locality"
+   *  branch in `fix(web): persist authenticated browser preferences on the
+   *  Host` (PR #4201, 2026-10-09): the `ConfigForm` constructor lost its
+   *  `persistence` argument, the snapshot stopped carrying `mode`, and the
+   *  mirror's state space narrowed to `idle | loading | ready`. The agent note
+   *  spells out that keeping the memory branch was **rejected**, so there is no
+   *  host left in the wild that reports `memory` on the new channel — but the
+   *  legacy `settingsScope` seam (<= 0.1.6) still does, which is why the field
+   *  stays in the type instead of being deleted outright.
+   *
+   *  Do NOT "fix" this back to a required field or test it with `=== 'host'`:
+   *  on 0.2.1 that makes every scope unusable and silently turns the durable
+   *  layer off (settings stop reaching `cordis.patch.yml`, the saved section is
+   *  never adopted). Measured on the live desktop shell, 2026-10-17. */
+  mode?: 'host' | 'memory'
 }
 
 /** How one write ended. `refused` is only observable on the new channel. */
@@ -120,11 +137,15 @@ const UNBOUND_SNAPSHOT: DurableSnapshot<never> = {
 }
 
 /** Whether the scope is usable for durable persistence: the document is
- *  resolved (`ready`) and the Host persistence is active (`host`). A `memory`
- *  scope (non-loopback pages / absent transport) or a not-yet-ready one is
- *  NOT usable — the caller keeps localStorage as the only store. */
+ *  resolved (`ready`) and no seam reported the process-local `memory` store.
+ *  A not-yet-ready snapshot is NOT usable — the caller keeps localStorage as
+ *  the only store.
+ *
+ *  An ABSENT `mode` is `host` (DSH 0.2.1 removed the field together with the
+ *  memory branch — see {@link DurableSnapshot.mode}); an explicit `memory`
+ *  (legacy `settingsScope`, <= 0.1.6) is still unusable. */
 export function isScopeUsable(snapshot: DurableSnapshot<unknown>): boolean {
-  return snapshot.status === 'ready' && snapshot.mode === 'host'
+  return snapshot.status === 'ready' && snapshot.mode !== 'memory'
 }
 
 /** The local state contract (with the synthetic `version`) for a usable

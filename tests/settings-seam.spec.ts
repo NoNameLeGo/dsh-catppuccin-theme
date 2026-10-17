@@ -27,7 +27,7 @@ import {
   Config,
   maybeVolatile,
 } from '../src/settings-catppuccin.ts'
-import { createDurableScope, isScopeUsable } from '../src/client/state-sync.ts'
+import { createDurableScope, durableStateFromSnapshot, isScopeUsable } from '../src/client/state-sync.ts'
 
 const repoFile = (relative: string): string =>
   readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8')
@@ -322,5 +322,60 @@ describe('hasUserLayerSection', () => {
     expect(hasUserLayerSection(null)).toBe(false)
     expect(hasUserLayerSection([])).toBe(false)
     expect(hasUserLayerSection({ flavor: 'off' })).toBe(true)
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * DSH 0.2.1 dropped `mode` — and with it the whole memory branch
+ *
+ * `fix(web): persist authenticated browser preferences on the Host`
+ * (PR #4201) removed the `persistence` argument from `ConfigForm`, stopped
+ * writing `mode` into the snapshot, and narrowed the mirror's state space to
+ * `idle | loading | ready`. The agent note for that change records that
+ * keeping the memory branch was explicitly REJECTED, so no host on the new
+ * channel can ever report `memory` again — an absent field therefore means
+ * `host`, and reading it as "not host" silently turns the durable layer off
+ * (`isScopeUsable` false => nothing is written to the profile document and
+ * the saved section is never adopted). Measured on the 0.2.1 desktop shell.
+ * ------------------------------------------------------------------ */
+
+describe('snapshot shape across DSH versions', () => {
+  /** A snapshot as the seam reports it, minus the version-specific `mode`. */
+  const shaped = (over: Record<string, unknown> = {}) => ({
+    status: 'ready' as const,
+    value: defaultSettingsSection(),
+    base: defaultSettingsSection(),
+    user: {},
+    revision: 7,
+    writable: true,
+    ...over,
+  })
+
+  it('treats an absent mode as host (the 0.2.1 shape)', () => {
+    expect(isScopeUsable(shaped())).toBe(true)
+  })
+
+  it('keeps an explicit memory scope unusable (the <= 0.1.6 shape)', () => {
+    expect(isScopeUsable(shaped({ mode: 'memory' }))).toBe(false)
+  })
+
+  it('accepts an explicit host scope (the 0.1.7 - 0.2.0 shape)', () => {
+    expect(isScopeUsable(shaped({ mode: 'host' }))).toBe(true)
+  })
+
+  it('refuses a snapshot that has not resolved, whatever mode it carries', () => {
+    expect(isScopeUsable(shaped({ status: 'loading' }))).toBe(false)
+    expect(isScopeUsable(shaped({ status: 'unavailable' }))).toBe(false)
+    expect(isScopeUsable(shaped({ status: 'unavailable', mode: 'host' }))).toBe(false)
+  })
+
+  it('reads the durable section out of a 0.2.1 snapshot', () => {
+    const state = durableStateFromSnapshot(shaped() as never)
+    expect(state).not.toBeNull()
+    expect(state?.flavor).toBe(defaultSettingsSection().flavor)
+  })
+
+  it('refuses to read a 0.2.1 snapshot that still says memory', () => {
+    expect(durableStateFromSnapshot(shaped({ mode: 'memory' }) as never)).toBeNull()
   })
 })

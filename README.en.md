@@ -55,9 +55,9 @@ community DSH Desktop — both on the same `desktop` profile) and
 glass skin on Web / Desktop, and the four official theme palettes auto-synced to the TUI.
 
 It ships all four Catppuccin flavours — **Latte**, **Frappé**, **Macchiato**, **Mocha** —
-remapping the whole interface to the matching palette, with a **Catppuccin** row right below
-**Settings → General → Appearance** for one-click switching. Your choice is persisted and
-restored after restarts.
+remapping the whole interface to the matching palette, with a **settings section of its own**
+(**Settings → Catppuccin**: flavour, code highlighting, token overrides, glass, update check).
+Your choice is persisted and restored after restarts.
 
 It also includes an optional **glassmorphism** skin: the top bar, sidebar, composer,
 trajectory view, chat bubbles and the new-session button become frosted-glass
@@ -221,8 +221,8 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 ## Usage
 
 1. Open the Web GUI (default `http://127.0.0.1:3080`), or the DSH Desktop app.
-2. Go to **Settings → General**.
-3. Find the **Catppuccin** row below **Appearance** and pick a flavour:
+2. Open **Settings** and pick **Catppuccin** in the left nav (its own section, after the official ones).
+3. Under **Theme**, pick a flavour:
    **Latte** (light), **Frappé**, **Macchiato** or **Mocha** (dark).
 4. Choosing **Follow system** reverts to the official theme — it restores the preference
    you had before enabling Catppuccin (light / dark / follow system) instead of forcing a reset.
@@ -243,7 +243,7 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 
 ### Glass skin
 
-Right below the **Catppuccin theme** row in **Settings → General** you'll find the **Glass** row:
+The **Glass** section lives on the **Settings → Catppuccin** page:
 
 - **Master switch**: on — the top bar, sidebar, composer and trajectory view
   become frosted glass; off — the UI reverts to stock instantly (no refresh needed).
@@ -265,7 +265,7 @@ Glass colours follow the active theme live; all settings persist across restarts
 
 ### Check for plugin updates
 
-In **Settings → General**, right below the **Glass** row:
+On the **Settings → Catppuccin** page, below **Glass**:
 
 - Clicking **Check for updates** compares the latest npm version with the installed one:
   up to date → shows the current version; newer → shows the new version plus a copyable
@@ -426,7 +426,7 @@ link debugging; state-contract migration rules are in
   knob persist the same way. Since 0.5.0, a legacy `catppuccin-state.json` is migrated
   into the official settings once on first launch (the file is kept as a rollback copy).
 - **Q: "How do I know if this plugin has a new version?"**
-  A: Settings → General → **Check Catppuccin plugin updates** compares against npm in one
+  A: Settings → Catppuccin → **Check for updates** compares against npm in one
   click and gives a copyable upgrade command; or run
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin` manually (re-`add` the
   latest version works too). **Desktop depends on which shell you use**: the community

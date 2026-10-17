@@ -8,7 +8,24 @@
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-18
+
+> 本版 = `0.6.3-beta.0/.1` **转正** + issue #27（设置独立分区）+ issue #28（输入卡下方状态栏补背板）
+> + 上游 DSH 0.2.1 适配（settings seam 的 `mode` 被上游删除，插件一度改设置不落盘）。
+
 ### 变更
+
+- **设置项从「通用设置」收敛到独立分区，控件改用官方原子件（issue #27，2026-10-17）**。
+  报告人指出四条设置行平铺在「通用设置」里，与官方原生设置项混排——视觉割裂、层级混乱、
+  可发现性差。改法不是"再多注册一个行"，而是**换座位**：注册 `settings.section`
+  （导航项「**Catppuccin**」，`order 25`，排在官方节之后；页内标题「Catppuccin 外观设置」），
+  同时**删掉**原来 4 条 `settings.general.item` 注册——两处入口并存会立刻回到"平铺"的问题。
+  控件换成 `@deepseek-ai/dsh-client-ui-primitives` 的 `Switch` / `SegmentedControl` / `Button`
+  （引官方件而不是另起一套仿制品，`docs/web-styling.zh.md` 的组件规则要求）；风味选择按官方
+  theme cube 规格重绘；滑块上游没有原子件，保留 `range` 但右侧数值改成可手输的输入框。
+  插件详情页（`plugins.bundle.config`）那张卡片保留，作为第二个入口。`settings.section`
+  自 `0.1.5-rc.3`（本插件兼容下限）就存在，**不需要**为旧宿主做降级回退。
+  取舍与取证见 `docs/issue-27-settings-section.md`。
 
 - **地面氛围层：纯色底 → 同色系渐变 + 两枚静态柔光斑（issue #25）**（2026-10-15）。
   报告人（`TWFU-wcy`）指出「纯色背景下毛玻璃效果不明显，界面失去层次感」。根因两层：
@@ -36,9 +53,26 @@
   实现要点：光斑 alpha 在 `background` 里**内联**乘 `--dsh-glass-glow`（#25 的失效传播陷阱：
   经中间变量不重算），wash 不读这个开关；亮度拉满仍使整场塌缩回纯白 / 纯黑。
   ⚠️ **默认值变更**：0.6.3-beta.0 的「有光斑」不再是默认观感；想要旧观感在
-  设置 → 通用设置 → 玻璃质感里打开开关即可。
+  设置 → Catppuccin → 玻璃质感里打开开关即可。
 
 ### 修复
+
+- **适配上游 0.2.1：设置不再「改了不落盘」（2026-10-17）**。DSH **0.2.1-rc.2** 删掉了 settings
+  快照里的 `mode` 字段——`fix(web): persist authenticated browser preferences on the Host`
+  （PR #4201）把「按页面本地性选存储」整条分支拿掉了，官方 agent note 里明确写「表单快照不携带
+  mode」，并**否决**了保留内存模式的替代方案。插件原判据是 `status === 'ready' && mode === 'host'`，
+  在 0.2.1 上 `mode` 恒为 `undefined` ⇒ **可用性恒假**：改任何设置都只写进 localStorage，
+  `cordis.patch.yml` 永不更新，启动时也不再采纳已保存的 section（单窗口下几乎无感，换窗口 /
+  重装 profile / 清浏览器存储才暴露）。修法：`mode` 改可选，语义改成「缺失 = Host」，
+  判据 `status === 'ready' && mode !== 'memory'`（显式 `memory` 仍不可用，兼容 ≤ 0.1.6 的
+  `settingsScope` 通道）。护栏 = `tests/settings-seam.spec.ts` 的「snapshot shape across DSH
+  versions」6 条（缺 `mode` / 显式 `memory` / 显式 `host` / 未就绪三态 / 读取 section 两个方向）。
+  真机验收（0.2.1-rc.2 官方桌面壳）：修复前切「地面光斑」开关，DOM 与 localStorage 都变而
+  `cordis.patch.yml` 的 mtime/md5 纹丝不动；修复后同一操作文件被改写（`glow: false → true`），
+  重启后值仍在；再把文档手改回 `false` 重启，插件跟着回退（「文档胜出」的采纳语义同时验过）。
+  审计全量见 `docs/desktop-0.2.1-adaptation-audit.md`。⚠️ **一次性提醒**：0.2.1 测试期内
+  改过设置的话，升级后第一次启动会回到 profile 里最后成功保存的值（断链期间只写进了
+  localStorage 的那部分会被文档覆盖）。
 
 - **输入框下的状态栏不再「透明成一行」——滚动正文不再穿透（issue #28，2026-10-17）**。
   报告人指出：模型 / 上下文用量那一行（`InputBar` 的 dock）完全没有背景，往上滚历史消息时
@@ -213,6 +247,20 @@
   空白（帧亮度 18.0 对常态 22.7~25.0）；对照（只注入 `animation: none`）opacity 恒 1.000、
   零动画事件。护栏 = `glass-css.spec.ts`「the conversation roots must never animate」
   断言。根因与取证详见 `docs/issue-24-switch-flicker.md`。
+
+### 其他
+
+- **工具链与兼容声明对齐上游 0.2.1 线**（2026-10-17）。`devDependencies` 里的 11 个
+  `@deepseek-ai/dsh-*` 全部由 `0.2.0-rc.2` 升到 `0.2.1-rc.2`（含 issue #27 新引入的
+  `dsh-client-ui-primitives`），`pnpm typecheck` / `typecheck:tests` 在**新版类型**下零漂移。
+  删掉 `@deepseek-ai/dsh-invariants`——这是**补 0.2.0 的作业**：官方
+  `docs/upgrade-guide/v0.2.0-rc.2/remove-runtime-invariants` 的迁移第 3 条就要求从 `package.json`
+  移除，当时漏读；0.2.1 不再发布该版本，全仓库也没有任何 import。新增 `engines.dsh`
+  声明（`>=0.1.5-rc.1`，与 `dsh.compatibility.dsh` 同口径）：上游
+  `docs/upgrade-guide/v0.2.1-alpha.3/plugin-engines-dsh` 说明兼容判定正从 `peerDependencies`
+  迁到 `engines.dsh`——有它就只认它、忽略 peer，缺失才回落 peer（我们本来靠回落"永远兼容"，
+  但回落迟早会消失）。`dsh.compatibility` 补 `0.2.1-rc.2` 的 `compatible` 与操作记录
+  （`install` / `start` 已过，`uninstall` / `rollback` 仍未实测，照旧标 `unknown`）。
 
 ## [0.6.2] - 2026-10-13
 

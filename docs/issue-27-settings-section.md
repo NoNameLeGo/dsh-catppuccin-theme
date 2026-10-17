@@ -1,6 +1,6 @@
 # issue #27 — 设置项从「通用设置」收敛到独立分区
 
-> 状态：**方案定稿，未实施**（2026-10-17）。
+> 状态：**已实施**（2026-10-17，提交 `00fce96`；随 `0.6.3-beta.3` 发布）。
 > 取证环境：本机 `@deepseek-ai/dsh` 0.2.0-rc.2 / 0.2.1-rc.2（`%APPDATA%\DSH\data\versions`）、
 > 旧版 tarball `dsh-client-ui-settings-general@0.1.5-rc.3` / `0.1.7-rc.1`（`.cache/issue27/`）、
 > 官方桌面壳 `D:\PROGRAM\DeepSeek Harness\resources\app.asar`、参考插件 `@michengai/dsh-skills-manager@1.2.3`。

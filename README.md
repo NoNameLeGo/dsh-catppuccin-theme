@@ -52,8 +52,9 @@
 Web / 桌面端做全界面换色与玻璃质感，TUI 端自动同步四套官方主题色板。
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
-把整个界面的配色都换成对应的 Catppuccin 色板；并在 **设置 → 常规 → 外观**
-下方提供一行 **Catppuccin** 快捷切换，选择会自动保存、重启自动恢复。
+把整个界面的配色都换成对应的 Catppuccin 色板；并在设置里拥有**自己的独立分区**
+（**设置 → Catppuccin**：风味、代码高亮、自定义覆盖、玻璃质感、更新检查都在这一页），
+选择会自动保存、重启自动恢复。
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
 输入框、轨迹视图、聊天气泡、新会话按钮都变成磨砂玻璃卡片，
@@ -193,8 +194,8 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 ## 使用
 
 1. 打开 Web GUI（默认 `http://127.0.0.1:3080`）；在 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 中则直接打开桌面应用即可。
-2. 进入 **设置 → 常规**。
-3. 在 **外观** 区域下方找到 **Catppuccin** 行，选择主题：
+2. 打开 **设置**，在左侧导航里点 **Catppuccin**（官方各节之后的独立分区）。
+3. 在 **主题** 区域选择风味：
    **Latte**（浅色）、**Frappé**、**Macchiato** 或 **Mocha**（深色）。
 4. 选择 **跟随系统** 则回退到官方主题——会还原你启用 Catppuccin 之前
    的官方偏好（浅色 / 深色 / 跟随系统），而不是强制重置。
@@ -203,7 +204,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 > （Catppuccin 主题 / 玻璃质感 / 检查更新 / 反馈与支持）——两处读写的是同一份偏好，改哪边都一样。
 > 该区域由宿主（≥ `0.2.0-rc.2` 的插件详情页）提供，更旧的版本上没有。
 
-### Catppuccin 行里的其它选项
+### 代码高亮与自定义覆盖
 
 - **代码高亮风格**：默认 / **注释斜体**（italic-comments）——只影响代码块与 diff 的 shiki 高亮配色。
 - **自定义覆盖**（折叠区，按钮上显示已有条数）：按「`--dsw-* 变量: 值`」逐条覆盖单个 token，
@@ -212,7 +213,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 ### 玻璃质感
 
-在 **设置 → 常规** 的 **Catppuccin 主题** 正下方找到 **玻璃质感** 行：
+在 **设置 → Catppuccin** 页里找到 **玻璃质感** 区域：
 
 - **总开关**：开启后顶栏、侧边栏、输入框、轨迹视图变为磨砂玻璃；
   关闭即完全还原原生界面（无需刷新）。
@@ -234,7 +235,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 
 ### 检查 Catppuccin 插件更新
 
-在 **设置 → 常规** 的 **玻璃质感** 正下方找到 **检查 Catppuccin 插件更新** 行：
+在 **设置 → Catppuccin** 页的 **玻璃质感** 下方找到 **检查更新** 区域：
 
 - 点击 **检查更新** 即对比 npm 上的最新版与当前版本：已是最新 → 显示当前
   版本号；发现新版 → 显示新版本号并给出可复制的升级命令（命令中的 profile
@@ -327,7 +328,7 @@ console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColo
 | DSH | `>=0.1.5-rc.1`（同时适配两套 settings seam：≤ `0.1.6-alpha.2` 的旧通道与 ≥ `0.1.7-alpha.1` 的 `configForms`） |
 | Node.js | `>=20` |
 | Profile | `web`（Web GUI 与两个桌面壳都启动 web 界面，共用本插件）；桌面端默认 profile 名为 `desktop`（已声明） |
-| 已验证的具体版本 | `0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
+| 已验证的具体版本 | `0.2.1-rc.2`：官方桌面壳真机验收——插件正常启动、token 逐项生效、玻璃配方完整，**改设置真写回 `cordis.patch.yml`（修复前不写）**、重启后从文档采纳回来（[审计](docs/desktop-0.2.1-adaptation-audit.md)）；`0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
 
 以上也是 `package.json` 里 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）的机器可读版本。
 色彩覆盖以 `dsh-v0.2.0-rc.2` 的 `design-platform.css` 为基线：每方案 190 个 `--dsw-*` token（static 77 /
@@ -387,7 +388,7 @@ CHANGELOG 草稿由 `pnpm changelog:gen` 从 conventional 提交里产出。
   就会出现。逐项实测读数与上游代码坐标见
   [docs/issue-18-narrow-sidebar.md](docs/issue-18-narrow-sidebar.md)。
 - Q: **_"怎么知道这个插件有没有新版本？"_**
-  A: 设置 → 常规 → **检查 Catppuccin 插件更新** 一键检测本插件在 npm 上的最新版本，
+  A: 设置 → Catppuccin → **检查更新** 一键检测本插件在 npm 上的最新版本，
   发现新版会给出可复制的升级命令；也可以随时手动执行
   `dsh plugin --profile web update @nonamelego/dsh-catppuccin`
   （或重新 `add` 最新版）。
