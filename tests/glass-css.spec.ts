@@ -1269,3 +1269,45 @@ describe('stylesheet integrity (2026-10-16)', () => {
     ).toEqual([])
   })
 })
+describe('composer dock backing: the stats row gets the ground back (issue #28)', () => {
+  // The seat rule above this block drops stock's whole backing on purpose
+  // (`linear-gradient(0 → --dsw-alias-bg-base 36px)`): an opaque slab behind
+  // the CARD would kill its frost, which is the reason the skin exists. But the
+  // dock row (model / stats / context meter) renders BELOW the card inside the
+  // same sticky-or-absolute seat at z-index 7, so with no paint at all the
+  // scrolling transcript read straight through it — the reporter's issue #28.
+  // The band therefore has to cover the dock strip and nothing of the card.
+  it('keeps the seat itself paint-free (no slab behind the card)', () => {
+    const seat = rules.filter((rule) => rule.selector.includes("[class*='composerSeat']"))
+    expect(seat.length, 'the composer seat rule vanished').toBeGreaterThan(0)
+    for (const rule of seat) {
+      expect(blurOf(rule.decls), 'issue #19: the seat hosts the trigger palette').toBeUndefined()
+      const background = /(?:^|;)\s*background\s*:\s*([^;]+)/.exec(rule.decls)?.[1]?.trim()
+      if (background !== undefined) {
+        expect(background, rule.selector + ' must stay unpainted').toBe('none')
+      }
+    }
+  })
+
+  it('paints the page ground on the dock strip, behind its content and full-bleed', () => {
+    const band = rules.find(
+      (rule) =>
+        rule.selector.includes("[class*='dock']::before") ||
+        rule.selector.includes('[data-composer-dock]::before'),
+    )
+    expect(band, 'issue #28: the dock lost its backing and nothing replaced it').toBeDefined()
+    expect(band!.selector).toContain('[data-dsh-glass-inputbar]')
+    expect(band!.selector, 'the band must not ride the card').not.toContain('[data-composer-card]')
+    expect(band!.decls).toMatch(/position\s*:\s*absolute/)
+    expect(band!.decls, "behind the row's own content").toMatch(/z-index\s*:\s*-1/)
+    expect(band!.decls).toMatch(/pointer-events\s*:\s*none/)
+    expect(band!.decls, 'the fill is the page ground, not a token colour').toContain(
+      'var(--dsh-glass-ground)',
+    )
+    expect(band!.decls, 'needs a ramp, not a hard cut across the gutters').toMatch(/linear-gradient/)
+    expect(band!.decls, "bleeds past the bar root's side padding").toMatch(
+      /left\s*:\s*calc\(-1 \* var\(--dsh-composer-side-clearance/,
+    )
+    expect(blurOf(band!.decls), 'issue #13: an opaque ground fill needs no blur').toBeUndefined()
+  })
+})

@@ -244,6 +244,57 @@
   background: none;
 }
 
+/* ---------- Composer dock backing (issue #28).
+   The rule above erases the seat's whole backing, including the stock gradient
+   that used to hide the transcript behind whatever sits at the bottom of the
+   seat (`linear-gradient(0 → var(--dsw-alias-bg-base) 36px)` on
+   `[data-phase=active] .composerSeat`, ui-conversation, 0.2.0-rc.2 and
+   0.2.1-rc.2 alike). That was harmless only while the card covered the seat;
+   the dock row (`InputBar`'s `.dock` — model pill, stats, context meter)
+   renders BELOW the card inside the same sticky/absolute seat at `z-index: 7`,
+   so the scrolling body read straight through it (the reporter's issue #28).
+   The fix paints the ground colour on the strip the dock occupies — NOT a slab
+   behind the card, which would kill the card's frost. Anchoring to the dock
+   (rather than to the seat's bottom edge) keeps the geometry honest: when the
+   dock is empty (`:empty` in the hero view) the band is a sliver over the bare
+   ground, i.e. invisible.
+   `[class*='dock']` is the direct child of the composer bar root in both
+   shells (`InputBar.module.css` `.dock`, hashed name; 0.2.1 adds the
+   `data-composer-dock` attribute, so both arms are listed). The band stays
+   blur-free on purpose — an opaque ground fill is what stock paints, and
+   issue #13's budget only pays for a blur over content that keeps moving.
+   ---------- */
+[data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [class*='dock'],
+[data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [data-composer-dock] {
+  position: relative;
+}
+
+[data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [class*='dock']::before,
+[data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [data-composer-dock]::before {
+  content: '';
+  position: absolute;
+  /* Full-bleed to the seat's edges — the bar root pads the row by the side
+     clearance — and 4px below, which covers the root's own bottom padding. */
+  left: calc(-1 * var(--dsh-composer-side-clearance, 16px));
+  right: calc(-1 * var(--dsh-composer-side-clearance, 16px));
+  bottom: -4px;
+  /* The dock's own box + the 4px pad below + an 8px head that rides up behind
+     the card's bottom edge, so the seam disappears under the card's shadow
+     instead of drawing a hard line across the gutters. */
+  height: calc(100% + 12px);
+  z-index: -1;
+  pointer-events: none;
+  /* Same end-stop as the page ground's own gradient (see the body rule), so
+     the strip does not read as a slightly-lighter rectangle at the bottom. */
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 2px,
+    color-mix(in srgb, var(--dsh-glass-ground), #000 calc(5% * var(--dsh-glass-ambience))) 8px,
+    color-mix(in srgb, var(--dsh-glass-ground), #000 calc(5% * var(--dsh-glass-ambience))) 100%
+  );
+}
+
 /* ---------- Page edge fades: 13px gradient blur bands pinned to the top
    and bottom of the viewport (ported from DSH-Transparent-UI-Plugin). They
    sit BELOW the floating glass (header / composer / sidebar hold z-index 8)
