@@ -289,7 +289,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.2`**（2026-10-13；Publish run `38373767687` success 30 s、日志
+> ⚠️ **发版版本号**：`latest` = **`0.6.3`**（2026-10-19；Publish run `39143921957` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.3` 带 provenance、tag 显式 `latest`；CI `39143719780` 的 check +
+> boot-e2e 双绿）= `0.6.3-beta.0/.1/.2/.3` 全链**转正** + **issue #27**（设置收敛到独立分区、控件换官方
+> 原子件）+ **issue #28**（输入卡下方状态栏补背板）+ **上游 DSH 0.2.1 适配**（settings seam 的 `mode`
+> 被上游删除，插件一度改设置不落盘）。**测试 336 全绿**（20/20 文件）。兼容下限同时抬到 DSH
+> `0.1.7-rc.1`（`engines.dsh` 与商城元数据同步；`dshReleases` 已清掉低于下限的三条）。
+> 上一版 `latest` = **`0.6.2`**（2026-10-13；Publish run `38373767687` success 30 s、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.2` 带 provenance；CI `38373498824` check + boot-e2e 双绿 1 m 37 s）
 > = `0.6.2-beta.0/.1/.2` 全链**转正** + **issue #22 第三轮 ①②③**（选中行色统一 / 一级弹层去实线框 /
 > 供应商胶囊去描边；CDP 四风味 + 玻璃关 + compat 复测）+ issue #22 追评（rim-strong）与「拆融合」+
