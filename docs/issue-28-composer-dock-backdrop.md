@@ -1,7 +1,8 @@
 # issue #28：输入框下的状态栏缺少背板，滚动正文穿透
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/28>（2026-10-16，无标签）
-- 状态：**已实施（方案 A），未发版**。改动 = `src/client/glass/glass.module.css`（dock 背板带）+
+- 状态：**已实施（方案 A），随 `0.6.3-beta.3` 发到 beta 渠道（2026-10-18，Publish run `39109687611`
+  success；稳定版等实测后转正）**。改动 = `src/client/glass/glass.module.css`（dock 背板带）+
   `tests/glass-css.spec.ts`（两条护栏）。方案 B（卡与 dock 合成一个圆角矩形 + 中间分割线，设为可开关项）
   **未实施**，见 §7。
 - 报告环境：未提供（风味 / 模式 / 宿主版本都没写）。本机壳 = 官方桌面壳 `0.2.1-rc.2`。

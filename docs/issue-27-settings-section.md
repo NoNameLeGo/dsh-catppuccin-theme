@@ -1,6 +1,6 @@
 # issue #27 — 设置项从「通用设置」收敛到独立分区
 
-> 状态：**已实施**（2026-10-17，提交 `00fce96`；随 `0.6.3-beta.3` 发布）。
+> 状态：**已实施**（2026-10-17，提交 `00fce96`；随 `0.6.3-beta.3` 发到 beta 渠道，Publish run `39109687611`）。
 > 取证环境：本机 `@deepseek-ai/dsh` 0.2.0-rc.2 / 0.2.1-rc.2（`%APPDATA%\DSH\data\versions`）、
 > 旧版 tarball `dsh-client-ui-settings-general@0.1.5-rc.3` / `0.1.7-rc.1`（`.cache/issue27/`）、
 > 官方桌面壳 `D:\PROGRAM\DeepSeek Harness\resources\app.asar`、参考插件 `@michengai/dsh-skills-manager@1.2.3`。
@@ -23,8 +23,8 @@
 | 现状处理 | **删除** 4 条 `settings.general.item` 注册（不是"再加一个"） |
 | 控件 | 开关 / 分段 / 按钮改用 `@deepseek-ai/dsh-client-ui-primitives` 的 `Switch`、`SegmentedControl`、`Button`；风味选择按官方 **theme cube** 规格重绘；滑块保留 `range` 但**右侧数值改为可手动输入的输入框**（上游无 slider 原语） |
 | 保留 | 插件详情页 `plugins.bundle.config` 卡片（第二个入口，不动） |
-| 兼容 | `settings.section` 自 **0.1.5-rc.3** 起即存在（本项目兼容下限），**不需要**降级回退 |
-| 版本口径 | **暂不发版**：维护者还有几处改动要先做完，本方案落地后留在工作树；发版时统一走 `0.6.3-beta.x` 测试版（见 §6） |
+| 兼容 | `settings.section` 自 **0.1.5-rc.3** 起即存在，**不需要**降级回退；但设置页消费的 primitives `SegmentedControl` 直到 **0.1.7-alpha.1** 才有 ⇒ 实际下限 = `0.1.7-rc.1`（`engines.dsh` / `dsh.compatibility.dsh` 已同步抬到此值，见 2026-10-18 的兼容收口） |
+| 版本口径 | **已随 `0.6.3-beta.3` 预发布（2026-10-18，Publish run `39109687611`）**；稳定版等实测后转正 |
 
 ---
 

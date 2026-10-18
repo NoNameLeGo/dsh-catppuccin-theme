@@ -2,7 +2,7 @@
 
 > ⏸ **可选改动：做之前必须先让维护者选**。issue #28 有两条路，**只有 A 被批准做了**：
 >
-> - **A（已实施，已提交 `0ce81ff`，尚未发版）**：给输入卡下方的 dock 行（模型 / 统计 / 上下文用量）
+> - **A（已实施，随 `0.6.3-beta.3` 预发布带上，`0ce81ff`）**：给输入卡下方的 dock 行（模型 / 统计 / 上下文用量）
 >   补一条地面色背板带，解决滚动正文穿透状态栏。文档 `docs/issue-28-composer-dock-backdrop.md`。
 > - **B（只是方案，未实施、不得自行开工）**：把输入卡与 dock 合成**一个** 24px 圆角框、中间加一条
 >   发丝分割线，并做成设置里的开关（默认关 = A 的观感）。全量方案在
@@ -303,7 +303,20 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.3-beta.1`**（2026-10-16；Publish run `38869618718` success ~40 s、日志
+> `beta` = **`0.6.3-beta.3`**（2026-10-18；Publish run `39109687611` success 33 s、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.3-beta.3` 带 provenance；CI `39109564288` check + boot-e2e
+> 双绿，boot **22/22 项通过（3 项跳过）**）= **issue #27 设置独立分区**（`settings.section` 导航项
+> 「Catppuccin」+ 控件换官方 primitives，删掉 4 条 general 行）+ **issue #28 dock 背板**（卡外
+> 状态栏不再被滚动正文穿透）+ **上游 DSH 0.2.1 适配**（settings 快照删掉 `mode`，原判据恒假 ⇒
+> 改设置不落盘；现为「`ready` 且非显式 `memory`」）+ **兼容下限抬到 `0.1.7-rc.1`**（设置页消费
+> primitives 的 `SegmentedControl`，该导出自 0.1.7-alpha.1 才有；`engines.dsh` 与
+> `dsh.compatibility.dsh` 同步）+ boot-e2e 适配设置分区 / 0.2.x 模态面板 / `role=tab` 分段并把
+> 宿主从 `0.1.5-rc.1` 升到 `0.2.1-rc.2`。**测试 336 全绿**（20 文件）。
+> 上一版 `beta` = **`0.6.3-beta.2`**（2026-10-16，commit `78def86`；Publish run `38898451200` success、
+> CI `38898451227` check + boot-e2e 双绿）= 桌面壳主区放开（centerCol 不再是不透明板）+ 原生标题栏
+> 改吃侧栏面 + 产物块锚点 P0 + 「继续执行目标」通知卡玻璃座位；未单独落节，内容并入 CHANGELOG 的
+> `0.6.3` 条目。
+> 上一版 `beta` = **`0.6.3-beta.1`**（2026-10-16；Publish run `38869618718` success ~40 s、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.3-beta.1` 带 provenance；CI `38869601455` check 29 s + boot-e2e
 > 1 m 21 s 双绿、boot 21/21 项通过）= **产物块（官方 `dsh-client-ui-deliverables`）改用与侧栏同一张
 > `--dsh-glass-card` 面**（卡头/文件行/交付文件卡全落同一 token，rim-soft、14px、分隔线换主题发线；
@@ -338,7 +351,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.1`（2026-10-16 复核，显式带 registry 直读
+> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.3`（2026-10-18 复核，显式带 registry 直读
 > `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
 > 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
@@ -457,11 +470,11 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - 对外 API 文档：`pnpm docs:api`（typedoc）→ `docs/api/`。**该目录不入库**（已 `git rm --cached` + 进 `.gitignore`，见 WW），本地按需生成即可；生成物当前是旧的（本次已重生成，但以后只在需要时重建）。重跑时 typedoc 会打一条 `origin` remote "not valid" 的警告——**实测是虚警**：链接照样生成，且指向当前 commit 的 permalink（`blob/<sha>/src/...`），无需改配置。真要自己写模板就用 `disableGit` + `sourceLinkTemplate`，注意 `{path}` **不含 `src/` 前缀**（否则生成 404 链接）。
 - `src/profile-detect.ts`：更新检查里「自动探测当前 profile 名」的实现（探测失败回退 `web`）。
 - CI 配置：`.github/workflows/ci.yml`（push main / PR，只读权限）——两个 job：`check`（install + typecheck + build + test）与 `boot-e2e`（**启动级 e2e**，见下一条；独立 job 是因为它要装宿主 + 下载 Chromium，且与 `check` 并行，实测 +54~73 s）；发布另有 `.github/workflows/publish.yml`（`v*` tag / 手动 dispatch，OIDC 可信发布，无 token 入库）。**普通提交只靠 ci.yml 把关**——发布链路里才跑检查的旧格局已经让两次发版失败（幽灵类型依赖、跨测试污染）。
-- **启动级 e2e**：`scripts/e2e-boot-check.cjs`（**在仓库里**，不是本机探针目录）。做法：临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>` → `dsh web --no-open --port 0`（token 在 stdout）→ 走掉宿主首次运行引导（2 步：内测声明「继续」、API Key「稍后配置」）→ 打开设置断言行/风味/玻璃开关，并采样**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 下浮动面有 rim 而 `panel` 不被描边、**issue #16：右侧栏容器关闭态不得有 blur**——真会话下查宿主渲染出来的 `[data-sidebar-right-panel]`，新 `DSH_HOME` 无会话时跳过；另有**不依赖会话**的合成 markup 版本，往真页里塞一份 `P3OORG_panel` + `P3OORG_panelBody` 读计算样式，真 Chromium 真样式表，带「容器外的同名类仍必须被模糊」的对照组）。本地跑法：`pnpm build` 后 `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node scripts/e2e-boot-check.cjs`（想验证某个具体 DSH 版本就加 `DSH_BIN=<该版本>/node_modules/@deepseek-ai/dsh/lib/bin.js`）。**刻意不做整图 diff**（理由与方案取舍见 `docs/plugin-improvements.md` §3.9）。已知边界：新 `DSH_HOME` 没有工作区/会话 ⇒ PP 选中行采样**会跳过并打印 skipped**（不会假绿）；改过视觉后仍应手动重出四风味预览（上一条）。**2026-09-27 在 `0.1.7-rc.2` 上实测的三个坑都已在脚本里修掉**（别再改回去）：① 首次运行向导是多包拼的多步流程，**步骤切换的间隙整棵子树会短暂脱离 `role=dialog[aria-modal]`**，只看 dialog 会在第一步「继续」后就收工，之后每次点击都被残留的 `_mask_*` 遮罩拦下（30s 超时）⇒ 找不到 dialog 时按按钮文案在全页找、并轮询到遮罩消失；② **「兼容模式」那一次点击会静默不生效**，于是它下面所有 compat 断言都在「compat 其实没开」的状态下取样（rim 找不到 / `panel` 没描边 / 右侧栏没 blur 一起假绿）⇒ 必须轮询到 html 真挂上 `data-dsh-glass-compat` 再往下，并把这个切换本身也断出来；③ 本机 `%LOCALAPPDATA%\ms-playwright` 被清空时退到**系统 Chrome** 并加 `--no-proxy-server`（本机沙箱的 `HTTP_PROXY` 会吃掉 localhost）。另外：临时 `DSH_HOME` **可能会自动建出一个默认会话**（本机 rc.2 实测有），所以右侧栏那条真机断言不一定跳过——它跳过时说 skipped，跑到了就给出真数字。
+- **启动级 e2e**：`scripts/e2e-boot-check.cjs`（**在仓库里**，不是本机探针目录）。做法：临时 `DSH_HOME` → `dsh plugin --profile web add link:<repo>` → `dsh web --no-open --port 0`（token 在 stdout）→ 走掉宿主首次运行引导（2 步：内测声明「继续」、API Key「稍后配置」）→ 打开设置、进入插件的 **Catppuccin 分区**（issue #27；断言 scope 到 `[data-catppuccin-settings]`）断言行/风味/玻璃开关（**2026-10-18 起**：宿主钉 `0.2.1-rc.2`，设置入口按宿主形态分流——≤0.2.0 是侧栏脚独立「设置」按钮，0.2.1 起是「账号菜单」→「设置」；`0.2.x` 设置面板是覆盖全屏的 modal，页面级采样前先 Escape），并采样**级联后**的关键计算样式（侧栏玻璃片不得有 `backdrop-filter`、composer 卡必须保留、compat 下浮动面有 rim 而 `panel` 不被描边、**issue #16：右侧栏容器关闭态不得有 blur**——真会话下查宿主渲染出来的 `[data-sidebar-right-panel]`，新 `DSH_HOME` 无会话时跳过；另有**不依赖会话**的合成 markup 版本，往真页里塞一份 `P3OORG_panel` + `P3OORG_panelBody` 读计算样式，真 Chromium 真样式表，带「容器外的同名类仍必须被模糊」的对照组）。本地跑法：`pnpm build` 后 `NODE_PATH="$APPDATA/npm/node_modules/@playwright/cli/node_modules" node scripts/e2e-boot-check.cjs`（想验证某个具体 DSH 版本就加 `DSH_BIN=<该版本>/node_modules/@deepseek-ai/dsh/lib/bin.js`）。**刻意不做整图 diff**（理由与方案取舍见 `docs/plugin-improvements.md` §3.9）。已知边界：新 `DSH_HOME` 没有工作区/会话 ⇒ PP 选中行采样**会跳过并打印 skipped**（不会假绿）；改过视觉后仍应手动重出四风味预览（上一条）。**2026-09-27 在 `0.1.7-rc.2` 上实测的三个坑都已在脚本里修掉**（别再改回去）：① 首次运行向导是多包拼的多步流程，**步骤切换的间隙整棵子树会短暂脱离 `role=dialog[aria-modal]`**，只看 dialog 会在第一步「继续」后就收工，之后每次点击都被残留的 `_mask_*` 遮罩拦下（30s 超时）⇒ 找不到 dialog 时按按钮文案在全页找、并轮询到遮罩消失；② **「兼容模式」那一次点击会静默不生效**，于是它下面所有 compat 断言都在「compat 其实没开」的状态下取样（rim 找不到 / `panel` 没描边 / 右侧栏没 blur 一起假绿）⇒ 必须轮询到 html 真挂上 `data-dsh-glass-compat` 再往下，并把这个切换本身也断出来；③ 本机 `%LOCALAPPDATA%\ms-playwright` 被清空时退到**系统 Chrome** 并加 `--no-proxy-server`（本机沙箱的 `HTTP_PROXY` 会吃掉 localhost）。另外：临时 `DSH_HOME` **可能会自动建出一个默认会话**（本机 rc.2 实测有），所以右侧栏那条真机断言不一定跳过——它跳过时说 skipped，跑到了就给出真数字。
 - **「已实现」≠「接线正确」（2026-09-22 审计教训）**：那轮两个 P1——跨窗口旋钮不同步、读侧陈旧写保护恒不成立——都通过了类型检查与当时全部 158 条用例，因为缺陷恰好落在**没有事件穿过的分支**（`event.key in NUMERIC_KEYS` 判的是属性名）和**时序假设**（两次 `getSnapshot()` 在同一同步块）上，只读代码看不出来。改交互/持久化代码时补两类测试：**接线测试**（每个 `if`/`switch` 分支至少被一个真实事件穿过——例：`tests/glass-layer.spec.ts` 把 `storage` 处理器的每个分支各走一遍）与**时序测试**（用可注入的 revision 模拟「防抖窗口内先被外部改过」——例：`createBaseRevisionTracker` 的用例）。修 bug 时**默认用变异测试证明新断言会红**（改回旧写法跑一遍），完整清单见 `docs/code-audit-2026-09-22.md`。
 - 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。**`rm` 也被 shim 拦**：删文件用 `node -e "require('node:fs').unlinkSync('x')"`。
 
-- **可选改动项要先问维护者**：`docs/issue-28-fused-composer-plan.md`（issue #28 的 **B 方案**——输入卡与 dock 合成一个圆角框 + 中间分割线 + 设置里的开关，默认关，特性 / `0.7.0`）**只是方案，未批准实施**。任何会话都不要自行开工、不要「顺手把开关加上」，先让维护者明确回答「做 / 不做」。同一 issue 的 **A 方案**（dock 补背板，修复 / `0.6.x`）已实施并提交 `0ce81ff`、尚未发版。
+- **可选改动项要先问维护者**：`docs/issue-28-fused-composer-plan.md`（issue #28 的 **B 方案**——输入卡与 dock 合成一个圆角框 + 中间分割线 + 设置里的开关，默认关，特性 / `0.7.0`）**只是方案，未批准实施**。任何会话都不要自行开工、不要「顺手把开关加上」，先让维护者明确回答「做 / 不做」。同一 issue 的 **A 方案**（dock 补背板，修复 / `0.6.x`）已实施（`0ce81ff`）并随 `0.6.3-beta.3` 预发布带上。
 
 ## 与报告人协作（issue / 评论 / 关闭）
 
