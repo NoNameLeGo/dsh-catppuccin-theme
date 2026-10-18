@@ -193,11 +193,23 @@ async function passOnboarding(page) {
     log('④ 打开设置…')
     await page.getByRole('button', { name: '设置', exact: true }).first().click({ timeout: 20000 })
     await page.waitForTimeout(2500)
-    const row = page.locator('div', { has: page.getByRole('button', { name: 'Latte' }) }).last()
+    // issue #27: the preference rows are no longer spliced into General — the plugin
+    // owns a `settings.section` with its own nav entry (label `nav.title` = "Catppuccin").
+    // Settings opens on the first official section, so ours must be selected first.
+    // Everything after this is scoped to the page container (`data-catppuccin-settings`)
+    // instead of `document.body`: the same rows ALSO render on the plugin's own detail
+    // page (`plugins.bundle.config`), and a page-wide text match would happily pass
+    // against that copy even if the settings page itself were broken.
+    const navEntry = page.getByRole('button', { name: 'Catppuccin', exact: true }).last()
+    await navEntry.click({ timeout: 20000 })
+    const pageRoot = page.locator('[data-catppuccin-settings]')
+    await pageRoot.waitFor({ timeout: 15000 })
+    check('「Catppuccin」设置分区出现在导航里并可打开（issue #27）', await pageRoot.isVisible())
+    const row = pageRoot.locator('[data-catppuccin-row="flavor"]')
     await row.waitFor({ timeout: 15000 })
 
-    // ---- 行为断言：三行真的注册上了 --------------------------------------
-    const rowsText = await page.evaluate(() => document.body.innerText)
+    // ---- 行为断言：三块（风味 / 玻璃 / 更新）真的注册上了 ------------------
+    const rowsText = await pageRoot.innerText()
     check('「Catppuccin 主题」行已注册', rowsText.includes('Catppuccin 主题'))
     check('「玻璃质感」行已注册', rowsText.includes('玻璃质感'))
     check('「检查 Catppuccin 插件更新」行已注册', rowsText.includes('检查 Catppuccin 插件更新'))
@@ -232,7 +244,7 @@ async function passOnboarding(page) {
     // 顺序很重要：模式选择器只在玻璃开启时渲染，且「背后只有地面就不该有 blur」只有
     // 在玻璃开启时才是个真断言——本脚本初版把 blur 采样放在开关之前，结果在
     // glass.enabled=false 下拿到 none，是假绿。
-    const glassSwitch = page.getByRole('switch', { name: '总开关' })
+    const glassSwitch = pageRoot.getByRole('switch', { name: '总开关' })
     const defaultOff = (await glassSwitch.getAttribute('aria-checked')) === 'false'
     check('玻璃层默认关闭（DEFAULT_GLASS.enabled === false）', defaultOff)
     if (defaultOff) {
@@ -241,6 +253,21 @@ async function passOnboarding(page) {
     }
     check('开启后 data-dsh-glass 挂到 html', await page.evaluate(() => document.documentElement.hasAttribute('data-dsh-glass')))
     check('默认模式是云母（data-dsh-glass-float）', await page.evaluate(() => document.documentElement.hasAttribute('data-dsh-glass-float')))
+
+    // 0.2.x renders Settings as a viewport-covering MODAL (0.1.5 rendered it as an
+    // in-place page). The probes below live behind it: with the panel open the
+    // composer click is intercepted by the mask, and the first `header` in the DOM
+    // may be the panel's own chrome instead of the conversation top bar. Close the
+    // panel for the page-level checks, then reopen + reselect our section before the
+    // switching checks — the glass controls only exist on the plugin's page.
+    const openCatppuccinPage = async () => {
+      await page.getByRole('button', { name: '设置', exact: true }).first().click({ timeout: 20000 })
+      await page.waitForTimeout(1200)
+      await page.getByRole('button', { name: 'Catppuccin', exact: true }).last().click({ timeout: 20000 })
+      await pageRoot.waitFor({ timeout: 15000 })
+    }
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(800)
 
     // ---- 关键区域采样 2：PP 选中行底色（计算样式，不是查 CSS 文本）------
     const ppFill = await page.evaluate(() => {
@@ -264,15 +291,15 @@ async function passOnboarding(page) {
     })
     check('侧栏玻璃片（背后只有地面）无 backdrop-filter', sheetBlur === 'none', String(sheetBlur))
     const covered = await page.evaluate(() => {
-      // 首屏（hero，无工作区）可能根本不渲染 header，所以退到其它「盖住移动内容」的面；
-      // 样式表那两条不变量在 tests/glass-css.spec.ts 里已经逐选择器锁过，这里只要确认
-      // 级联后至少有一个这样的面真的还在付费。
+      // 首屏（hero，无工作区）的顶栏 <header> 有意不带 blur（新会话的空玻璃框修复
+      // 用 headerBlank 守卫），所以**先**采 composer 的材质面——它是「盖住移动内容且
+      // 必须付费」的基准面；header 放到最后只在没有 composer 的环境里兜底。
       // issue #19：composer 的模糊挂在 `::before` 材质面上（卡/输入栏本体必须保持
       // filter-free，否则命令面板读空），所以这两个要读伪元素的计算值。
       const probes = [
-        ['header', null],
         ['[data-composer-card]', '::before'],
         ['[data-dsh-glass-inputbar]', '::before'],
+        ['[data-phase=\'active\'] header', null],
       ]
       for (const [sel, pseudo] of probes) {
         const el = document.querySelector(sel)
@@ -334,6 +361,8 @@ async function passOnboarding(page) {
     }
 
     // ---- 关键区域采样 4：OO 在 compat 模式下给浮动面 rim -----------------
+    // 先把设置面板重新打开（上一步 Escape 关掉了它），否则下面的模式选择器不在 DOM 里。
+    await openCatppuccinPage()
     // 点一下不等于切过去了：本机 rc.2 实测有一次点击没生效，于是下面**所有** compat
     // 断言都在「compat 其实没开」的状态下取样 —— rim 找不到、panel 没描边、右侧栏
     // 没 blur 全部变成假绿。显式轮询到 html 真挂上 data-dsh-glass-compat 再往下走
@@ -341,7 +370,9 @@ async function passOnboarding(page) {
     const compatOn = async () => page.evaluate(() => document.documentElement.hasAttribute('data-dsh-glass-compat'))
     let switched = false
     for (let attempt = 0; attempt < 3 && !switched; attempt++) {
-      await page.getByRole('button', { name: '兼容模式' }).click()
+      // issue #27: the mode picker is the official `SegmentedControl` atom, whose
+      // segments are `role="tab"` buttons (they used to be plain buttons).
+      await page.getByRole('tab', { name: '兼容模式' }).click()
       await page.waitForTimeout(1500)
       switched = await compatOn()
     }
@@ -471,7 +502,7 @@ async function passOnboarding(page) {
     let replayed = []
     let sampled = 0
     for (let attempt = 0; attempt < 3 && !backToMica; attempt++) {
-      await page.getByRole('button', { name: '云母效果' }).click()
+      await page.getByRole('tab', { name: '云母效果' }).click()
       await page.waitForTimeout(80)
       const sample = await page.evaluate(() => {
         const names = ['dsh-glass-in', 'dsh-glass-rise', 'dsh-glass-dialog-in']
