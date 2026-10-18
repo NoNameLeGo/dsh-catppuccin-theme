@@ -368,7 +368,7 @@ theme/glass actually reached the sidebar in that run), so no conclusion is drawn
 
 | Item | Declaration |
 |---|---|
-| DSH | `>=0.1.5-rc.1` (both settings seams: the legacy channel on ≤ `0.1.6-alpha.2` and `configForms` on ≥ `0.1.7-alpha.1`) |
+| DSH | `>=0.1.7-rc.1` (the settings page consumes the official `dsh-client-ui-primitives` `SegmentedControl`, which only exists from `0.1.7-alpha.1`; the legacy `settingsScope` code path is kept, but 0.1.5 / 0.1.6 hosts are no longer declared supported) |
 | Node.js | `>=20` |
 | Profile | `web` (the Web GUI and both desktop shells run the web UI and share this plugin); desktop profiles are named `desktop` |
 | Verified exact version | `0.1.7-rc.1`: installed, started, persisted a setting to disk and restored it across a restart in a real profile ([evidence](docs/issue-15-settings-seam-0.1.7.md)); `0.1.7-rc.2`: boot-level e2e and live-page sampling of the glass layer (issues #16 / #17); `0.1.5-rc.3`, `0.1.7-alpha.1` and `0.1.7-alpha.2` are declared as the same seam |
