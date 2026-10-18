@@ -191,19 +191,34 @@ async function passOnboarding(page) {
     check('引导可走完（设置入口不再被遮罩挡住）', true, `${steps} 步`)
 
     log('④ 打开设置…')
-    await page.getByRole('button', { name: '设置', exact: true }).first().click({ timeout: 20000 })
-    await page.waitForTimeout(2500)
-    // issue #27: the preference rows are no longer spliced into General — the plugin
-    // owns a `settings.section` with its own nav entry (label `nav.title` = "Catppuccin").
-    // Settings opens on the first official section, so ours must be selected first.
-    // Everything after this is scoped to the page container (`data-catppuccin-settings`)
-    // instead of `document.body`: the same rows ALSO render on the plugin's own detail
-    // page (`plugins.bundle.config`), and a page-wide text match would happily pass
-    // against that copy even if the settings page itself were broken.
-    const navEntry = page.getByRole('button', { name: 'Catppuccin', exact: true }).last()
-    await navEntry.click({ timeout: 20000 })
-    const pageRoot = page.locator('[data-catppuccin-settings]')
-    await pageRoot.waitFor({ timeout: 15000 })
+    // The settings entry moved between hosts: <= 0.2.0 has a dedicated "设置" button in
+    // the sidebar foot; 0.2.1 registers the account menu as the `settings.launcher`
+    // (`aria-label` = "账号菜单") and Settings is a menu item inside it. Accept both
+    // instead of pinning one host shape.
+    const openSettingsPanel = async () => {
+      const direct = page.getByRole('button', { name: '设置', exact: true })
+      const account = page.getByRole('button', { name: '账号菜单', exact: true })
+      await page.getByRole('button', { name: /^(设置|账号菜单)$/ }).first().waitFor({ timeout: 20000 })
+      if ((await direct.count()) > 0) {
+        await direct.first().click()
+      } else {
+        await account.first().click()
+        await page.getByRole('menuitem', { name: '设置', exact: true }).click({ timeout: 20000 })
+      }
+      await page.waitForTimeout(1500)
+      // issue #27: the preference rows are no longer spliced into General — the plugin
+      // owns a `settings.section` with its own nav entry (label `nav.title` = "Catppuccin").
+      // Settings opens on the first official section, so ours must be selected first.
+      // Everything after this is scoped to the page container (`data-catppuccin-settings`)
+      // instead of `document.body`: the same rows ALSO render on the plugin's own detail
+      // page (`plugins.bundle.config`), and a page-wide text match would happily pass
+      // against that copy even if the settings page itself were broken.
+      await page.getByRole('button', { name: 'Catppuccin', exact: true }).last().click({ timeout: 20000 })
+      const root = page.locator('[data-catppuccin-settings]')
+      await root.waitFor({ timeout: 15000 })
+      return root
+    }
+    const pageRoot = await openSettingsPanel()
     check('「Catppuccin」设置分区出现在导航里并可打开（issue #27）', await pageRoot.isVisible())
     const row = pageRoot.locator('[data-catppuccin-row="flavor"]')
     await row.waitFor({ timeout: 15000 })
@@ -260,12 +275,6 @@ async function passOnboarding(page) {
     // may be the panel's own chrome instead of the conversation top bar. Close the
     // panel for the page-level checks, then reopen + reselect our section before the
     // switching checks — the glass controls only exist on the plugin's page.
-    const openCatppuccinPage = async () => {
-      await page.getByRole('button', { name: '设置', exact: true }).first().click({ timeout: 20000 })
-      await page.waitForTimeout(1200)
-      await page.getByRole('button', { name: 'Catppuccin', exact: true }).last().click({ timeout: 20000 })
-      await pageRoot.waitFor({ timeout: 15000 })
-    }
     await page.keyboard.press('Escape')
     await page.waitForTimeout(800)
 
@@ -362,7 +371,7 @@ async function passOnboarding(page) {
 
     // ---- 关键区域采样 4：OO 在 compat 模式下给浮动面 rim -----------------
     // 先把设置面板重新打开（上一步 Escape 关掉了它），否则下面的模式选择器不在 DOM 里。
-    await openCatppuccinPage()
+    await openSettingsPanel()
     // 点一下不等于切过去了：本机 rc.2 实测有一次点击没生效，于是下面**所有** compat
     // 断言都在「compat 其实没开」的状态下取样 —— rim 找不到、panel 没描边、右侧栏
     // 没 blur 全部变成假绿。显式轮询到 html 真挂上 data-dsh-glass-compat 再往下走
