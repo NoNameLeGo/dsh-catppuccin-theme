@@ -273,9 +273,29 @@
    ground, i.e. invisible.
    `[class*='dock']` is the direct child of the composer bar root in both
    shells (`InputBar.module.css` `.dock`, hashed name; 0.2.1 adds the
-   `data-composer-dock` attribute, so both arms are listed). The band stays
-   blur-free on purpose — an opaque ground fill is what stock paints, and
-   issue #13's budget only pays for a blur over content that keeps moving.
+   `data-composer-dock` attribute, so both arms are listed).
+
+   ISSUE #29 — the strip is FROSTED, not opaque. The #28 pass painted the
+   ground at α1 and skipped the blur, which read as a solid block welded under
+   the composer card (the reporter's follow-up). Two constraints shape the
+   recipe:
+   - The fill must stay the GROUND colour (not `--dsh-glass-card`): this strip
+     is not a card, it bleeds to the seat's edges, so any fill that is lighter
+     than the page would draw a rectangle across the gutters — the exact seam
+     #28 decision 4 avoided. Ground-coloured at any alpha is invisible over
+     bare ground and only shows where content actually passes behind it.
+   - The alpha has a FLOOR (70%), because the shipped "clear" preset runs
+     `blur: 0`: below that the transcript reads through the dock labels again,
+     i.e. #28 comes back. It then climbs with the frost knob (+10% × frost),
+     the same direction every other pane takes.
+   The blur is legitimate here per issue #13's predicate (it covers moving
+   content — that is why the band exists at all); the earlier comment claiming
+   the opposite was wrong. `mask-image` fades the fill AND the blur output
+   (same mechanism as the page edge bands below), so the transcript melts into
+   the strip instead of being cut at its top edge; the ramp must reach past
+   the ~8px head that hides behind the card's bottom edge.
+   Blur rides the `::before` only — the dock element itself stays paint-free,
+   so it never becomes a backdrop root for a menu mounted inside it (#19).
    ---------- */
 [data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [class*='dock'],
 [data-dsh-glass] [data-phase] [data-dsh-glass-inputbar] > [data-composer-dock] {
@@ -297,15 +317,21 @@
   height: calc(100% + 12px);
   z-index: -1;
   pointer-events: none;
-  /* Same end-stop as the page ground's own gradient (see the body rule), so
-     the strip does not read as a slightly-lighter rectangle at the bottom. */
-  background: linear-gradient(
-    180deg,
-    transparent 0,
-    transparent 2px,
-    color-mix(in srgb, var(--dsh-glass-ground), #000 calc(5% * var(--dsh-glass-ambience))) 8px,
-    color-mix(in srgb, var(--dsh-glass-ground), #000 calc(5% * var(--dsh-glass-ambience))) 100%
+  /* Same end-stop as the page ground's own gradient tail (see the body rule)
+     — that is what keeps the strip from reading as a slightly-lighter
+     rectangle at the bottom — but carried at 70~84% alpha so the blur has
+     something to show through. The weighted mix stays INLINE in
+     `background` (issue #25's invalidation trap: an intermediate custom
+     property keeps its folded value while the brightness knob moves). */
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--dsh-glass-ground), #000 calc(5% * var(--dsh-glass-ambience)))
+      calc(70% + 10% * var(--dsh-glass-frost, 1)),
+    transparent
   );
+  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, black 18px);
+  mask-image: linear-gradient(180deg, transparent 0, black 18px);
 }
 
 /* ---------- Page edge fades: 13px gradient blur bands pinned to the top

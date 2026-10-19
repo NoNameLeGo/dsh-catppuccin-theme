@@ -63,9 +63,15 @@ const selectorList = (selector: string): string[] => selector.split(',').map((pa
  *  The composer blurs from its `::before` material plane, not from the element
  *  itself (issue #19) — the element hosts the trigger palette, so a blur on it
  *  would be that palette's backdrop root. (Menus are asserted separately in
- *  the issue #22 block: their blur moved onto upstream's own material plane.) */
-const VISIBLE = ['header', '[data-composer-card]::before', '[data-dsh-glass-fade]']
-
+ *  the issue #22 block: their blur moved onto upstream's own material plane.)
+ *  The dock strip joined this list in issue #29: it is the surface the
+ *  transcript scrolls UNDER, so its blur is paid for, not wasted. */
+const VISIBLE = [
+  'header',
+  '[data-composer-card]::before',
+  '[data-dsh-glass-fade]',
+  "[class*='dock']::before",
+]
 const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
 /** Every `selector { decls }` pair, comments stripped (nested at-rules come out
@@ -836,7 +842,13 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
     // plane in both views (nothing left to erase).
     const planeRules = rules.filter(
       (rule) =>
-        rule.selector.includes('::before') && HOSTS.some((host) => rule.selector.includes(host)),
+        rule.selector.includes('::before') &&
+        HOSTS.some((host) => rule.selector.includes(host)) &&
+        // The dock strip (issue #29) is a SECOND plane under the same bar
+        // root: it spans the dock row, not the card, and it is allowed to
+        // blur there. Counted separately in the "composer dock backing" block.
+        !rule.selector.includes("[class*='dock']") &&
+        !rule.selector.includes('[data-composer-dock]'),
     )
     const active = planeRules.filter((rule) => {
       const blur = blurOf(rule.decls)
@@ -1394,14 +1406,16 @@ describe('stylesheet integrity (2026-10-16)', () => {
     ).toEqual([])
   })
 })
-describe('composer dock backing: the stats row gets the ground back (issue #28)', () => {
+describe('composer dock backing: the stats row gets a frosted strip (issue #28 → #29)', () => {
   // The seat rule above this block drops stock's whole backing on purpose
   // (`linear-gradient(0 → --dsw-alias-bg-base 36px)`): an opaque slab behind
   // the CARD would kill its frost, which is the reason the skin exists. But the
   // dock row (model / stats / context meter) renders BELOW the card inside the
   // same sticky-or-absolute seat at z-index 7, so with no paint at all the
   // scrolling transcript read straight through it — the reporter's issue #28.
-  // The band therefore has to cover the dock strip and nothing of the card.
+  // #28 painted the strip at α1 and skipped the blur; #29 is the follow-up
+  // ("a solid block welded under the composer"): same ground colour, α70~84%,
+  // blur from the shared knob, and a mask ramp over the top edge.
   it('keeps the seat itself paint-free (no slab behind the card)', () => {
     const seat = rules.filter((rule) => rule.selector.includes("[class*='composerSeat']"))
     expect(seat.length, 'the composer seat rule vanished').toBeGreaterThan(0)
@@ -1414,7 +1428,7 @@ describe('composer dock backing: the stats row gets the ground back (issue #28)'
     }
   })
 
-  it('paints the page ground on the dock strip, behind its content and full-bleed', () => {
+  it('frosts the dock strip: ground colour, alpha floor, blur, mask ramp, full-bleed', () => {
     const band = rules.find(
       (rule) =>
         rule.selector.includes("[class*='dock']::before") ||
@@ -1426,14 +1440,41 @@ describe('composer dock backing: the stats row gets the ground back (issue #28)'
     expect(band!.decls).toMatch(/position\s*:\s*absolute/)
     expect(band!.decls, "behind the row's own content").toMatch(/z-index\s*:\s*-1/)
     expect(band!.decls).toMatch(/pointer-events\s*:\s*none/)
-    expect(band!.decls, 'the fill is the page ground, not a token colour').toContain(
-      'var(--dsh-glass-ground)',
+    expect(
+      band!.decls,
+      'the fill stays the page ground: any lighter sheet would draw a rectangle across the gutters',
+    ).toContain('var(--dsh-glass-ground)')
+    expect(band!.decls, 'the fill must be TRANSLUCENT, or the blur shows nothing (#29)').toMatch(
+      /color-mix\([\s\S]*transparent/,
     )
-    expect(band!.decls, 'needs a ramp, not a hard cut across the gutters').toMatch(/linear-gradient/)
+    expect(
+      band!.decls,
+      'issue #29: 70% is the floor — the shipped clear preset runs blur 0 and #28 comes back below it',
+    ).toMatch(/calc\(70% \+ 10% \* var\(--dsh-glass-frost/),
+    expect(band!.decls, 'issue #29: the strip follows the blur knob like every other pane').toMatch(
+      /backdrop-filter\s*:\s*blur\(var\(--dsh-glass-blur/,
+    )
+    expect(
+      band!.decls,
+      'issue #29: a mask ramp, not a hard cut — it fades the blur output too',
+    ).toMatch(/mask-image\s*:\s*linear-gradient/),
     expect(band!.decls, "bleeds past the bar root's side padding").toMatch(
       /left\s*:\s*calc\(-1 \* var\(--dsh-composer-side-clearance/,
     )
-    expect(blurOf(band!.decls), 'issue #13: an opaque ground fill needs no blur').toBeUndefined()
+  })
+
+  it('never puts the blur on the dock element itself (issue #19 hygiene)', () => {
+    const host = rules.find(
+      (rule) =>
+        (rule.selector.includes("[class*='dock']") ||
+          rule.selector.includes('[data-composer-dock]')) &&
+        !rule.selector.includes('::before'),
+    )
+    expect(host, 'the dock host rule vanished').toBeDefined()
+    expect(
+      blurOf(host!.decls),
+      'a menu mounted inside the dock would lose its backdrop to this root — the material stays on ::before',
+    ).toBeUndefined()
   })
 })
 
