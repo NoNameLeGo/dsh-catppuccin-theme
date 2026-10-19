@@ -46,7 +46,11 @@ export function CatppuccinSettingsPage(props: CatppuccinSettingsPageProps): Reac
     <div className={rowCss.stack} data-catppuccin-settings>
       <h2 className={css.title}>{props.t('page.title')}</h2>
       <CatppuccinRow {...props.flavor} t={props.t} />
-      <GlassRow {...props.glass} t={props.t} />
+      {/* `close` is the shell's own dismissal for this page, so the mode picker
+          can offer the only honest preview of a layout switch: get out of the
+          way and let the user look at the real UI. The plugin detail card has
+          no such seat and therefore offers no button. */}
+      <GlassRow {...props.glass} t={props.t} onPreviewMain={() => { props.close() }} />
       <UpdateRow {...props.update} t={props.t} />
       <LinksRow t={props.t} />
     </div>

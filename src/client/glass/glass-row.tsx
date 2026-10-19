@@ -41,6 +41,12 @@ export interface GlassRowInjected {
   setGlow: (value: boolean) => void
   /** Restore every knob to the shipped defaults. */
   resetDefaults: () => void
+  /** Close the settings surface so the user can look at the real main UI. The
+   *  only honest preview of a LAYOUT switch: mica vs compat restyles the header,
+   *  sidebar, composer and bubbles, none of which live on this page. Absent
+   *  where the row cannot close anything (the plugin detail card), in which case
+   *  the button is not offered. */
+  onPreviewMain?: () => void
 }
 
 /** Full component props: runtime share + locale seat + injected face. */
@@ -155,7 +161,7 @@ const GLASS_PRESETS: readonly { id: string; key: CatppuccinKey; blur: number; fr
  * @param props - composed slot props.
  * @returns the settings row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGlow, resetDefaults }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGlow, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
   const { enabled, mode, blur, frost, brightness, glow, dark } = state
 
@@ -196,6 +202,16 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
                 ]}
                 onChange={(next) => { setMode(next) }}
               />
+              {/* Mode restyles surfaces that are NOT on this page (header card,
+                  sidebar sheet, composer, bubbles), so the picker cannot show
+                  its own result. Closing the settings surface is the only
+                  preview that is not a drawing of the UI — and unlike a
+                  thumbnail it cannot go stale. */}
+              {onPreviewMain !== undefined && (
+                <Button size="sm" variant="ghost" onClick={onPreviewMain}>
+                  {t('glass.previewMode')}
+                </Button>
+              )}
             </div>
             <div className={css.rowHint}>{t('glass.modeHint')}</div>
             <div className={css.row}>

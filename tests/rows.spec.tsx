@@ -472,6 +472,26 @@ describe('GlassRow ground sample (2026-10-19)', () => {
   })
 })
 
+describe('GlassRow mode preview (2026-10-19)', () => {
+  // mica and compat restyle the header, sidebar, composer and bubbles — none of
+  // which are on this page, so the picker cannot show its own result. The row
+  // offers the shell's `close` instead of drawing a thumbnail that could go
+  // stale (the approach the improvement list already rejected).
+  const state = { enabled: true, mode: 'mica' as const, blur: 5, frost: 20, brightness: 50, dark: true }
+
+  it('offers the way out where the settings surface can be closed', () => {
+    const onPreviewMain = vi.fn()
+    render(<GlassRow {...makeGlassRow(state)} onPreviewMain={onPreviewMain} />)
+    fireEvent.click(screen.getByRole('button', { name: t('glass.previewMode') }))
+    expect(onPreviewMain).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not offer it where there is nothing to close (plugin detail card)', () => {
+    render(<GlassRow {...makeGlassRow(state)} />)
+    expect(screen.queryByRole('button', { name: t('glass.previewMode') })).toBeNull()
+  })
+})
+
 describe('GlassRow knobs', () => {
   it('announces each slider with its unit (item Z)', () => {
     // The snapshot object must keep a stable identity: `useSyncExternalStore`
@@ -669,5 +689,12 @@ describe('settings page (issue #27)', () => {
     const rows = [...container.querySelectorAll('[data-catppuccin-row]')]
       .map((row) => row.getAttribute('data-catppuccin-row'))
     expect(rows).toEqual(['flavor', 'glass', 'update', 'links'])
+  })
+
+  it('hands the shell close to the mode preview button', () => {
+    const close = vi.fn()
+    render(<CatppuccinSettingsPage {...makePageProps()} close={close} />)
+    fireEvent.click(screen.getByRole('button', { name: t('glass.previewMode') }))
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

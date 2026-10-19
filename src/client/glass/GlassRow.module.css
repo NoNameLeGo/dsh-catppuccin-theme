@@ -14,9 +14,11 @@
   margin-top: 6px;
 }
 
-/* Label + control row (master switch / mode picker / glow). */
+/* Label + control row (master switch / mode picker / glow). Wraps because the
+ * mode row also carries the "show the UI" button. */
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
