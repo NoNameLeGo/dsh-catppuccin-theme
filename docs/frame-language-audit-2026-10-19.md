@@ -1,10 +1,11 @@
 # 框语言审计：七个「框」对不上的地方（2026-10-19）
 
 - 触发：维护者 2026-10-19 真机截图提问「当前插件有哪些框是不统一、或你觉得需要改的」。
-- 状态：**①②③⑦ 已于 2026-10-19 实施**（提交 `27fd88f`；闸门全绿，344 测试）。其中 ③ 只动
-  **模态**圆角，**输入卡保持 24 不动**——维护者确认「输入框亮一些」是本意（30% 强描边 + 双层影
-  = 主输入面），所以 24 与 30% 都保留。**⑤ 已查清成因**（上游两条定宽规则，3 行可改但属布局改动，
-  等维护者拍板）；**⑥ 复核后撤回**（量测错误，四边都是 12px）；**④ 仍只有截图取证**（控件归属未查）。
+- 状态：**①②③⑤⑦ 已实施**（`27fd88f` 四条框语言 + `4c4ff21` ⑤ 宽度对齐；闸门全绿，346 测试）。
+  其中 ③ 只动**模态**圆角，**输入卡保持 24 不动**——维护者确认「输入框亮一些」是本意
+  （30% 强描边 + 双层影 = 主输入面），所以 24 与 30% 都保留；⑤ 让顶栏与轨迹面板跟随输入卡的
+  宽度上限，折叠侧栏回退满宽。**⑥ 复核后撤回**（量测错误，四边都是 12px）；
+  **④ 仍只有截图取证**（控件归属未查）。①②③⑤⑦ 均**未在真机上看过**。
 - 取证环境：官方桌面壳 `0.2.1-rc.2`，Mocha + mica（float），Windows 标题栏在位，截屏 2560×1528，
   设备像素 / CSS px = **1.5**（三点标定，全部逐像素吻合：侧栏左距 12px→18、上距 40+12px→78、
   下距 12px→1528−18=1510；另侧栏列宽 279 ≈ 上游默认 280、顶栏 margin 16→444）。
@@ -95,7 +96,7 @@ label rim `(62,64,80)` 不同源，也不是 `--dsh-glass-*` 系列；里面是*
 - 成本：0.5–1h，**前提是这三个控件有稳定 hook**——没 hook 就只能挂 class 子串，属脆弱选择器，
   得先按 `docs/glass-mis-hits.md` 的方式核一遍再决定做不做。
 
-### ⑤ 左右边不齐 —— 上游两条定宽规则（2026-10-19 查清，源码确认）
+### ⑤ 左右边不齐 —— 上游两条定宽规则（源码确认 · 已实施 2026-10-19）
 
 **成因查到了，不是本表写错，也不是随机数**：上游给顶栏和输入卡**各用了一条宽度规则**，两者互不参照。
 
@@ -123,20 +124,31 @@ resolveContentWidth(column, preference) {
 ⚠️ 反直觉的一点：**不拖反而更不齐**。默认（无手柄偏好）正文列 = min(0.64 × 列宽, 920) =
 913 → 卡 945，每侧差 **225px**。是「拖到最大」把差距从 225 缩到 56。
 
-**能改，也是泛用的**（3 行，热跟随手柄）——但它是**布局改动**，会让顶栏卡变窄、标题与标签往里缩：
+**已实施（2026-10-19，提交 `4c4ff21`）**。落地时发现原方案里的选择器读不到那个变量：
+`--dsh-composer-card-max-width` 定义在 `.body` 上，而顶栏是 `.body` 的**兄弟**（`.root > header + .body`），
+自定义属性只向下继承 ⇒ 原写法会永远命中外面的 fallback，等于没改。真正可读的源变量是
+`--dsh-chat-user-width` / `--dsh-conversation-column-width`——`publishWidths()` 用
+`container.parentElement` 把它们写在 `[data-phase]`（顶栏的父节点）上，于是顶栏可以自己再算一次：
 
 ```css
 [data-dsh-glass-float] [data-phase] header:not([class*='headerBlank']) {
-  max-width: var(--dsh-composer-card-max-width, none);
-  margin-inline: auto;
+  margin: 12px auto 0;
+  max-width: min(
+    calc(var(--dsh-chat-user-width,
+           clamp(680px, calc(var(--dsh-conversation-column-width, 1500px) * .64), 920px)) + 32px),
+    calc(100% - 32px)
+  );
 }
 ```
 
-- 兜底：`var(..., none)` ⇒ 老宿主（该变量不存在时）退回**今天的满宽观感**，不会坏。
-- 该变量在 0.2.0-rc.2 与 0.2.1-rc.2 都存在（各 5 处）；**0.1.7 未验证**，靠上面的兜底。
-- 需要同时处理折叠栏那条 `margin-left: 28px`（否则折叠时左对齐、不居中）。
-- **未实施，等维护者点头**：这不是「皮肤画歪了」，是上游「顶栏是 chrome、正文是阅读列」的
-  设计被浮框暴露出来；对齐等于把顶栏降级成「在阅读列里的卡」。
+- 表达式**内联在两个消费者里**，不抽成中间 custom property：#25 的失效传播陷阱——`--dsh-chat-user-width`
+  在拖拽时每一帧都在变。
+- 轨迹面板 `[data-dsh-glass-trajectory]` 上同一条上限并居中，否则一开「轨迹」tab 立刻又出现同款错位。
+- 折叠侧栏那条回退成 `max-width: none; margin-right: 16px`——护栏状态需要硬左缩进 28px，
+  `margin-inline: auto` 表达不了，这里保持改动前的满宽。
+- 兜底：旧宿主（没有宽度手柄）用 `1500px` 哨兵让 clamp 落到 920 ⇒ **952**，正好是设计上限；
+  窄列时 `min(…, 100% - 32px)` 保住原来的几何。
+- ⚠️ **真机未验**：顶栏变窄后标题与标签行会向内收，窄窗口下要看一眼会不会挤。
 
 ### ⑥ 侧栏卡底边留白 —— **撤回，是量测错误**（2026-10-19 复核）
 
@@ -182,7 +194,7 @@ resolveContentWidth(column, preference) {
 
 ## 5. 验证方式（真改了以后）
 
-1. `pnpm typecheck && pnpm typecheck:tests && pnpm build`，再跑 `pnpm vitest run --no-file-parallelism`（基线已到 **344** 条）。
+1. `pnpm typecheck && pnpm typecheck:tests && pnpm build`，再跑 `pnpm vitest run --no-file-parallelism`（基线已到 **346** 条）。
 2. 改动只要落进 `glass-css.spec.ts` 锁过的选择器族（dialog / menu / composer / bubble），补一条护栏断言。
 3. 真机 A/B：同一状态截两张（开/关该条），差异只应出现在该框自身，不牵动相邻面。
 4. 四个风味 × mica/compat 各看一次 `rim` 与影（Latte 的影最明显，Mocha 的影最容易被吃掉）。
@@ -199,6 +211,7 @@ resolveContentWidth(column, preference) {
 | ③ | 模态 `border-radius: 20px`；**只限 `aria-modal='true'`**，通用 `[role='dialog']` 仍 14 | 同上 |
 | ② | `[data-dsh-glass-surface]` 的 border 从 `--dsh-glass-rim` 降到 `--dsh-glass-rim-soft` | 新会话按钮座位 |
 | ⑦ | 新增 `body[data-ds-dark-theme] [data-menu-material='translucent']:not(:focus-visible) { outline: 1px solid var(--dsh-glass-rim-soft); outline-offset: -1px }` | 菜单座位之后 |
+| ⑤ | 顶栏与轨迹面板改用 `min(calc(var(--dsh-chat-user-width, …) + 32px), 100% - 32px)` + 居中；折叠栏回退满宽 | 顶栏 / 轨迹 / 折叠栏三条规则 |
 
 护栏（`tests/glass-css.spec.ts` → `frame language: one rim ladder, one shadow language`）：
 
@@ -209,12 +222,11 @@ resolveContentWidth(column, preference) {
    放宽为「**只有暗色分支许描边，且必须是 soft**」——第 3 轮 Latte 的证据继续有效。
 
 闸门：`pnpm typecheck` / `pnpm typecheck:tests` / `pnpm build` 全绿，
-`vitest run --no-file-parallelism` → **344 passed（20 files）**。
+`vitest run --no-file-parallelism` → **346 passed（20 files）**。
 
 **真机未验**（本机 Playwright 不可用）：四风味 × mica/compat 的观感确认待补。重点看三处——
 Latte 的菜单是否仍完全无框（逐像素应不变）、Mocha 的菜单描边在密集正文上会不会过重、
 Latte 的模态投影会不会显脏。
 
-遗留：**④ 顶栏右侧三控件**（要先取 DOM 确认归属）；**⑤ 左右边不齐**（成因已查清：上游顶栏走
-「列 − 32」、输入卡走「正文列 + 32」，补丁 3 行、有 `var(..., none)` 兜底，但会改顶栏宽度
-——等维护者点头）；**⑥ 已撤回**（四边都是 12px，量测错误）。
+遗留：**④ 顶栏右侧三控件**（要先取 DOM 确认归属）；**⑥ 已撤回**（四边都是 12px，量测错误）。
+⑤ 已实施，但**真机未验**——顶栏变窄后标题与标签行会向内收，窄窗口需要单独看一眼。
