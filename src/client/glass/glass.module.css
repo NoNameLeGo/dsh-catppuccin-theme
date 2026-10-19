@@ -410,10 +410,20 @@
 
 /* New-session button: the same raised recipe as the "+" — always a touch
    more opaque than the surrounding cards so it reads as the primary action
-   on the glass sheet. */
+   on the glass sheet.
+   Rim step (2026-10-19, frame-language audit ② — docs/frame-language-
+   audit-2026-10-19.md): SOFT, i.e. one step BELOW the base rim. This seam is
+   stamped on the sidebar's new-session button (`glass-seams.ts`:
+   `button[class*="newSession"]`), a control that lives INSIDE the sidebar
+   card — and that card rides `--dsh-glass-rim-soft` since issue #26. At the
+   base step the button measured BRIGHTER than the frame around it
+   (peak rgb(61,63,78) vs rgb(51,52,67) on Mocha), an inverted hierarchy:
+   a container must never be dimmer than the control it holds. The raised
+   64% fill + the edge light already carry the "primary action" read; the rim
+   only has to separate the bead from the sheet. */
 [data-dsh-glass-float] [data-dsh-glass-surface] {
   background: var(--dsh-glass-card-raised);
-  border: 1px solid var(--dsh-glass-rim);
+  border: 1px solid var(--dsh-glass-rim-soft);
   box-shadow: var(--dsh-glass-edge);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
@@ -1106,6 +1116,26 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
   --dsw-menu-backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
 
+/* ---------- Menu rim, DARK SCHEMES ONLY (2026-10-19 frame-language audit ⑦).
+   Round 3 (②a) took the 1px rim off this seat because in LATTE it read as a
+   solid frame pinching the provider names — that evidence still stands, so the
+   light schemes stay un-stroked. But dropping it EVERYWHERE left the two
+   floating layers disagreeing: the modal dialog keeps `--dsh-glass-rim`, the
+   menu has no edge at all, and over a dark ground the raised fill alone
+   (64% of layer-1) barely separates a popup from a dense transcript.
+   Dark gets the SOFT step back — one below the dialog's 24%, so the ladder
+   still reads dialog > menu — and nothing else changes.
+   Drawn with `outline` + negative offset, the repo's own menu idiom: a
+   `border` would move the host's box model (the surface sizes its material
+   plane with `inset: 0`, so a border would inset the fill by 1px) and a
+   `box-shadow` would clobber upstream's elevation, while an outline paints
+   ABOVE the negative-z plane and shifts nothing. `:not(:focus-visible)`
+   keeps the shared focus ring winning. */
+[data-dsh-glass-float] body[data-ds-dark-theme] [data-menu-material='translucent']:not(:focus-visible) {
+  outline: 1px solid var(--dsh-glass-rim-soft);
+  outline-offset: -1px;
+}
+
 /* Hand-rolled menus that never enter MenuSurface (dsh-client-ui-schedule's
    TaskMenu list renders its own `div[role='menu']`): they paint their whole
    box themselves, so the surface recipe stays on the element. Guarded twice —
@@ -1167,7 +1197,19 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 [data-dsh-glass-float] [role='dialog'][aria-modal='true'] {
   background: var(--dsh-glass-card-raised);
   border: 1px solid var(--dsh-glass-rim);
-  box-shadow: var(--dsh-glass-edge);
+  /* Two fixes from the 2026-10-19 frame-language audit (docs/frame-language-
+     audit-2026-10-19.md ① and ③):
+     ① the modal carried the edge light but NO drop shadow, so the HIGHEST
+        layer on the page — it floats on the blurred mask — was the flattest
+        one it reads against the header / sidebar / composer cards, all of
+        which carry `--dsh-glass-drop`.
+     ② radius 14 (the generic `[role='dialog']` step in the corner language
+        above) made a near-full-height panel LESS round than the 20px header
+        card sitting above it in the same column. Modals now join the 20px
+        step; small `role=dialog` popups (the context meter) keep 14.
+     Both are paint-only: no box-model change, no descendant moves. */
+  border-radius: 20px;
+  box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
 }
 
@@ -1463,10 +1505,14 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    the "+" bead / new-session button. */
 
 /* Compatibility-mode modal panels: same live translucent fill as the float
-   mode (the generic blur above alone would sit behind an opaque panel). */
+   mode (the generic blur above alone would sit behind an opaque panel), and
+   since the 2026-10-19 frame-language audit the same edge + drop as well —
+   the material is mode-independent, only the LAYOUT is stock here, so the
+   radius stays whatever the host declares (no 20px step in compat). */
 [data-dsh-glass-compat] [role='dialog'][aria-modal='true'] {
   background: var(--dsh-glass-card-raised);
   border: 1px solid var(--dsh-glass-rim);
+  box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
   backdrop-filter: blur(var(--dsh-glass-blur, 12px));
 }
 

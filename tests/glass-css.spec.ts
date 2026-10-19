@@ -542,10 +542,20 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
         /(?:^|;)\s*background\s*:/.test(rule.decls),
         `${rule.selector} paints a fill on the surface`,
       ).toBe(false)
-      expect(
-        /outline\s*:/.test(rule.decls),
-        `${rule.selector} paints a stroke on the surface (round 3 ②a removed the rim)`,
-      ).toBe(false)
+      // Round 3 ②a removed the stroke because it read as a solid frame in
+      // LATTE; that verdict still holds for the light schemes. The 2026-10-19
+      // frame-language audit ⑦ put the SOFT step back for DARK schemes only
+      // (a popup over a dense transcript needs an edge to read), so the only
+      // stroke this guard tolerates is that one, in the soft weight.
+      if (/outline\s*:/.test(rule.decls)) {
+        expect(
+          rule.selector.includes('data-ds-dark-theme'),
+          `${rule.selector} paints a stroke on the surface outside the dark branch`,
+        ).toBe(true)
+        expect(rule.decls, `${rule.selector} must use the soft rim step`).toMatch(
+          /outline\s*:\s*1px solid var\(--dsh-glass-rim-soft\)/,
+        )
+      }
     }
   })
 
@@ -581,6 +591,8 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
     ).toBe(true)
   })
 
+
+
   it('keeps highlights un-stroked: no 1px inset rings on rows or menu cells', () => {
     const selectedRow = rules.find((rule) =>
       rule.selector.includes("[role='treeitem'][aria-selected='true']"),
@@ -601,6 +613,76 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
     expect(pill!.selector, ':first-child hits the 0.2.0 sentinel span').not.toContain(':first-child')
     expect(pill!.decls, 'the provider pill grew a frame back (round 3 ③)').not.toMatch(/border\s*:\s*1px/)
     expect(pill!.decls, 'the pill lost its sticky-cover blur').toContain('backdrop-filter')
+  })
+})
+
+describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)', () => {
+  // docs/frame-language-audit-2026-10-19.md. Four boxes were fixed in one
+  // pass; each assertion below locks the DECISION, not the pixel, so a later
+  // refactor that re-flattens the modal or re-inverts the rim hierarchy goes
+  // red instead of shipping.
+  const dialog = (mode: 'float' | 'compat') =>
+    rules.find(
+      (rule) =>
+        rule.selector.includes(`data-dsh-glass-${mode}`) &&
+        rule.selector.includes("[role='dialog'][aria-modal='true']"),
+    )
+
+  it('① gives the modal its drop shadow in BOTH modes — the top layer is not the flattest', () => {
+    for (const mode of ['float', 'compat'] as const) {
+      const rule = dialog(mode)
+      expect(rule?.selector, `${mode} lost the modal surface rule`).toBeDefined()
+      expect(rule!.decls, `${mode} modal has no drop shadow`).toMatch(
+        /box-shadow\s*:[^;]*var\(--dsh-glass-drop\)/,
+      )
+      expect(rule!.decls, `${mode} modal lost the edge light`).toMatch(
+        /box-shadow\s*:[^;]*var\(--dsh-glass-edge\)/,
+      )
+    }
+  })
+
+  it('③ puts the modal on the 20px step, leaving small dialogs at 14', () => {
+    expect(dialog('float')!.decls, 'the modal is not on the 20px step').toMatch(
+      /border-radius\s*:\s*20px/,
+    )
+    // The generic `[role='dialog']` step must survive for the small popups
+    // (context meter) that share the role but are not full panels.
+    const generic = rules.filter(
+      (rule) =>
+        rule.selector.includes("[role='dialog']") &&
+        !rule.selector.includes('aria-modal') &&
+        /border-radius\s*:\s*14px/.test(rule.decls),
+    )
+    expect(generic.length, 'small role=dialog popups lost their 14px step').toBeGreaterThan(0)
+  })
+
+  it('② never lets a control out-stroke the card it sits in', () => {
+    // The seam is stamped on the new-session BUTTON, which lives inside the
+    // sidebar card (issue #26 softened that card to the soft step). A base rim
+    // here measured brighter than its own container.
+    const surface = rules.filter((rule) => rule.selector.includes('[data-dsh-glass-surface]'))
+    expect(surface.length).toBeGreaterThan(0)
+    const stroked = surface.filter((rule) => /border\s*:/.test(rule.decls))
+    expect(stroked.length, 'the new-session seam paints no rim at all').toBeGreaterThan(0)
+    for (const rule of stroked) {
+      expect(rule.decls, `${rule.selector} out-strokes the sidebar card it sits in`).toMatch(
+        /border\s*:\s*1px solid var\(--dsh-glass-rim-soft\)/,
+      )
+    }
+  })
+
+  it('⑦ strokes menus in the dark branch only, and with the soft step', () => {
+    const darkRim = rules.find(
+      (rule) =>
+        rule.selector.includes("[data-menu-material='translucent']") &&
+        rule.selector.includes('data-ds-dark-theme') &&
+        /outline\s*:/.test(rule.decls),
+    )
+    expect(darkRim?.selector, 'dark menus lost their rim').toBeDefined()
+    expect(darkRim!.decls).toMatch(/outline\s*:\s*1px solid var\(--dsh-glass-rim-soft\)/)
+    // Negative offset = painted inside the box, so the fill's corners and the
+    // host's geometry are untouched.
+    expect(darkRim!.decls).toMatch(/outline-offset\s*:\s*-1px/)
   })
 })
 
