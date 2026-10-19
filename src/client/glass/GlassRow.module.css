@@ -21,6 +21,31 @@
   gap: 10px;
 }
 
+/* Ground sample strip (see glass-row.tsx). The two knobs that move the PAGE
+ * ground — background brightness and the glow switch — had no visible target
+ * inside this dialog: the panel's own fill is the bluish ladder under
+ * `[data-dsh-glass-settings]`, so the ground only leaked around its edges.
+ *
+ * This file owns the box ONLY — no fill, no backdrop-filter. The strip is
+ * painted by the very same rule as <body> (`glass.module.css` lists both
+ * selectors), so it cannot drift from the page; and since the strip IS the
+ * ground, a blur on it would be an identity read costing a per-frame backdrop
+ * (issue #13, guarded by tests/glass-css.spec.ts GROUND_ONLY). */
+.sampleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.groundSample {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  overflow: hidden;
+}
+
 .rowLabel {
   flex: none;
   width: 92px;

@@ -409,6 +409,26 @@ describe('GlassRow ground-glow switch (issue #26)', () => {
   })
 })
 
+describe('GlassRow ground sample (2026-10-19)', () => {
+  // Brightness and the glow switch move the PAGE ground, which the settings
+  // page covers with its own fill — the strip is the only in-place target.
+  it('renders the strip, hooked to the ground rule, while the layer is on', () => {
+    const { container } = render(
+      <GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })} />,
+    )
+    const strip = container.ownerDocument.querySelector('[data-dsh-glass-ground-sample]')
+    expect(strip, 'brightness / glow lost their preview target').not.toBeNull()
+    expect(screen.getByText(t('glass.previewGround'))).toBeDefined()
+  })
+
+  it('does not render it while the layer is off', () => {
+    const { container } = render(
+      <GlassRow {...makeGlassRow({ enabled: false, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })} />,
+    )
+    expect(container.ownerDocument.querySelector('[data-dsh-glass-ground-sample]')).toBeNull()
+  })
+})
+
 describe('GlassRow knobs', () => {
   it('announces each slider with its unit (item Z)', () => {
     // The snapshot object must keep a stable identity: `useSyncExternalStore`

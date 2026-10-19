@@ -234,6 +234,17 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
               <Switch checked={glow} onChange={(next) => { setGlow(next) }} label={t('glass.glow')} />
             </div>
             <div className={css.rowHint}>{t('glass.glowHint')}</div>
+            {/* Ground sample: brightness and the glow switch move the PAGE
+                ground, which this dialog covers with its own bluish fill — so
+                both knobs were unverifiable in place. The strip is painted by
+                the body's ground rule itself (`glass.module.css` lists both
+                selectors, one declaration), so what it shows is the page, not
+                an illustration of it. No blur: the strip IS the ground. */}
+            <div className={css.sampleRow}>
+              <span className={css.knobLabel}>{t('glass.previewGround')}</span>
+              <div className={css.groundSample} data-dsh-glass-ground-sample="" aria-hidden="true" />
+            </div>
+            <div className={css.rowHint}>{t('glass.previewGroundHint')}</div>
             <div className={css.row}>
               <Button size="sm" variant="outline" onClick={() => { resetDefaults() }}>
                 {t('glass.reset')}
