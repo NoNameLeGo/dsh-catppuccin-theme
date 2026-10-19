@@ -311,7 +311,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> `beta` = **`0.6.3-beta.3`**（2026-10-18；Publish run `39109687611` success 33 s、日志
+> `beta` = **`0.6.4-beta.0`**（2026-10-19；Publish run `39248943503` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.4-beta.0` 带 provenance、tag 显式 `beta`；CI `39248943583`
+> check + boot-e2e 双绿）= **issue #29 状态栏背板改磨砂幕布**（同色 α70~84% + blur + 顶部 18px mask
+> 淡入，几何沿用 #28；`docs/issue-29-dock-glass-veil.md`）+ 框语言审计 P1~P3（四条框规则统一 /
+> 顶栏与轨迹面板跟随输入卡宽度 / 设置项加真值样本与「看一眼主界面」出口）。**测试 352 全绿**（20 文件）。
+> ⚠️ 真机 CDP 像素探针与四风味 × mica/compat **未跑**（本机 Playwright 不可用）。
+> 上一版 `beta` = **`0.6.3-beta.3`**（2026-10-18；Publish run `39109687611` success 33 s、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.3-beta.3` 带 provenance；CI `39109564288` check + boot-e2e
 > 双绿，boot **22/22 项通过（3 项跳过）**）= **issue #27 设置独立分区**（`settings.section` 导航项
 > 「Catppuccin」+ 控件换官方 primitives，删掉 4 条 general 行）+ **issue #28 dock 背板**（卡外

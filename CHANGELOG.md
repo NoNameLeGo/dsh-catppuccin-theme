@@ -1285,7 +1285,7 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.3...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4-beta.0...HEAD
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2
