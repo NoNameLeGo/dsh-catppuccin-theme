@@ -186,6 +186,10 @@ resolveContentWidth(column, preference) {
 2. 改动只要落进 `glass-css.spec.ts` 锁过的选择器族（dialog / menu / composer / bubble），补一条护栏断言。
 3. 真机 A/B：同一状态截两张（开/关该条），差异只应出现在该框自身，不牵动相邻面。
 4. 四个风味 × mica/compat 各看一次 `rim` 与影（Latte 的影最明显，Mocha 的影最容易被吃掉）。
+5. 没有真机也能先看**配方 A/B**：本机 Playwright 不可用，但 `chrome.exe --headless=new
+   --screenshot=… --force-device-scale-factor=2 --window-size=… file:///…html` 可用（一次性截图，
+   不需要 CDP、不需要装依赖）。规格页与出图：`.debug/frame-audit/ab-preview.html` /
+   `ab-preview-trim.png`（**不入库**）。它按真实 token 复刻配方，能看几何与材质，**不替代真机**。
 
 ## 6. 实施记录（2026-10-19，提交 `27fd88f`）
 
