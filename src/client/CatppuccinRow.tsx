@@ -238,6 +238,32 @@ export function CatppuccinRow({
         />
       </div>
 
+      {/* Code sample: the shiki pick's ONLY effect lives in code blocks, and
+          this page has none, so the control sat next to a value the user could
+          not verify without leaving the dialog.
+          The sample paints itself from the same `--shiki-token-*` variables the
+          real blocks read (the table in `shiki-tokens.ts` is registered as
+          theme tokens), so it is the live palette rather than a hand-picked
+          mock: `italic-comments` is a comment COLOUR step (overlay2 →
+          subtext0 — see that file's header, DSH's shiki.css carries colours
+          only), and it shows up here the moment the theme re-registers. The
+          fallbacks cover the stock themes, where no Catppuccin table exists. */}
+      <div className={css.codePreview}>
+        <span className={css.shikiLabel}>{t('row.previewCode')}</span>
+        <pre className={css.codeSample} aria-label={t('row.previewCode')}>
+          <code>
+            <span className={css.tokKeyword}>const</span>{' '}
+            <span className={css.tokFunction}>greet</span>
+            <span className={css.tokPunct}>{' = ('}</span>
+            <span className={css.tokParameter}>name</span>
+            <span className={css.tokPunct}>{') => '}</span>
+            <span className={css.tokString}>{'`hi ${name}`'}</span>
+            {'\n'}
+            <span className={css.tokComment}>{'// a comment'}</span>
+          </code>
+        </pre>
+      </div>
+
       {/* Power-user token overrides (item K). */}
       <div className={css.overrides}>
         <Button

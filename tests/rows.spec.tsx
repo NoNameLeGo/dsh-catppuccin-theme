@@ -12,6 +12,9 @@
  * Testing Library cannot register its own afterEach hook.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CatppuccinRow, type CatppuccinRowProps } from '../src/client/CatppuccinRow.tsx'
 import { CatppuccinDetailCard, type CatppuccinDetailCardProps } from '../src/client/detail-card.tsx'
@@ -24,6 +27,15 @@ import { zh, type CatppuccinKey } from '../src/client/locales.ts'
 import type { ShikiStyle } from '../src/state.ts'
 
 afterEach(cleanup)
+
+/** The row stylesheet as TEXT: class names are hashed at build time, so the
+ *  only stable way to assert on a rule is to read the source (same technique as
+ *  tests/glass-css.spec.ts). Resolved to a string path on purpose — jsdom's
+ *  `URL` is not the Node one, and readFileSync rejects it. */
+const ROW_CSS = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'client', 'CatppuccinRow.module.css'),
+  'utf8',
+)
 
 const t = (key: CatppuccinKey): string => zh[key]
 
@@ -146,6 +158,37 @@ describe('CatppuccinRow override editor', () => {
     const remaining = screen.getAllByLabelText(t('row.overridesKey')) as HTMLInputElement[]
     expect(remaining).toHaveLength(1)
     expect(remaining[0]?.value).toBe('--dsw-static-green-500')
+  })
+})
+
+describe('CatppuccinRow code sample (2026-10-19)', () => {
+  // The shiki pick only shows up inside code blocks, which the settings page
+  // does not have — the sample is the in-place target, so it must paint from the
+  // SAME token variables the real blocks read. `italic-comments` is a comment
+  // COLOUR step (overlay2 → subtext0), so the comment line is the only line the
+  // pick can visibly change; the colour must therefore arrive through CSS, not
+  // through a prop, or the sample would be a mock.
+  it('renders a sample with a comment line', () => {
+    const { props } = makeRow()
+    render(<CatppuccinRow {...props} />)
+
+    const sample = screen.getByLabelText(t('row.previewCode'))
+    const lines = [...sample.querySelectorAll('span')].map((span) => span.textContent)
+    expect(lines).toContain('// a comment')
+    expect(lines).toContain('const')
+  })
+
+  it('paints every token from the live shiki variables, never a hardcoded colour', () => {
+    // Locked on the stylesheet text because the class names are hashed per
+    // build: this is the contract that survives a recompile.
+    const rules = [...ROW_CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.(tok[A-Za-z]+)\s*\{([^}]*)\}/g)]
+    expect(rules.length, 'the sample token rules disappeared').toBeGreaterThan(0)
+    for (const [, name, decls] of rules) {
+      expect(decls, `.${name} must read a --shiki-token-* variable`).toMatch(
+        /var\(--shiki-token-[a-z-]+,\s*var\(/,
+      )
+      expect(decls, `.${name} must not hardcode a colour`).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+    }
   })
 })
 

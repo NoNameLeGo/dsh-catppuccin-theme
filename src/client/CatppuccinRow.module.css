@@ -84,6 +84,61 @@
   line-height: 18px;
 }
 
+/* Code sample under the shiki picker.
+ *
+ * The pick's only visible effect is inside code blocks, and this page has none,
+ * so the control came with no way to judge it in place. The sample reads the
+ * same `--shiki-token-*` variables the real blocks read (registered as theme
+ * tokens from shiki-tokens.ts), which makes it a live preview instead of a
+ * mock: `italic-comments` is a comment COLOUR step (overlay2 → subtext0), so
+ * the comment recolours here as soon as the theme re-registers. The fallbacks
+ * matter for the stock themes, where no Catppuccin token table is registered
+ * and those variables are undefined. */
+.codePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.codeSample {
+  margin: 0;
+  padding: 8px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-markdown-code-block, var(--dsw-alias-bg-layer-2));
+  color: var(--shiki-foreground, var(--dsw-alias-label-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre;
+  overflow: auto;
+}
+
+.tokKeyword {
+  color: var(--shiki-token-keyword, var(--dsw-static-blue-500));
+}
+
+.tokFunction {
+  color: var(--shiki-token-function, var(--dsw-static-amber-500));
+}
+
+.tokParameter {
+  color: var(--shiki-token-parameter, var(--dsw-alias-label-primary));
+}
+
+.tokString {
+  color: var(--shiki-token-string, var(--dsw-static-green-500));
+}
+
+.tokPunct {
+  color: var(--shiki-token-punctuation, var(--dsw-alias-label-secondary));
+}
+
+.tokComment {
+  color: var(--shiki-token-comment, var(--dsw-alias-label-tertiary));
+}
+
 /* Power-user token overrides (item K). */
 .overrides {
   display: flex;
