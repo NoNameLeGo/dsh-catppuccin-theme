@@ -153,7 +153,20 @@
    `--dsh-glass-ground` (see the variable blocks); the frame and the
    conversation / details columns stay transparent so the ground shows through
    behind the glass. */
-[data-dsh-glass] body {
+/* Painted for TWO consumers from ONE declaration: the page, and the ground
+   sample strip in the glass settings row. The strip exists because the two
+   knobs that move the ground (背景亮度 / 地面光斑) have no visible target on the
+   settings page — its own fill is the bluish ladder under
+   `[data-dsh-glass-settings]`, so the ground only leaks around the panel's
+   edges and neither knob could be judged without closing the dialog.
+   Sharing the selector list instead of copying the recipe is deliberate: the
+   #25 trap below (ambience weights inline in `background`) would otherwise
+   have to be duplicated, and two copies drift. The strip is a descendant of
+   <body> and inherits every `--dsh-glass-*` variable this rule reads; the
+   gradients resolve against its own box, i.e. it is a live thumbnail, not a
+   drawing of one. Guard: `tests/glass-css.spec.ts` › settings ground sample. */
+[data-dsh-glass] body,
+[data-dsh-glass] [data-dsh-glass-ground-sample] {
   background:
     /* Glow 1 — the brand accent, top-left (the "light source"). Gated by the
        glow switch: `--dsh-glass-glow` is 0 unless the user opts in, which makes

@@ -50,8 +50,14 @@ const CSS = readFileSync(
 
 /** Selectors known to sit over the page ground field (issue #13; ambient
  *  since issue #25 — the field stays low-frequency, so the blur verdict is
- *  unchanged). */
-const GROUND_ONLY = /sidebarCol|bubble|trajectory/
+ *  unchanged). `ground-sample` is the settings strip that IS the ground (see
+ *  the "settings ground sample" block): a blur on it would be the worst case
+ *  of the same waste. */
+const GROUND_ONLY = /sidebarCol|bubble|trajectory|ground-sample/
+
+/** The individual selectors of a rule (a rule may carry a selector LIST — the
+ *  ground rule does, since it paints both <body> and the settings strip). */
+const selectorList = (selector: string): string[] => selector.split(',').map((part) => part.trim())
 
 /** Selectors whose backdrop is genuinely moving/heterogeneous content.
  *  The composer blurs from its `::before` material plane, not from the element
@@ -397,7 +403,9 @@ describe('ground ambience (issue #25, revised by #26)', () => {
   // ≤2/255 — and the glows are gated on the 光斑 switch through
   // `--dsh-glass-glow`, whose shipped default is 0.
   const ground = rules.find(
-    (rule) => rule.selector === '[data-dsh-glass] body' && /(?:^|;)\s*background\s*:/.test(rule.decls),
+    (rule) =>
+      selectorList(rule.selector).includes('[data-dsh-glass] body') &&
+      /(?:^|;)\s*background\s*:/.test(rule.decls),
   )
 
   it('keeps the wash unconditional and never a flat fill again', () => {
@@ -1391,5 +1399,49 @@ describe('composer dock backing: the stats row gets the ground back (issue #28)'
       /left\s*:\s*calc\(-1 \* var\(--dsh-composer-side-clearance/,
     )
     expect(blurOf(band!.decls), 'issue #13: an opaque ground fill needs no blur').toBeUndefined()
+  })
+})
+
+describe('settings ground sample (2026-10-19)', () => {
+  // The glass row carries two knobs that move the PAGE ground: background
+  // brightness and the glow switch. Neither had a visible target inside the
+  // settings page — the panel's own fill is the bluish ladder under
+  // `[data-dsh-glass-settings]`, so the ground only leaks around its edges and
+  // both knobs could only be judged after closing the dialog.
+  //
+  // The fix is a sample strip that shares the body's ground rule through a
+  // selector LIST (one declaration, two consumers). Copying the recipe instead
+  // would duplicate the issue #25 trap (the ambience weights must stay inline in
+  // `background`), and the two copies would drift apart silently. These
+  // assertions pin the sharing, so a future "cleanup" that splits the rule into
+  // two declarations fails here.
+  const groundRule = rules.find(
+    (rule) =>
+      selectorList(rule.selector).includes('[data-dsh-glass] body') &&
+      /(?:^|;)\s*background\s*:/.test(rule.decls),
+  )
+
+  it('paints the sample from the body ground rule itself, not a copy', () => {
+    expect(groundRule, 'the ground background rule disappeared').toBeDefined()
+    expect(
+      selectorList(groundRule!.selector),
+      'the strip must ride the SAME declaration as the page — splitting it lets the two drift',
+    ).toContain('[data-dsh-glass] [data-dsh-glass-ground-sample]')
+    expect(
+      rules.filter(
+        (rule) =>
+          selectorList(rule.selector).includes('[data-dsh-glass] [data-dsh-glass-ground-sample]') &&
+          /(?:^|;)\s*background\s*:/.test(rule.decls),
+      ),
+      'the strip must not get a second background declaration',
+    ).toHaveLength(1)
+  })
+
+  it('keeps the strip blur-free: it IS the ground', () => {
+    const sample = rules.filter((rule) => rule.selector.includes('ground-sample'))
+    expect(sample.length, 'the strip lost its CSS hook').toBeGreaterThan(0)
+    for (const rule of sample) {
+      expect(blurOf(rule.decls), `${rule.selector} must not blur the ground it is made of`).toBeUndefined()
+    }
   })
 })
