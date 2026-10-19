@@ -780,7 +780,39 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    the collapsed-rail step) so a blank header stays byte-identical to stock:
    the rail must not nudge the corner toggle either. */
 [data-dsh-glass-float] [data-phase] header:not([class*='headerBlank']) {
-  margin: 12px 16px 0;
+  /* Width (2026-10-19, frame-language audit ⑤ — docs/frame-language-audit-
+     2026-10-19.md). Upstream sizes the top bar and the composer with TWO
+     unrelated rules: the header fills the column minus its own 2×16px margin,
+     while the card is capped at `--dsh-composer-card-max-width` = the READING
+     column + 32px, and that reading column is a drag handle whose ceiling is
+     `column - 176px` (`resolveContentWidth()` in ui-conversation). Both got
+     rims from this skin, so the mismatch that stock hides became a visible
+     "two boxes that do not line up" — 56px per side at the reporter's window,
+     and 225px per side at the default (un-dragged) width.
+     The card is the hero surface (its rim stays the strong step on purpose),
+     so the HEADER follows the card, not the other way round: same cap, centred.
+     The expression is written INLINE in both consumers rather than through one
+     custom property — the issue #25 trap: a value that travels through an
+     intermediate property is not guaranteed to recompute when its inputs move,
+     and `--dsh-chat-user-width` moves on every drag frame.
+     `--dsh-chat-user-width` / `--dsh-conversation-column-width` are written
+     inline on THIS element's own box (`publishWidths()` uses
+     `container.parentElement`, i.e. the `[data-phase]` root), so the header
+     inherits them; `.body` is a SIBLING, which is why
+     `--dsh-composer-card-max-width` cannot be read here.
+     Fallback: 1500px as the sentinel column makes the clamp return 920 (the
+     design cap) when a host predates the width axis, and `min(…, 100% - 32px)`
+     keeps today's geometry on a narrow column. */
+  margin: 12px auto 0;
+  max-width: min(
+    calc(
+      var(
+          --dsh-chat-user-width,
+          clamp(680px, calc(var(--dsh-conversation-column-width, 1500px) * 0.64), 920px)
+        ) + 32px
+    ),
+    calc(100% - 32px)
+  );
   padding: 10px 16px 8px;
   border: 1px solid var(--dsh-glass-rim);
   border-radius: 20px;
@@ -796,9 +828,16 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 /* Collapsed: the floating rail reaches 12px into the chat gutter, so the
    header card steps right (28px inset = 16px clear of the rail's edge) —
    the sidebar keeps its geometry, the top bar does the adjusting (ported
-   from Aqua). */
+   from Aqua).
+   ⚠️ The rail state keeps the OLD full-width box on purpose (2026-10-19,
+   audit ⑤ follow-up): at rail width the reading-column cap is indeterminate
+   (`--dsh-chat-user-width` only exists in the active phase) and the rail needs
+   a hard left inset, which `margin-inline: auto` cannot express. Reverting
+   `max-width` here means the rail behaves exactly as before this change. */
 [data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header:not([class*='headerBlank']) {
   margin-left: 28px;
+  margin-right: 16px;
+  max-width: none;
 }
 
 /* ---------- Sidebar (侧边栏): header-style glass card; the token fill on
@@ -947,8 +986,22 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    composer-overlay])`), so the transcript is not behind it — its backdrop is
    the solid ground again. ---------- */
 [data-dsh-glass-float] [data-dsh-glass-trajectory] {
-  margin: 8px 16px 12px;
+  /* Same cap as the header card (2026-10-19, audit ⑤): the trajectory view is
+     the third box that floats in this column, so it follows the reading column
+     too — otherwise narrowing only the header would trade one misalignment for
+     another the moment the 轨迹 tab is opened. Same inline expression as the
+     header rule; see the note there for why it is not a custom property. */
+  margin: 8px auto 12px;
   width: calc(100% - 32px);
+  max-width: min(
+    calc(
+      var(
+          --dsh-chat-user-width,
+          clamp(680px, calc(var(--dsh-conversation-column-width, 1500px) * 0.64), 920px)
+        ) + 32px
+    ),
+    calc(100% - 32px)
+  );
   height: calc(100% - 20px);
   border: 1px solid var(--dsh-glass-rim);
   border-radius: 20px;

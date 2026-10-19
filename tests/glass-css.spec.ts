@@ -692,6 +692,41 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     // host's geometry are untouched.
     expect(darkRim!.decls).toMatch(/outline-offset\s*:\s*-1px/)
   })
+
+  it('⑤ sizes the top bar like the input card, not like the whole column', () => {
+    // Upstream has TWO width rules (header = column − 32; card = reading column
+    // + 32, where the reading column is a drag handle capped at column − 176).
+    // The skin floats both, so the header now follows the card's cap.
+    const header = rules.find(
+      (rule) =>
+        rule.selector.includes("[data-phase] header:not([class*='headerBlank'])") &&
+        !rule.selector.includes('sidebar-collapsed'),
+    )
+    expect(header?.selector, 'the header card rule disappeared').toBeDefined()
+    expect(header!.decls, 'the header stopped following the reading column').toMatch(
+      /max-width\s*:\s*min\(/,
+    )
+    expect(header!.decls, 'the cap must track the drag handle').toContain('--dsh-chat-user-width')
+    expect(header!.decls, 'the header must be centred, not left-aligned').toMatch(
+      /margin\s*:\s*12px auto 0/,
+    )
+    // The collapsed rail needs a hard left inset and an indeterminate cap, so it
+    // must keep the old full-width box.
+    const rail = rules.find(
+      (rule) => rule.selector.includes('sidebar-collapsed') && rule.selector.includes('header'),
+    )
+    expect(rail?.selector, 'the rail header rule disappeared').toBeDefined()
+    expect(rail!.decls, 'the rail state lost its full-width fallback').toMatch(/max-width\s*:\s*none/)
+  })
+
+  it('⑤ keeps the trajectory panel on the same cap', () => {
+    // Otherwise narrowing only the header trades one misalignment for another
+    // as soon as the 轨迹 tab opens.
+    const trajectory = rules.find((rule) => rule.selector.includes('[data-dsh-glass-trajectory]'))
+    expect(trajectory?.selector, 'the trajectory panel lost its rule').toBeDefined()
+    expect(trajectory!.decls).toContain('--dsh-chat-user-width')
+    expect(trajectory!.decls).toMatch(/margin\s*:\s*8px auto 12px/)
+  })
 })
 
 describe('main input surface rim (issue #22 follow-up)', () => {
