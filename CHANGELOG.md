@@ -6,7 +6,16 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.6.4] - 2026-10-21
+
+> 本版 = `0.6.4-beta.0` **转正** + 顶栏宽度的第二半修复（框语言 ⑤）+ 首次真机验收 + 玻璃预览图重拍。
+> 内容：issue #29 状态栏背板改磨砂幕布（同色 α70~84% + blur + 顶部 18px mask 淡入）＋ 框语言审计
+> 四条框规则统一 ＋ ⑤ 顶栏 / 轨迹面板跟随输入卡宽度（**本版补上 `width: 100%`**，此前 `max-width`
+> 撑不开 fit-content 盒，顶栏只有 266px 而卡 856px）＋ 玻璃预览图重拍（旧图顶栏正是 ⑤ 的塌陷态，
+> 且侧栏展开了、露出真实工作区名）。**测试 352 全绿**（20 文件）。
+> 真机验收（官方壳 `0.2.1-rc.2` / Electron 44.7.0）：#29 的 α / blur / mask / 几何逐项实测通过，
+> #19 命令面板祖先链 `backdrop-filter` 命中 0，框语言 ①②③⑦ 与 issue #27 的设置分区目视通过；
+> #29 的四风味全矩阵与 ⑤ 的折叠分支未能在真机触发（环境限制已写进对应文档）。
 
 ### 变更
 
@@ -1296,7 +1305,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
 [0.6.2-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2-beta.1...v0.6.2-beta.2
