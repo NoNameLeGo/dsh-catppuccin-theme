@@ -217,7 +217,13 @@ setTimeout(clear, 1200)
 1. **桌面壳目视**：`~/.dsh/profiles/desktop` 已是 `link:` 态（指向本仓库）⇒ 壳重启即加载新 `lib/`；但**本轮无法从工具上下文把壳拉起来**
    （2026-10-15 实测：bash 后台启动 → 进程存活但 `HWND=0`、零子进程、零日志；`Start-Process` / `cmd start` → 立即退出；事件日志无崩溃记录；
    `--remote-debugging-port` 被壳以 `bad option` 拒绝）⇒ 改由**用户手动双击启动**后目视：切会话时顶栏卡 + 输入卡应不再闪。
-2. CHANGELOG / 版本号（`0.6.3`）/ AGENTS 推论条目：**待与发版一起做**。
+   - ✅ **2026-10-21 更正（`bad option` 之谜已解）**：那不是壳的限制，而是**agent shell 自带 `ELECTRON_RUN_AS_NODE=1`**
+     （WorkBuddy 自己的 Electron 运行时会把该变量传下去），于是 exe 被当成 node 跑 —— 这同时解释了当时的
+     「立即退出 / `HWND=0` / 零子进程 / 零日志」。正确起法：
+     `env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS "<安装目录>/DeepSeek Harness.exe" --remote-debugging-port=9222`，
+     随后 `curl --noproxy '*' http://127.0.0.1:9222/json/list` 可见 `dsh-app://app/`（实测 Chromium 152.0.7977.130）。
+     同日已用这条路做完 ⑤ 的四边实测与 #29 的祖先链扫描。**目视本身仍未做**，但现在完全可自动化。
+2. ~~CHANGELOG / 版本号（`0.6.3`）/ AGENTS 推论条目：待与发版一起做~~ → **已随 `0.6.3`（2026-10-19）完成**。
 
 ## 10. 待决
 

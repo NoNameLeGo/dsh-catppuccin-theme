@@ -8,8 +8,8 @@
 > 2026-09-22 追加：全量代码审计（`docs/code-audit-2026-09-22.md`，摘要见「七」7.3）查出 **9 条缺陷**（`F1`/`F2` 为 P1「承诺未生效」型），**同日已全部修复**——`C`/`X` 曾按证据改 ⚠️，修复后改回 ✅；本轮 +15 条断言（173 用例全绿），F1/F2/F3/F5/F6 经变异验证会红。
 > 2026-10-14 文档审校：版本基线 `0.5.5` → **`0.6.2`**；活跃项仍只有 **`YY`**（未变，等对应语言反馈）。下文 §一~§六 仍是 2026-09-05 / 09-22 的评估快照（未重算），「七」是 2026-09-22 的同步记录。
 > 评估范围：`@nonamelego/dsh-catppuccin` 插件本身（host half + client half + tui-themes half）
-> 版本基线：**`0.6.2`**（2026-10-14 更新；本行原写 `0.5.5`，再往前是 `0.5.0-beta.0`——各自都是当时评估的树内基线。本档一律按仓库**当前实现**评估，不按已发版快照。剩余待办与「做/不做」影响评估见文末「七」；「七」本身是 2026-09-22 的快照，未随本次更新重算）
-> 评估依据：`src/index.ts`、`src/client/index.ts`、`src/client/CatppuccinRow.tsx`、`src/client/UpdateRow.tsx`、`src/client/glass/`、`src/client/palettes.ts`、`src/tui-themes.ts`、`src/update-check.ts`、`src/state.ts`、`src/client/state-sync.ts`、`src/legacy-state.ts`、`src/settings-catppuccin.ts`、`src/client/locales.ts`、`cordis.patch.yml`、`package.json` 等的当前实现
+> 版本基线：**`0.6.4`**（2026-10-21 更新；此前写过 `0.6.2` / `0.5.5` / `0.5.0-beta.0`——各自都是当时评估的树内基线。本档一律按仓库**当前实现**评估，不按已发版快照。剩余待办与「做/不做」影响评估见文末「七」；「七」本身是 2026-09-22 的快照，未随本次更新重算）
+> 评估依据：`src/index.ts`、`src/client/index.ts`、`src/client/settings-section.tsx`（issue #27 起的设置页组装）、`src/client/detail-card.tsx`、`src/client/CatppuccinRow.tsx`、`src/client/UpdateRow.tsx`、`src/client/LinksRow.tsx`、`src/client/shiki-tokens.ts`、`src/client/glass/`、`src/client/palettes.ts`、`src/tui-themes.ts`、`src/update-check.ts`、`src/state.ts`、`src/client/state-sync.ts`、`src/legacy-state.ts`、`src/settings-catppuccin.ts`、`src/client/locales.ts`、`cordis.patch.yml`、`package.json` 等的当前实现
 
 ---
 

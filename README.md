@@ -53,7 +53,7 @@ Web / 桌面端做全界面换色与玻璃质感，TUI 端自动同步四套官�
 
 它内置 Catppuccin 的四个主题——**Latte**、**Frappé**、**Macchiato**、**Mocha**——
 把整个界面的配色都换成对应的 Catppuccin 色板；并在设置里拥有**自己的独立分区**
-（**设置 → Catppuccin**：风味、代码高亮、自定义覆盖、玻璃质感、更新检查都在这一页），
+（**设置 → Catppuccin**：风味、代码高亮、自定义覆盖、玻璃质感、更新检查、反馈与支持都在这一页），
 选择会自动保存、重启自动恢复。
 
 同时内置一套可开关的**玻璃质感**（Glassmorphism）皮肤：顶栏、侧边栏、
@@ -66,7 +66,7 @@ Catppuccin 主题。
 - 🎨 四个主题：Latte（浅色）、Frappé / Macchiato / Mocha（深色）
 - 🧩 接入官方主题系统，与内置浅色 / 深色 / 跟随系统主题平级
 - 🎯 全界面配色覆盖，不只是一两个强调色
-- ⚙️ 设置页一行切换，选择自动保存、重启自动恢复
+- ⚙️ 设置页独立分区一键切换，选择自动保存、重启自动恢复
 - 🔧 **自定义 token 覆盖**：按「`--dsw-* 变量: 值`」逐条覆盖单个配色 token（例如把注释色换成蓝色），与所选风味一起持久保存
 - 🖍️ **代码块高亮风格**：默认 / 注释斜体（italic-comments）两套 shiki 风格可选
 - 🌐 中 / 英 / 日 / 韩 / 西 / 法 / 德七语文案（跟随系统语言）
@@ -75,7 +75,7 @@ Catppuccin 主题。
   只给输入框卡片与浮层上玻璃），模糊度、磨砂度、
   背景亮度自由调节（交互参考 [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)）
 - 🌫️ **玻璃拟态细节**：页面上下边缘渐变模糊、折叠侧边栏悬浮玻璃、
-  随主题的氛围地面（同色系渐变 + 两枚柔光斑）——内容滚入视口边缘时柔化穿过，
+  随主题的氛围地面（同色系渐变；两枚柔光斑是**可选开关、默认关**）——内容滚入视口边缘时柔化穿过，
   玻璃透着地面的明暗，层次更立体
 - 🎨 玻璃配色自动跟随当前 Catppuccin 主题
 - 🔄 **检查 Catppuccin 插件更新**：设置页一键检测本插件（dsh-catppuccin）在 npm 上的最新版本，发现新版直接给出可复制的升级命令；**默认开启自动检查**（启动后一次 + 每 6 小时），更新渠道可选稳定版 / Beta
@@ -229,6 +229,11 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
   不透明度。
 - **背景亮度**：深色模式 0–50 压暗、浅色模式 50–100 提亮（50 为原样），
   直接调和进地面底色；拉到两端时氛围层淡出，回到纯白 / 纯黑。
+- **地面光斑**：在地面渐变上叠两枚**固定于屏幕**的柔光斑（`0.6.3` 的观感），**默认关**——
+  光斑不跟面板走，每块玻璃透出的是它的不同部位，打开后左上角会明显偏亮。
+- **就地预览**：玻璃区里有一条**地面样本条**（拖亮度或切光斑，它当场变化——取的就是页面地面那套色）；
+  代码高亮下方有**代码样本**（直接读 `--shiki-token-*`，切「柔和注释」即刻变色）；
+  模式选择旁的 **看一眼主界面** 会关掉设置页，让你直接看真实布局。
 
 玻璃配色自动跟随当前主题，切换 Latte / Frappé / Macchiato / Mocha 时即时
 变色；所有设置跨重启自动恢复。
@@ -263,8 +268,8 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 - **六个区域玻璃化**：顶栏、侧边栏、输入框、轨迹视图、聊天气泡
   和新会话按钮；云母模式下成为带圆角的悬浮卡片，聊天内容滚动时从玻璃
   下方穿过、被模糊；折叠侧边栏时导航条同样悬浮在聊天区边缘
-  （「性能与用量」统计行不在此列——它保持上游原样，留在玻璃卡之外；见
-  CHANGELOG 的 `0.6.2`「拆除融合带」）；
+  （「性能与用量」统计行不套玻璃卡、留在卡外，但自 `0.6.4` 起它下面有一条**同色磨砂背板**，
+  防止滚动正文从状态栏读数底下透出——见 CHANGELOG 的 `0.6.2`「拆除融合带」与 `0.6.4` 的 issue #29）；
 - **页面边缘渐变模糊**：视口上下各有一条渐变模糊带，消息滚到边缘时被
   柔化穿过——内容在边界「融化」（借鉴
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)
@@ -328,9 +333,12 @@ console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColo
 | DSH | `>=0.1.7-rc.1`（设置页消费官方 `dsh-client-ui-primitives` 的 `SegmentedControl`，该导出自 `0.1.7-alpha.1` 起才有；旧的 `settingsScope` 通道代码保留，但 0.1.5 / 0.1.6 宿主不再声明支持） |
 | Node.js | `>=20` |
 | Profile | `web`（Web GUI 与两个桌面壳都启动 web 界面，共用本插件）；桌面端默认 profile 名为 `desktop`（已声明） |
-| 已验证的具体版本 | `0.2.1-rc.2`：官方桌面壳真机验收——插件正常启动、token 逐项生效、玻璃配方完整，**改设置真写回 `cordis.patch.yml`（修复前不写）**、重启后从文档采纳回来（[审计](docs/desktop-0.2.1-adaptation-audit.md)）；`0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e；`0.1.5-rc.3`、`0.1.7-alpha.1`、`0.1.7-alpha.2` 为同一 seam 的声明 |
+| 已验证的具体版本 | `0.2.1-rc.2`：官方桌面壳真机验收——插件正常启动、token 逐项生效、玻璃配方完整，**改设置真写回 `cordis.patch.yml`（修复前不写）**、重启后从文档采纳回来（[审计](docs/desktop-0.2.1-adaptation-audit.md)）；`0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e（**历史记录**，已低于当前兼容下限） |
 
-以上也是 `package.json` 里 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）的机器可读版本。
+`package.json` 的 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）**只声明当前支持的三条**：
+`0.1.7-rc.1` / `0.2.0-rc.2` / `0.2.1-rc.2`（兼容下限 `>=0.1.7-rc.1`）；更早的 `0.1.5-rc.*`
+与 `0.1.7-alpha.*` 是**当时**的验证记录，不在声明内。
+
 色彩覆盖以 `dsh-v0.2.0-rc.2` 的 `design-platform.css` 为基线：每方案 190 个 `--dsw-*` token（static 77 /
 alias 101 / specific 11 / 非三族 1）全覆盖，含 0.2.0 新增的 17 个 alias。
 

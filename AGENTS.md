@@ -17,7 +17,7 @@
 
 ## 项目定位与核心目标（判断「该不该做」的准绳）
 
-**核心目标是「适配」，不是「设计配色」**：按 [Catppuccin 官方源配色](https://github.com/catppuccin/catppuccin)（`palette.json` v1.8.0）把 DeepSeek Harness 的官方 `--dsw-*` token 体系**完整**映射成四个风味。**官方色板是准绳，不是教条**——官方取值在 DSH 的实际用法下真不成立时（有证据）可以改，走规则 1；**玻璃质感（Glassmorphism）是叠加在正确配色之上的视觉皮肤，属附带目标**——它只改材质，不改配色。
+**核心目标是「适配」，不是「设计配色」**：按 [Catppuccin 官方源配色](https://github.com/catppuccin/catppuccin)（色板 v1.8.0——上游 2.0.0 起根目录 `palette.json` 已删，现取自 npm `@catppuccin/palette@1.8.0`，见下）把 DeepSeek Harness 的官方 `--dsw-*` token 体系**完整**映射成四个风味。**官方色板是准绳，不是教条**——官方取值在 DSH 的实际用法下真不成立时（有证据）可以改，走规则 1；**玻璃质感（Glassmorphism）是叠加在正确配色之上的视觉皮肤，属附带目标**——它只改材质，不改配色。
 
 权威数据源（由 `scripts/generate-palettes.mjs` 读取，均在仓库外的缓存）：
 
@@ -25,6 +25,7 @@
 |---|---|
 | `<缓存>/.cache/dsh-ref/dsw-tokens.json` | 官方 design-platform.css 解析出的 `--dsw-*` token 全表——**要全覆盖，不许漏 token** |
 | `<缓存>/.cache/dsh-ref/catppuccin-palette.json` | 官方 Catppuccin 色板 v1.8.0——**默认取色来源**（官方取值在 DSH 下确实不成立时按规则 1 的例外流程偏离） |
+| 产物 `src/client/palettes.ts` | 生成物；同源产物还有 `themes/`（`pnpm gen:themes`）与 shiki token 表 |
 
 > 路径基准：脚本里写的是 `join(__dirname, '..', '..', '.cache', 'dsh-ref')`（**相对 `scripts/`，往上两级**），
 > 本机实测 = `D:\Vibe-Coding\.cache\dsh-ref\`（含 `dsw-tokens.json`、`catppuccin-palette.json` 与各 tag 的
@@ -37,7 +38,6 @@
 > 当前锚点：**`dsh-v0.2.0-rc.2` = `639ed015397290b3745d163aafe02ffee4aa3f84`**（2026-10-08 重建：190 token/方案，
 > 与出厂包快照交叉校验 380/380 语义一致）。另：上游色板仓库 2.0.0 重组后根目录 `palette.json` 已删，
 > 改从 npm 包 `@catppuccin/palette@1.8.0` 的 `esm/palette.js` 取（同一份 v1.8.0 数据）。
-| 产物 `src/client/palettes.ts` | 生成物；同源产物还有 `themes/`（`pnpm gen:themes`）与 shiki token 表 |
 
 > **两层「官方」不要混淆**：(a) **Catppuccin 源色板** —— 取色来源；(b) **DSH 官方 token 的取值与语义** —— 被适配对象。改 (b) 是本插件存在的理由（例如整族重映射 `brand-primary` 到风味蓝），不需要理由；改 (a) 才需要证据（规则 1）。
 
@@ -51,7 +51,7 @@
 3. **对比度问题先换手段，再换颜色**：第一步永远是不换色相的调整——混色目标（`base` → `crust`）与层级档位（先例：issue #7、issue #11、VV）。仍不达标时按规则 1 的例外流程偏离并记录：已有两个**记录在案的有意偏离**——① Latte `--dsw-static-blue-900`：该步被 DSH 当作浅色徽章（hero「预览版」）上的**文字**用，通用浅色计划把它混向 `base` 会洗成淡色，故改混向 `text`（`generate-palettes.mjs` 内有完整注释）；② `brand-primary` 整族：DSH 官方品牌蓝与 Catppuccin 主题冲突，直接重映射为风味蓝（生成器头部注释说明）。
 4. **玻璃层不得改变配色语义。** 玻璃只动 alpha / blur / rim / shadow，外加 #25 起的**地面氛围场**（同色系 wash + 柔光斑，纯 CSS、token 生成、随开关进出——它靠半透明填充「透出」被感知，不是 blur）；开关关闭时必须回到与官方色板逐 token 一致的纯色形态。**推论（issue #13 实测，issue #25 修订前提）**：本皮肤把页面地面画成受控的**低频场**（#13 时纯色；#25 起为 wash + 光斑——周期几百 px 的渐变，`blur(≤40px)` 对它仍是**近似恒等**），所以「背后只有地面」的玻璃面上加 `backdrop-filter` 依旧没有收益——填充逐像素不变（隐藏该面内容后 A/B：气泡 **0/19184 像素**，测于纯色时代），代价却是 Chromium 每帧回读 backdrop（**半径不参与**；`will-change` / `contain` 绕不开，只有 `none` 免提升）。**新增 blur 前先问一句「这个面背后是不是只有『地面』这一层内容（纯色或低频氛围场）」**，`tests/glass-css.spec.ts` 双向锁定（地面之上的面不得有 blur、覆盖移动内容的必须保留）。唯一已知的可见副作用不是降级：面变成合成层后，**面内文字会重抗锯齿**（≤16/255 侧栏、≤64/255 气泡）。
    **#25 附带陷阱（2026-10-15 实测）：`--dsh-glass-ambience` 的加权表达式必须内联在 `background` 里，不能只存进中间 custom property。** CDP 实测（`.debug/issue-25/probe-amb.js`）：亮度变量变化时，`background` 中**直用**的表达式（光斑、wash 末端）正确塌缩，而经过中间变量的 wash 加权**保持旧值不重算**（Chromium 的失效传播在此不可靠）。亮度拉满 ⇒ ambience = 0 ⇒ 整个氛围场塌缩回纯白 / 纯黑，这条承诺靠的就是「直用」。护栏 = `tests/glass-css.spec.ts` 的 `ground ambience (issue #25)` 三组。
-   **推论二（issue #19 实测，同样必须记）：不要把 blur 加在「托管浮层」的容器上。** 带 `backdrop-filter` 的元素会成为其后代的 **backdrop root**，后代只能读到**该元素自己画的那层**（页面内容不在其中）；命令面板 `[data-trigger-menu]` 就挂在 `[data-composer-card]` 的 `conversation.input.overlay` 锚点里，且整块**悬在卡盒之外**，于是它自带的 `blur(40px)` 读空 ⇒ 底下的转录原样透出。**推论：材质必须整体搬到容器内部的 `::before` 材质面（填充 + blur 都要，别只搬 blur），容器本体保持零绘制**——这正是上游 `MenuSurface.module.css` 的做法（`isolation: isolate` 外壳 + `z-index:-1` 材质面，其注释原话就是「keeps nested menus free of an ancestor backdrop root」）。`isolation: isolate` **不是** backdrop root，可以放心用。护栏 = `tests/glass-css.spec.ts` 的 `backdrop-root hygiene` 一组；判定手法与实测数字见 `skills/css-backdrop-root-probe` 与 `docs/issue-19-palette-blur.md`。
+   **推论二（issue #19 实测，同样必须记）：不要把 blur 加在「托管浮层」的容器上。** 带 `backdrop-filter` 的元素会成为其后代的 **backdrop root**，后代只能读到**该元素自己画的那层**（页面内容不在其中）；命令面板 `[data-trigger-menu]` 就挂在 `[data-composer-card]` 的 `conversation.input.overlay` 锚点里，且整块**悬在卡盒之外**，于是它自带的 `blur(40px)` 读空 ⇒ 底下的转录原样透出。**推论：材质必须整体搬到容器内部的 `::before` 材质面（填充 + blur 都要，别只搬 blur），容器本体保持零绘制**——这正是上游 `MenuSurface.module.css` 的做法（`isolation: isolate` 外壳 + `z-index:-1` 材质面，其注释原话就是「keeps nested menus free of an ancestor backdrop root」）。`isolation: isolate` **不是** backdrop root，可以放心用。护栏 = `tests/glass-css.spec.ts` 的 `backdrop-root hygiene` 一组；判定手法与实测数字见技能 `css-backdrop-root-probe`（在 `~/.workbuddy/skills/`，**不在本仓库**）与 `docs/issue-19-palette-blur.md`。
    **推论三（issue #22 实测）：`role='menu'` 不是菜单表面的身份。** 菜单座位的真源 = **`data-menu-material='translucent'`**（MenuSurface 自带钩子，0.1.7-rc.2 与 0.2.0-rc.2 皆有）；且填充/blur 一律**不画在表面上**，而是覆写它自带材质面读的两个 token：`--dsw-menu-surface-fill` 与 `--dsw-menu-backdrop-filter`（stock：58%/45% 填充 + `blur(40px) saturate(150%)`）。理由是 0.2.0 起模型弹层**翻转了 role**（外表面 `role=group`，内层滚动列表 `.groups` 拿了 `role=menu`，出处 `dsh-client-ui-model-selection/lib/client.js` 的 `pane === "model" ? "group" : "menu"`）——把配方挂在 role 上会画到列表上（双框 + 贴底），挂在表面上则是推论二的 backdrop root 形状。**凡 `[role='menu']` 选择器必须带守卫对** `:not([data-menu-material]):not([data-menu-material] *)`（前者跳过表面、后者跳过表面内部的一切，如模型列表；二者保留给手写菜单，如 `dsh-client-ui-schedule` 的 TaskMenu）。rim 用 `outline`（画在负 z 子元素之上、不改盒模型）。同族陷阱：MenuGroup 的分组标题钩子是 `[data-menu-group-heading]`（`> :first-child` 会被 0.2.0 前置的 1×1 哨兵 `span[data-menu-group-start]` 吃掉）。护栏 = `tests/glass-css.spec.ts` 的 `menu seat + un-stroked highlights (issue #22)` 一组。
 5. **boot 关键路径上的注册一律走 `tolerantRegistration`（issue #23）。** entry 的 `apply()` 一同步抛错 → entry FAILED → 整个 `web boot` 中止（`web boot: N entry(s) did not activate`）→ 官方壳崩溃救援 `disableAllPlugins()` 把**所有**第三方插件关停；而 `ctx.effect` 是同步执行并原样 rethrow 的（`ctx.slots.inject` 在槽已声明时同样同步）。⇒ **凡在 apply 同步路径上调用外部注册表**（`ctx.locale.register/addLanguage`、`theme.register`、`ctx.slots.register`、宿主 `webServer.register`）都必须经 `src/registration-tolerance.ts` 的 `tolerantRegistration`：已知「他方已占用」形态（语言包抢 BCP 47 ID、双份安装抢路由/slot/theme id）静默跳过，其余 warn 后同样跳过——没有任何一项注册值得用户的全套插件陪葬。⚠️ **漏包在本地测不出来**：`tests/registration-tolerance.spec.ts` 只穿过已包好的调用路径，全仓库没有任何用例扫 `src/client/index.ts` 的调用点（2026-10-14 核实，此前此处写的「变异检查会红」不成立）——漏包只会在真机 boot 上暴露，所以新增注册点时必须手工对照上面这份调用面。全量排查（A/B/C 三档）与上游报错文案速查见 `docs/issue-23-registration-tolerance.md`。
 
@@ -84,7 +84,7 @@
 | 上游位置 | 是什么 | 与本插件的关系 |
 |---|---|---|
 | `apps/web` | Web GUI（`dsh web` / `web` profile） | **核心**：`--dsw-*` token 体系与玻璃层的适配对象 |
-| `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`；**已作为客户端发行**，2026-10-02 本机装机版 = `@deepseek-ai/dsh-desktop@0.2.0-rc.2`，仍在开发迭代），启动 `$DSH_HOME/profiles/desktop` | **核心**：装/升走**应用内插件界面**（见下「两个壳两条路」），**不是** `--profile desktop` 那条命令 |
+| `apps/desktop` + `apps/desktop-host` | 官方 Electron 桌面壳（`private: true`；**已作为客户端发行**，2026-10-02 本机装机版 = `@deepseek-ai/dsh-desktop@0.2.0-rc.2`，**2026-10-17 起已升到 `0.2.1-rc.2`**，仍在开发迭代），启动 `$DSH_HOME/profiles/desktop` | **核心**：装/升走**应用内插件界面**（见下「两个壳两条路」），**不是** `--profile desktop` 那条命令 |
 | `apps/cli` → npm `@deepseek-ai/dsh` | CLI：profile 启动 / `dsh plugin` 转发 pnpm | 安装与更新检查的宿主；⚠️ **对 `desktop` 这个 profile 名会硬拒**（见下） |
 | （社区）`anywhere-labs/dsh-desktop`（原名 `deepseek-harness-desktop`） | 第三方桌面壳，**同一个 `profiles/desktop` 路径**；yarn workspace 含 `dsh-plugin-desktop` / `dsh-desktop-next` / `dsh-community-market`（内置插件市场）等 | 兼容保留，非核心；装/升**走应用内 DSH 终端的命令**（见下） |
 
@@ -96,7 +96,7 @@
 | Web 端口 | 固定 `--port 19387`（`src/index.ts` 写死） | 默认 `43120`（`DESKTOP_DEFAULT_WEB_PORT`），仅绑定冲突时顺序 +1（≤32 次）；2026-08-21 起「prefer a stable loopback port」 |
 | 识别信号 | ⚠️ **profile 进程里没有专用信号**（2026-09-24 证伪，见下）：`DSH_DESKTOP_NODE_EXECUTABLE` 只注入给包安装子进程；可用替代信号 `process.versions.electron` | `desktopProfiles` 服务；**`dsh-desktop-next` 重写版同时也会设 `DSH_DESKTOP_NODE_EXECUTABLE`** |
 
-⇒ 结论：**settings seam 的适配与「哪个壳」无关**，只取决于该壳启动的那份 DSH 提供哪个服务（官方壳 = 0.1.7 线 → `configForms`；
+⇒ 结论：**settings seam 的适配与「哪个壳」无关**，只取决于该壳启动的那份 DSH 提供哪个服务（官方壳自带 0.2.x 运行时 → `configForms`；
 社区壳跟随用户所装版本）。两路识别信号则同时覆盖两个壳，且官方壳那条路在 `dsh-desktop-next` 上也成立。
 
 ### 官方桌面壳的插件相关契约（2026-09-30 在 0.2.0-rc.2 上复核，全文见 `docs/desktop-0.2.0-adaptation-audit.md`）
@@ -236,8 +236,8 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 | 参照实现 | 本机 `~/.dsh/profiles/desktop/node_modules/dsh-context/lib/client.js`（`plugins.bundle.config`，key = 自己的包名）与壳内 `ui-settings-agent-loop`（`plugins.item`） |
 
 - 本插件落地：`src/client/detail-card.tsx`（复用四条行组件，含 2026-10-11 新增的纯静态「反馈与支持」行 `LinksRow`）+ `src/client/index.ts` 末尾的注册；**数据层零改动**（两个入口共用
-  `CATPPUCCIN_ENTRY_ID` 那一份 durable section）。SlotMap 成员在 `detail-card.tsx` 内**本地声明**——我们的 devDep 停在 0.1.7 线，
-  早于 Plugin manager；将来升依赖时若上游也声明了它，同形状会合并、异形状会编译报错（那就是删掉本地声明的信号）。
+  `CATPPUCCIN_ENTRY_ID` 那一份 durable section）。SlotMap 成员在 `detail-card.tsx` 内**本地声明**——我们只依赖 `dsh-client-ui-slots` 的类型，并不依赖 `dsh-client-ui-plugin-manager` 这个包（devDep 已升到 `0.2.1-rc.2`，但那个包仍不在依赖里）；
+  将来若把它加进依赖，同形状会合并、异形状会编译报错（那就是删掉本地声明的信号）。
 - 护栏：`tests/reentrancy.spec.ts` 的「Plugins-page card」一组 5 条（key = `PACKAGE_NAME`、`whileServed` 的 gate、无 `whileServed` 的宿主、旧 seam 上不注册、key 等于 manifest `name`）
   + `tests/rows.spec.tsx` 的组成断言（四条行 + schema 表单渲染不出的那些控件）。
 - 相关配置（Host 侧，别混）：`src/index.ts` 仍 `configure({ auto: false })` —— 它表达的是「本插件自带 UI」，与详情页区块是否出现无关。
@@ -297,8 +297,11 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > `margin-inline: auto` 把块级盒降成 fit-content，`max-width` 撑不开，真机顶栏只有 266px 而卡 856px
 > ⇒ 修后 856 = 856）+ **首次真机验收**（官方壳 `0.2.1-rc.2`：issue #29 的 α / blur / mask / 几何逐项
 > 实测、#19 命令面板祖先链 `backdrop-filter` 命中 0、框语言 ①②③⑦ 与 issue #27 设置分区目视过）+
-> **玻璃预览图重拍**（旧图顶栏正是 ⑤ 的塌陷态，且侧栏展开露了工作区名）。**测试 352 全绿**（20 文件）。
-> 仍未跑：四风味 × mica/compat 全矩阵、⑤ 的折叠分支（真机按钮没能触发折叠属性）、`signature` 回归。
+> **玻璃预览图重拍**（旧图顶栏正是 ⑤ 的塌陷态，且侧栏展开露了工作区名）。**测试 352 全绿**（20 文件；
+> 现为 **353**——`572bbec` 给 ⑤ 补了一条「两份宽度上限必须一致」的漂移护栏，纯测试、未发版）。
+> 仍未跑：四风味 × mica/compat 全矩阵、`signature` 回归。⑤ 的折叠分支 2026-10-21 已用「临时加
+> `data-sidebar-collapsed`」的方式验过 CSS 分支（1383.3 = 列 − 44、右边缘 −16 无溢出、还原一致），
+> 但**真按钮触发折叠**仍没走过。
 >
 > 上一版 `latest` = **`0.6.3`**（2026-10-19；Publish run `39143921957` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.3` 带 provenance、tag 显式 `latest`；CI `39143719780` 的 check +
@@ -375,7 +378,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.2` / `beta: 0.6.3-beta.3`（2026-10-18 复核，显式带 registry 直读
+> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.4-beta.0`（2026-10-21 复核，显式带 registry 直读
 > `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
 > 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
@@ -396,7 +399,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > `dsh plugin --profile desktop …`，改给 `包名@渠道` + 「插件界面里先删除再重新安装」。**测试 260 全绿**，
 > 三条分流支路均变异验证过。⚠️ 真机 e2e **未跑**（本机 Playwright 不可用，属环境限制）。
 > 上一版 `beta` = **`0.5.9-beta.1`**（0.5.9 的最后一个预发布，2026-10-01）。
-> **`0.5.9`（2026-10-02，当前 latest）= 上游 0.2.0 线适配 + 玻璃模式切换两条修复 + 命令面板毛玻璃**：前两项随 `0.5.9-beta.0`
+> **`0.5.9`（2026-10-02，当时的 latest）= 上游 0.2.0 线适配 + 玻璃模式切换两条修复 + 命令面板毛玻璃**：前两项随 `0.5.9-beta.0`
 > （补 18 个漏映射 token 至 190/190 全覆盖、兼容声明跟进 0.2.0、Windows 标题栏顶部渐隐、「切云母/兼容会闪一下」
 > 与「切得快时第二次被回滚」），第三项随 `0.5.9-beta.1`（issue #19：composer 的材质搬到 `::before` 材质面，
 > 让 `[data-trigger-menu]` 脱离 backdrop root，实测面板区 stdev 31.58 → 0.00）。**转正时与 `0.5.9-beta.1` 零代码差异**，
@@ -531,6 +534,16 @@ node "$V" --profile web --no-open --port 19411                   # 前台跑，t
 - ⚠️ **别用 `(node ... &)` 起宿主**：Bash 调用结束时进程会被清掉，日志为空。要长期存活就用后台任务方式起（前台 node 包在后台任务里）。
 - 落盘位置（0.1.7 新 seam）＝ `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里该条目的 `config:`
   ——改一个旋钮后 `grep -A13 'id: dsh-catppuccin'` 就能确认写通。
+
+- **官方桌面壳也能直接驱动（2026-10-21 打通，⑤ / #29 的真机测量就是这么做出来的）**：
+  `env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS "D:/PROGRAM/DeepSeek Harness/DeepSeek Harness.exe" --remote-debugging-port=9222`
+  ⇒ `curl --noproxy '*' http://127.0.0.1:9222/json/list` 拿到 `dsh-app://app/` 的 `webSocketDebuggerUrl`，
+  再用 `Runtime.evaluate` 在真页面里跑探针。⚠️ **坑**：agent shell 常带着 `ELECTRON_RUN_AS_NODE=1`
+  （WorkBuddy 自己的 Electron 运行时会把该变量传下去），不清掉 exe 会被当 node 跑，报
+  `bad option: --remote-debugging-port` 并立即退出 —— `docs/issue-24-switch-flicker.md` 曾据此误判
+  「壳从工具上下文拉不起来」。现成资产：`.debug/frame-audit/cdp-run.cjs`（Node 22 内置 fetch + WebSocket，
+  无依赖，用法 `node cdp-run.cjs <探针.js>`）+ `probe-header-width.js` / `probe-drag-recompute.js`。
+  桌面壳的 `desktop` profile 已 `link:` 本仓库 ⇒ 改完 `pnpm build` 重启壳即生效，不需要改 `cordis.patch.yml`。
 
 - **配置真源**（版本相关，issue #15 起）：**≤ 0.1.6-alpha.2** 是 `~/.dsh/settings.yaml` 的 `catppuccin:` 段（插件 `installSection` 注册的命名空间）；**≥ 0.1.7-alpha.1** 改成 profile patch `$DSH_HOME/profiles/<profile>/cordis.patch.yml` 里 `dsh-catppuccin` 条目的 `config:`，即插件 volatile `Config` 表单，Client 用 `ctx.configForms.get('dsh-catppuccin')` 读写——表单 ns **就是 profile 条目 id**，与 `cordis.patch.yml` 的 insert id 是硬契约（`CATPPUCCIN_ENTRY_ID`，有断言钉住）。两套 seam 由 `src/client/state-sync.ts` 的通道适配层同时支持，**任何一侧都不能写进硬依赖 `inject`**（写进去会在另一侧永久 pending，这就是 #15 的现象）。`~/.dsh/catppuccin-state.json` 自 0.5.0 起只是**一次性迁移源、此后不再跟踪**（2026-09-24 复核：该文件与 `settings.yaml.imported` 的 `glass.brightness` **都是 `50`**，与 `DEFAULT_GLASS.brightness` 一致——早先记的「真值 100」自 9-21 起已不成立；引用旧文件仍会误导，因为它不含 `updateChannel` / `shikiStyle` 等后加字段）——引用旧文件会把玻璃参数写错。方案与实测判定见 `docs/issue-15-settings-seam-0.1.7.md`。
 - **起 GUI**：`node <npm>/node_modules/@deepseek-ai/dsh/lib/bin.js web --no-open`（**token 在 `dsh web` 的 stdout**——`%TEMP%\dsh-web.log` 会过期，引用它会让浏览器/探针打开一个 401 空白页；`dsh web` 默认会弹浏览器，加 `--no-open`）。

@@ -56,7 +56,7 @@ glass skin on Web / Desktop, and the four official theme palettes auto-synced to
 
 It ships all four Catppuccin flavours — **Latte**, **Frappé**, **Macchiato**, **Mocha** —
 remapping the whole interface to the matching palette, with a **settings section of its own**
-(**Settings → Catppuccin**: flavour, code highlighting, token overrides, glass, update check).
+(**Settings → Catppuccin**: flavour, code highlighting, token overrides, glass, update check, feedback).
 Your choice is persisted and restored after restarts.
 
 It also includes an optional **glassmorphism** skin: the top bar, sidebar, composer,
@@ -69,7 +69,7 @@ Catppuccin theme automatically.
 - 🎨 Four themes: Latte (light), Frappé / Macchiato / Mocha (dark)
 - 🧩 Registered into the official theme system, on a par with the built-in light / dark / system themes
 - 🎯 Full-UI colour coverage — not just one or two accent colours
-- ⚙️ One-click switch in Settings, persisted and restored across restarts
+- ⚙️ One-click switch on its own Settings section, persisted and restored across restarts
 - 🔧 **Custom token overrides**: override individual colour tokens with `--dsw-* var: value` pairs (e.g. turn comments blue); persisted alongside the selected flavour
 - 🖍️ **Code-block highlight style**: default / italic-comments shiki themes
 - 🌐 Seven UI languages (Chinese / English / Japanese / Korean / Spanish / French / German, follows the system language)
@@ -80,7 +80,7 @@ Catppuccin theme automatically.
   (interaction reference: [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin))
 - 🌫️ **Glass details**: gradient blur bands at the top/bottom page edges, a floating glass
   rail when the sidebar is collapsed, an ambient theme-following ground (a same-family
-  wash + two soft glows) — content softens as it scrolls under the panes
+  wash; the two soft glows are an **opt-in switch, off by default**) — content softens as it scrolls under the panes
 - 🎨 Glass colours follow the current Catppuccin theme
 - 🔄 **Update check**: one-click "Check for updates" in Settings compares the latest npm
   version and gives you a copyable upgrade command; **auto-check is on by default** (once at
@@ -260,6 +260,14 @@ The **Glass** section lives on the **Settings → Catppuccin** page:
 - **Backdrop brightness**: dark mode darkens 0–50, light mode brightens 50–100 (50 = as-is),
   mixed straight into the ground; at the extremes the ambience fades out and the ground
   collapses back to pure white / pure black.
+- **Ground glows**: adds two screen-pinned soft glows on top of the ground (the `0.6.3` look),
+  **off by default** — they do not follow the panes, so each pane transmits a different slice
+  of them and the top-left corner brightens visibly when on.
+- **In-place previews**: a **ground sample strip** in the glass section (drag brightness or
+  toggle the glows and it changes on the spot — it is painted by the page ground's own rule);
+  a **code sample** under the highlight picker (reads `--shiki-token-*`, so switching to
+  italic-comments recolours it immediately); and **Show the UI** next to the mode picker,
+  which closes Settings so you can look at the real layout.
 
 Glass colours follow the active theme live; all settings persist across restarts.
 
@@ -296,8 +304,9 @@ What this plugin does:
   bubbles and the new-session button; in Mica mode they become rounded floating cards and
   chat content scrolls *under* the glass, blurred; the collapsed sidebar becomes a
   floating rail at the edge of the chat area (the "performance & usage" stats line is
-  *not* one of them — it stays stock, outside the glass card; see the `0.6.2`
-  "fused band removed" entry in the changelog);
+  *not* a glass card and stays outside it, but since `0.6.4` it sits on a **frosted
+  ground-coloured strip** so the scrolling transcript cannot read through the readouts —
+  see the `0.6.2` "fused band removed" entry and issue #29 in `0.6.4`);
 - **Page-edge gradient blur**: a blur band at the top and bottom of the viewport so
   messages are softened as they melt past the edges (borrowed from
   [DSH-Transparent-UI-Plugin](https://github.com/WYH66666666/DSH-Transparent-UI-Plugin)'s
@@ -371,10 +380,15 @@ theme/glass actually reached the sidebar in that run), so no conclusion is drawn
 | DSH | `>=0.1.7-rc.1` (the settings page consumes the official `dsh-client-ui-primitives` `SegmentedControl`, which only exists from `0.1.7-alpha.1`; the legacy `settingsScope` code path is kept, but 0.1.5 / 0.1.6 hosts are no longer declared supported) |
 | Node.js | `>=20` |
 | Profile | `web` (the Web GUI and both desktop shells run the web UI and share this plugin); desktop profiles are named `desktop` |
-| Verified exact version | `0.1.7-rc.1`: installed, started, persisted a setting to disk and restored it across a restart in a real profile ([evidence](docs/issue-15-settings-seam-0.1.7.md)); `0.1.7-rc.2`: boot-level e2e and live-page sampling of the glass layer (issues #16 / #17); `0.1.5-rc.3`, `0.1.7-alpha.1` and `0.1.7-alpha.2` are declared as the same seam |
+| Verified exact version | `0.2.1-rc.2`: real-device acceptance on the official desktop shell — plugin boots, tokens apply, glass recipe intact, **settings writes really reach `cordis.patch.yml`** (they did not before the fix) and are adopted back after a restart ([audit](docs/desktop-0.2.1-adaptation-audit.md)); `0.2.0-rc.2`: boot-level e2e on the official shell's bundled runtime (19/19), real desktop-window pixels and the title-bar colour chain, `configForms` persistence ([audit](docs/desktop-0.2.0-adaptation-audit.md)); `0.1.7-rc.1`: installed, started, persisted a setting to disk and restored it across a restart in a real profile ([evidence](docs/issue-15-settings-seam-0.1.7.md)); `0.1.7-rc.2`: boot-level e2e and live-page sampling of the glass layer (issues #16 / #17); `0.1.5-rc.1`: boot-level e2e rerun under the CI recipe (**historical**, below the current floor) |
 
-The machine-readable form of the above is `dsh.compatibility` (`dsh` / `dshReleases` /
-`dshOperations`) in `package.json`.
+`dsh.compatibility` (`dsh` / `dshReleases` / `dshOperations`) in `package.json` **declares only the
+three currently supported lines**: `0.1.7-rc.1` / `0.2.0-rc.2` / `0.2.1-rc.2` (floor `>=0.1.7-rc.1`).
+Earlier `0.1.5-rc.*` / `0.1.7-alpha.*` runs are records of what was verified **at the time** and are no
+longer declared.
+
+Colour coverage is based on `dsh-v0.2.0-rc.2`'s `design-platform.css`: all 190 `--dsw-*` tokens per
+scheme (static 77 / alias 101 / specific 11 / non-family 1), including the 17 aliases added in 0.2.0.
 
 ### Permissions and external access
 

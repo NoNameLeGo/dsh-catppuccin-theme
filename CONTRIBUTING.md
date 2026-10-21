@@ -12,7 +12,7 @@ Catppuccin 配色适配到 DSH；官方色板是默认取色来源，官方取�
 | 面 | 位置 | 说明 |
 |---|---|---|
 | Host half | `src/index.ts`、`src/update-check/host.ts` | cordis 插件入口：settings namespace 注册 + `/catppuccin/check-update` 路由 |
-| Client half | `src/client/` | 浏览器 bundle（`exports["./client"]`）：主题注册、**四个 settings row**（`catppuccin` = 主题 + 代码高亮风格 / `catppuccin-glass` = 玻璃质感 / `catppuccin-update` = 检查更新 / `catppuccin-links` = 反馈与支持（纯静态、无 inject），见 `src/client/index.ts` 的四排 `slots.inject('settings.general.item')`）、玻璃皮肤 |
+| Client half | `src/client/` | 浏览器 bundle（`exports["./client"]`）：主题注册、**一个 `settings.section` 独立设置页**（issue #27 起，不再是 General 里的多行；页内是四条行组件——`CatppuccinRow` 主题 + 代码高亮 / `GlassRow` 玻璃质感 / `UpdateRow` 检查更新 / `LinksRow` 反馈与支持（纯静态、无 inject），组装见 `settings-section.tsx`，注册见 `src/client/index.ts` 的 `slots.inject('settings.section')`）、插件详情页的 `plugins.bundle.config` 卡片、玻璃皮肤 |
 | TUI half | `src/tui-themes.ts` | 子路径 `./tui-themes`：把四套主题 JSON 同步进 `~/.dsh-tui/themes/` |
 | 调色板 | `scripts/generate-palettes.mjs` → `src/client/palettes.ts` | **AUTO-GENERATED，不要手改** |
 | 玻璃 CSS | `src/client/glass/glass.module.css` → 构建时生成 `glass-css.gen.ts` | 样式源文件；改完跑 `pnpm build` |
@@ -69,11 +69,12 @@ PATH 上的 `dsh` 管理）。
 ## 怎么加一个风味（flavor）
 
 1. **确认上游色板**：风味必须来自
-   [catppuccin/catppuccin 的 palette.json](https://github.com/catppuccin/catppuccin)
-   （本地缓存 `.cache/dsh-ref/catppuccin-palette.json`，脚本读它生成）。
+   [catppuccin/catppuccin](https://github.com/catppuccin/catppuccin)（上游 2.0.0 重组后根目录
+   `palette.json` 已删，改取 npm 包 `@catppuccin/palette@1.8.0` 的 `esm/palette.js`；本机缓存
+   `.cache/dsh-ref/catppuccin-palette.json`，脚本读它生成）。
 2. **改 `scripts/generate-palettes.mjs`**：
    - `FLAVORS` 数组加 `{ id, label }`（大小写与官方一致，如 `Frappé`）；
-   - 若新风味是深色系，确认 `palette.json` 里它的 `dark: true`，浅色系则
+   - 若新风味是深色系，确认缓存 `catppuccin-palette.json` 里它的 `dark: true`，浅色系则
      `false`——映射表按 `dark` 自动选 Latte/暗色分支；
    - 重跑 `node scripts/generate-palettes.mjs --pin <upstream-sha>` 生成
      `src/client/palettes.ts`（pin 用于锁定上游版本，见改进项 L）。
