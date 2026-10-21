@@ -716,6 +716,13 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     expect(header!.decls, 'the header must be centred, not left-aligned').toMatch(
       /margin\s*:\s*12px auto 0/,
     )
+    // `margin-inline: auto` demotes a block box to fit-content, so `max-width`
+    // alone never stretches it — the card shipped 266px wide against a 856px
+    // composer card on the live shell (2026-10-21). The declaration below is
+    // what turns the cap into an actual width.
+    expect(header!.decls, 'the header lost its stretch (max-width is a cap, not a floor)').toMatch(
+      /(?:^|[;{])\s*width\s*:\s*100%/,
+    )
     // The collapsed rail needs a hard left inset and an indeterminate cap, so it
     // must keep the old full-width box.
     const rail = rules.find(
@@ -723,6 +730,11 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     )
     expect(rail?.selector, 'the rail header rule disappeared').toBeDefined()
     expect(rail!.decls, 'the rail state lost its full-width fallback').toMatch(/max-width\s*:\s*none/)
+    // …and it must UNDO the stretch: its margins are 28/16, so `width: 100%`
+    // would overflow the column by exactly those 44px.
+    expect(rail!.decls, 'the rail state would overflow by its own 44px of margins').toMatch(
+      /(?:^|[;{])\s*width\s*:\s*auto/,
+    )
   })
 
   it('⑤ keeps the trajectory panel on the same cap', () => {

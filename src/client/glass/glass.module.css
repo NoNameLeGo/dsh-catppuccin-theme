@@ -828,7 +828,22 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      `--dsh-composer-card-max-width` cannot be read here.
      Fallback: 1500px as the sentinel column makes the clamp return 920 (the
      design cap) when a host predates the width axis, and `min(…, 100% - 32px)`
-     keeps today's geometry on a narrow column. */
+     keeps today's geometry on a narrow column.
+
+   ⚠️ 2026-10-21 (real device, official shell 0.2.1-rc.2): `margin-inline: auto`
+   DEMOTES a block box to fit-content — it stops stretching and shrink-wraps
+   its content. So the card was only as wide as its title row (measured 266px
+   at 1280x822, composer card 856px) and audit ⑤ only ever delivered half of
+   its goal: the `max-width` below is an upper bound, never a floor. Declaring
+   `width: 100%` restores the stretch and lets the existing `max-width` pull
+   the box back to the reading column, with `margin: auto` keeping it centred.
+   Stock (glass attributes stripped) measures 1000px — full column — which is
+   how we know the shrink is ours, not the host's.
+   Post-fix on the same device: 266px → 856px, header left 352 vs composer
+   card 349 (the 3px is the card's own border/padding; not chased).
+   The collapsed-rail rule further down MUST reset this to `auto`: its margins
+   are fixed (28 / 16), so `100%` there would overflow the column by 44px. */
+  width: 100%;
   margin: 12px auto 0;
   max-width: min(
     calc(
@@ -861,6 +876,10 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    a hard left inset, which `margin-inline: auto` cannot express. Reverting
    `max-width` here means the rail behaves exactly as before this change. */
 [data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header:not([class*='headerBlank']) {
+  /* Reset the stretch added for the expanded state (2026-10-21): here the
+     margins are fixed (28 / 16), not `auto`, so the box already stretches and
+     `width: 100%` would add those 44px on top of the column width. */
+  width: auto;
   margin-left: 28px;
   margin-right: 16px;
   max-width: none;
