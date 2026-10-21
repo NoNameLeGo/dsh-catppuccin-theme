@@ -322,5 +322,12 @@
 
 ### 遗留（转正前处理）
 
-- README 预览图（`assets/previews/glass-latte.png` / `glass-mocha.png`）仍是改造前的地面，**转正前重拍**（链路见技能 `dsh-preview-shots-cdp`）。
+- ~~README 预览图（`assets/previews/glass-latte.png` / `glass-mocha.png`）仍是改造前的地面，**转正前重拍**~~
+  → **已重拍（2026-10-21）**：官方壳 0.2.1-rc.2、玻璃开（mica / blur 5 / frost 20 / brightness 50）、
+  1440×900 @dpr2 ⇒ **2880×1800**（与四风味图同规格），`glass-combined.png` 由这两张重新斜切合成。
+  构图：新会话发一条 demo 提示（Python 快排）取内容，**侧栏折叠**（避开工作区名与会话列表），
+  滚到顶部。顺带把旧图里的两个毛病一起带走了：旧图顶栏是 ⑤ 宽度塌陷的样子（只有内容宽），
+  且旧图侧栏展开了、露出真实工作区名。
+  ⚠️ 本机 Playwright 不可用，链路改走 CDP（`scripts/screenshot-glass.cjs` 是 Playwright 版，本轮没用）；
+  验收脚本在 `.debug/real-verify/`（`shot-preview.mjs` / `send-demo.mjs` / `prep-preview.mjs`，均不入库）。
 - L3（漂移动画）与 saturate 交叉选项未做，维持「缓做 / 可选」。
