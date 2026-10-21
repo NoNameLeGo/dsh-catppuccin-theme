@@ -261,11 +261,13 @@ width: auto;          /* 那一支 margin 是固定 28/16，100% 会多出 44px 
    放宽为「**只有暗色分支许描边，且必须是 soft**」——第 3 轮 Latte 的证据继续有效。
 
 闸门：`pnpm typecheck` / `pnpm typecheck:tests` / `pnpm build` 全绿，
-`vitest run --no-file-parallelism` → **346 passed（20 files）**。
+`vitest run --no-file-parallelism` → **346 passed（20 files）**（当时；2026-10-21 补 ⑤ 的护栏后为 **352 passed**）。
 
-**真机未验**（本机 Playwright 不可用）：四风味 × mica/compat 的观感确认待补。重点看三处——
-Latte 的菜单是否仍完全无框（逐像素应不变）、Mocha 的菜单描边在密集正文上会不会过重、
-Latte 的模态投影会不会显脏。
+**真机验收（2026-10-21，官方壳 0.2.1-rc.2，Mocha + Latte × mica）**：上面点名的三处逐一过——
+Latte 菜单 `outline: none`（逐像素不变，与『第 3 轮撤框』的结论一致）、Mocha 菜单
+`1px solid soft(0.16) + offset -1px`（在密集代码正文上不显重）、Latte 模态投影不脏
+（`inset 白 0.42 + 0 10px 32px`，截图见 `.debug/real-verify/settings-latte-crop.png`，不入库）。
+**仍未跑**：Frappé / Macchiato × compat 的观感（只覆盖两风味 × mica 一模式）。
 
 遗留：**④ 顶栏右侧三控件**（要先取 DOM 确认归属）；**⑥ 已撤回**（四边都是 12px，量测错误）。
-⑤ 已实施，但**真机未验**——顶栏变窄后标题与标签行会向内收，窄窗口需要单独看一眼。
+⑤ 已实施并**真机复验**（2026-10-21）——复验发现它只做到一半，已补 `width: 100%`，见该节末尾。
