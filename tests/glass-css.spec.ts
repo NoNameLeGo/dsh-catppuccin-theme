@@ -84,6 +84,12 @@ const rules = [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}
 const blurOf = (decls: string): string | undefined =>
   /(?:^|;)\s*backdrop-filter\s*:\s*([^;]+)/.exec(decls)?.[1]?.trim()
 
+/** The value of one declaration, whitespace-collapsed (so a copy of an
+ *  expression can be compared with the original regardless of formatting). */
+const declOf = (decls: string, property: string): string | undefined =>
+  new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`)
+    .exec(decls)?.[1]?.replace(/\s+/g, ' ').trim()
+
 const blurring = rules.filter((rule) => {
   const value = blurOf(rule.decls)
   return value !== undefined && value !== 'none'
@@ -605,8 +611,6 @@ describe('menu seat + un-stroked highlights (issue #22)', () => {
     ).toBe(true)
   })
 
-
-
   it('keeps highlights un-stroked: no 1px inset rings on rows or menu cells', () => {
     const selectedRow = rules.find((rule) =>
       rule.selector.includes("[role='treeitem'][aria-selected='true']"),
@@ -744,6 +748,26 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     expect(trajectory?.selector, 'the trajectory panel lost its rule').toBeDefined()
     expect(trajectory!.decls).toContain('--dsh-chat-user-width')
     expect(trajectory!.decls).toMatch(/margin\s*:\s*8px auto 12px/)
+  })
+
+  it('⑤ keeps the two copies of the reading-column cap identical', () => {
+    // The header and the trajectory panel cannot read one custom property (the
+    // issue #25 invalidation note in glass.module.css), so the expression is
+    // copied by hand. A copy that drifts is exactly the misalignment ⑤ set out
+    // to remove — and it would only surface once the column is dragged or the
+    // 轨迹 tab is opened, which no unit test renders. Pin the copy itself.
+    const header = rules.find(
+      (rule) =>
+        rule.selector.includes("[data-phase] header:not([class*='headerBlank'])") &&
+        !rule.selector.includes('sidebar-collapsed'),
+    )
+    const trajectory = rules.find((rule) => rule.selector.includes('[data-dsh-glass-trajectory]'))
+    const cap = declOf(header!.decls, 'max-width')
+    expect(cap, 'the header lost its reading-column cap').toBeDefined()
+    expect(
+      declOf(trajectory!.decls, 'max-width'),
+      'the header and the trajectory panel no longer share one cap',
+    ).toBe(cap)
   })
 })
 
@@ -1462,14 +1486,14 @@ describe('composer dock backing: the stats row gets a frosted strip (issue #28 �
     expect(
       band!.decls,
       'issue #29: 70% is the floor — the shipped clear preset runs blur 0 and #28 comes back below it',
-    ).toMatch(/calc\(70% \+ 10% \* var\(--dsh-glass-frost/),
+    ).toMatch(/calc\(70% \+ 10% \* var\(--dsh-glass-frost/)
     expect(band!.decls, 'issue #29: the strip follows the blur knob like every other pane').toMatch(
       /backdrop-filter\s*:\s*blur\(var\(--dsh-glass-blur/,
     )
     expect(
       band!.decls,
       'issue #29: a mask ramp, not a hard cut — it fades the blur output too',
-    ).toMatch(/mask-image\s*:\s*linear-gradient/),
+    ).toMatch(/mask-image\s*:\s*linear-gradient/)
     expect(band!.decls, "bleeds past the bar root's side padding").toMatch(
       /left\s*:\s*calc\(-1 \* var\(--dsh-composer-side-clearance/,
     )
