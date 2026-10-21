@@ -215,8 +215,11 @@ fixture 生成器：`.debug/issue-19/make-fixture.mjs`（**不入库**），把 
 
 ### 还没做的验证
 
-1. **真机一轮**（`AGENTS.md` 的 e2e 跑法）：采样 3b 的祖先断言 + 报告人配置目视 + `signature` 级回归。
-   本机 Node 不能 spawn ⇒ 本轮用离线 fixture 代替；真机那轮必须补。
+1. ~~**真机一轮**~~ → **已跑（2026-10-21，官方壳 `0.2.1-rc.2`，CDP）**：按 `/` 唤起命令面板后，
+   `[data-trigger-menu]` rect 855×400、`insideCard: true`，**整条祖先链 `backdrop-filter` / `filter`
+   命中数 = 0**（唯一的 `isolation: isolate` 是上游 MenuSurface 表面自己，不是 backdrop root）；
+   材质面 `blur(5px)` + α25.6% + 14px，截图里面板下的转录被彻底糊开、面板文字清晰。
+   剩余未跑：`signature` 级回归、报告人配置（mica + blur 2 + Latte）逐项目视。
 2. **composer 自身的像素 A/B**（方案 A 的固有风险：模糊住的合成层从「卡」换成「伪元素」，卡内文字移出被过滤的分组）。
    离线 fixture 里 `y315-325`（卡内输入区）旧 **26.41** / 新 **27.03**，差异 2% 量级，未见位移与色偏；
    真机上仍要按 issue #13 的手法（隐藏面自身内容后 A/B）跑一遍。

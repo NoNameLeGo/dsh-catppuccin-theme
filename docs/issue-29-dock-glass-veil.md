@@ -1,7 +1,8 @@
 # issue #29：底部状态栏背板是实色块，缺磨砂玻璃
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/29>（2026-10-19，无标签，无评论）
-- 状态：**已实施（方案 A / 磨砂幕布），随 `0.6.4-beta.0` 发到 beta 渠道**。改动 =
+- 状态：**已实施（方案 A / 磨砂幕布），随 `0.6.4-beta.0` 发到 beta 渠道；真机实测通过（2026-10-21）**，
+  见 §5.1。改动 =
   `src/client/glass/glass.module.css`（dock 带子配方重写）+ `tests/glass-css.spec.ts`（#28 的护栏翻面 + 2 条新增）。
 - 报告环境：**未提供**（风味 / 玻璃模式 / 宿主 / 版本都没写）——回帖要问。
 - 前置：issue #28（同一块带子，`docs/issue-28-composer-dock-backdrop.md`）。
@@ -76,8 +77,41 @@
 | 变异：删掉 `backdrop-filter` | 红（`keeps the blur on the surfaces that do cover moving content` + 本块） |
 | 变异：α 下限改回 `52% * frost` | 红（`issue #29: 70% is the floor`） |
 | 变异：把 blur 挪到 dock 元素上 | 红（`never puts the blur on the dock element itself`） |
-| 真机 CDP 像素探针（渐变坡长度、条带与沟槽 Δ） | **未跑**（本机 Playwright 死路，壳进程易被回收） |
-| 四风味 × mica/compat × blur 0/5/12 | **未跑** |
+| 真机 CDP 像素探针（渐变坡长度、条带与沟槽 Δ） | **已跑，2026-10-21**，见下 |
+| 四风味 × mica/compat × blur 0/5/12 | 部分跑：Latte×mica×blur0、Latte×compat×blur5、Mocha/Latte×mica×blur5；Frappé/Macchiato 与 blur12 未跑 |
+
+### 5.1 真机实测（2026-10-21，官方壳 `0.2.1-rc.2` / Electron 44.7.0 / 1280×822 @ dpr 1.5）
+
+取证方式：CDP 连 `dsh-app://app/`，改 `~/.dsh/profiles/desktop/cordis.patch.yml` 切配置，收工已还原。
+
+**计算值**（Latte + mica + blur 0，最坏组合）：填充 `color(srgb .8904 .8978 .9127 / .74)`
+（= 地面混 5% 黑 × α74%，α = `70% + 10% × frost(0.4)`，下限守住）、`backdrop-filter: blur(0px)`、
+`mask-image: linear-gradient(#0000 0, #000 18px)`、`height: 38px`（dock 26 + 12）、`bottom: -4px`、
+`z-index: -1`；dock 本体 `backdrop-filter: none` + 透明 —— 零绘制那条成立。
+
+**像素 A/B（隐藏带子 vs 保留；采样限定在带子实际范围 x565-985，且先把 dock 文字设为 `visibility:hidden`，
+否则状态栏读数会污染 stdev）**：
+
+| 采样带 | 有带子 stdev | 无带子 stdev | 压制 |
+|---|---|---|---|
+| y798-806 | 8.82 | 25.71 | **65.7%** |
+| y790-798 | 17.51 | 26.87 | 34.8% |
+| y806-814（空白） | 1.61 | 1.69 | 4.9% |
+
+⇒ blur 0（clear 预设）下仍然把正文压到约 1/4 对比度，这正是 α 70% 下限要保的东西；
+带子对纯地面**逐像素不可见**（该带亮度差 < 3/255）。
+
+**blur 分支**（Mocha + blur 5，同一位置逐行扫）：正文穿带时 y776 起 stdev 从 26.8 掉到 **5.8**，
+y780-786 维持 7.2~8.5；把 blur 设为 0 的对照组在同样位置仍是 **26.8**（清晰正文 = #28 旧形态）。
+⇒ 18px 内是平滑化开、无硬边，`mask` 确实同时淡出了 blur 输出（Chromium 152 上未出现 §6 那条回退需求）。
+
+**compat**：同一条规则，`backdrop-filter: blur(5px)` **跟随滑块**（不是硬编码 12px）；卡本体
+`backdrop-filter: none` + `isolation: isolate`，材质面 `blur(12px)` + α25.6% —— #19 推论二的形状。
+
+⚠️ **验收环境限制（不是本 issue 的问题）**：本机壳窗口 `visibilityState === 'hidden'` ⇒ `requestAnimationFrame`
+冻结 ⇒ `glass-seams` 的 rAF 去抖补打不执行，reload 后所有 `data-dsh-glass-*` 钩子为 0（console 无报错，
+首次 boot 时齐全）。上面的数字都是**手动补打一遍钩子后**测的；CSS 与计算值可信，stamper 的补打时序
+在本机没能验到。
 
 ## 6. 待确认
 
