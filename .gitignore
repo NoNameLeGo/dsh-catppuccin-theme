@@ -20,6 +20,9 @@ awesome-dsh-plugin/
 
 # Agent scratch / working directories
 .workbuddy/
+# Newer agent workspace dir (project memory: MEMORY.md + daily logs). Local by
+# design — never push it; the portable rules live in AGENTS.md / docs/ instead.
+.workbuddy-ai/
 .dsh-vision-toolkit/
 # Local plugin runtime state — the meow-memory plugin writes its sqlite db into
 # whatever cwd it is launched from, which is this repo when running the shell here.
