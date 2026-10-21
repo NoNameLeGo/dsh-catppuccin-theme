@@ -108,6 +108,12 @@ y780-786 维持 7.2~8.5；把 blur 设为 0 的对照组在同样位置仍是 **
 **compat**：同一条规则，`backdrop-filter: blur(5px)` **跟随滑块**（不是硬编码 12px）；卡本体
 `backdrop-filter: none` + `isolation: isolate`，材质面 `blur(12px)` + α25.6% —— #19 推论二的形状。
 
+**祖先 backdrop root 扫描（2026-10-21，同壳 CDP 复测）**：从 dock 的父节点一路走到 `<html>`，
+没有任何一层带 `filter` / `backdrop-filter` / `opacity<1` / `transform` / `isolation: isolate`（结果为空数组），
+所以带子的 blur 采到的**确实是页面正文**，不是某个祖先自己画的那层——#19 那条风险在这里是**实测排除**，
+不只是按形状推断。同次读到：填充 `color(srgb .0633 .0633 .1006 / .74)`、`blur(5px)`、
+mask `0→18px`、`height: 38px`、`z-index: -1`、`bottom: -4px`，dock 本体 `backdrop-filter: none`。
+
 ⚠️ **验收环境限制（不是本 issue 的问题）**：本机壳窗口 `visibilityState === 'hidden'` ⇒ `requestAnimationFrame`
 冻结 ⇒ `glass-seams` 的 rAF 去抖补打不执行，reload 后所有 `data-dsh-glass-*` 钩子为 0（console 无报错，
 首次 boot 时齐全）。上面的数字都是**手动补打一遍钩子后**测的；CSS 与计算值可信，stamper 的补打时序

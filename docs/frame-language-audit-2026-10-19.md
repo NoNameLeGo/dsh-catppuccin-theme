@@ -182,8 +182,31 @@ width: 100%;          /* 恢复 stretch；随后被既有 max-width 收口到卡
 width: auto;          /* 那一支 margin 是固定 28/16，100% 会多出 44px 溢出 */
 ```
 
-修后实测：1280 下顶栏 **856 @ left 352** vs 卡 856 @ 349（3px = 卡自身 border/padding，未追）；
-卡宽 756 的会话下同样 756 = 756。折叠分支保持原行为。`tests/glass-css.spec.ts` 的
+修后实测：1280 下顶栏 **856 @ left 352** vs 卡 856 @ 349；卡宽 756 的会话下同样 756 = 756。折叠分支保持原行为。
+
+> **那 3px 的成因（2026-10-21 真机实测，已定案）**：原先记作「卡自身 border/padding」，**不成立**——
+> 居中的 border box 不会因自带 border/padding 平移，而且两盒**同宽**（856 那次；1427px 列下都是 1283），
+> 说明宿主是 border-box，没有内容盒膨胀。真因就是本节前半段自己记过的量测：卡在滚动容器里，
+> `scrollBody` 宽 1425.3 / clientWidth 1421（`scrollbar-gutter: stable`，滚动条 4px），
+> 卡在**窄 6.3px 的容器**里居中 ⇒ 比顶栏左移 3.4px。四条边都量了：
+>
+> | 量 | 顶栏 | 输入卡 | Δ |
+> |---|---|---|---|
+> | left | 352.2 | 348.8 | **+3.4** |
+> | right | 1635.2 | 1631.8 | **+3.4** |
+> | width | 1283 | 1283 | 0 |
+>
+> ⇒ **宽度是对的，只有居中基准差 3.4px**（卡在滚动容器里，顶栏不在）。stock 下卡相对列本来也偏这 3.4px，
+> 只是没有第二条框可比。1283px 宽上 3.4px 不追。
+>
+> 同一会话同一壳（`0.2.1-rc.2` / Electron 44.7.0 / **Chromium 152.0.7977.130**）另测三条：
+> ① **拖拽重算**：改 `--dsh-chat-user-width` 1283 → 732 → 1283，`max-width` 同步变，还原精确；
+> ② **兜底分支**（摘掉该变量，等价 hero）：两盒都是 945.3，Δ 仍是 +3.3；
+> ③ **折叠分支**（只临时加 `data-sidebar-collapsed`，不点 UI）：顶栏 1383.3 = 列 − 44，右边缘 −16 无溢出，
+> `max-width: none` 生效，还原后与展开态完全一致。
+> 探针：`.debug/frame-audit/probe-header-width.js`、`probe-drag-recompute.js`。
+
+`tests/glass-css.spec.ts` 的
 `⑤ sizes the top bar like the input card` 补两条断言（展开态必须有 `width: 100%`、折叠态必须
 `width: auto`），**变异已验证**（删掉 `width: 100%` ⇒ 该用例红）。
 

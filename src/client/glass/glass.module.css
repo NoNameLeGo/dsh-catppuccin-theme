@@ -840,7 +840,18 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    Stock (glass attributes stripped) measures 1000px — full column — which is
    how we know the shrink is ours, not the host's.
    Post-fix on the same device: 266px → 856px, header left 352 vs composer
-   card 349 (the 3px is the card's own border/padding; not chased).
+   card 349. The residual 3px is NOT the card's border/padding — a centred
+   border box cannot shift that way, and both boxes measure the SAME width
+   (856 then; 1283 at the 1427px column), so the host is border-box. It is the
+   scroll container: `scrollBody` is 1425.3 wide with clientWidth 1421
+   (`scrollbar-gutter: stable`), so the card centres in a ~6.3px narrower box
+   and sits 3.4px left of the header — measured on BOTH edges 2026-10-21
+   (header 352.2..1635.2, card 348.8..1631.8, Δ +3.4 each side). The width is
+   right, only the centring differs, and stock has the same offset relative to
+   the column; not chased further at 3.4px on a 1283px card.
+   Same session, same shell: the drag recompute (1283 → 732 → 1283), the
+   fallback branch with `--dsh-chat-user-width` removed (both boxes 945.3), and
+   the collapsed rail (1383.3 = column − 44, right edge −16, no overflow).
    The collapsed-rail rule further down MUST reset this to `auto`: its margins
    are fixed (28 / 16), so `100%` there would overflow the column by 44px. */
   width: 100%;
