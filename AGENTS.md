@@ -385,15 +385,14 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.4-beta.0`（2026-10-21 复核，显式带 registry 直读
-> `npm view @nonamelego/dsh-catppuccin dist-tags --registry=https://registry.npmjs.org`；发布后 1 分钟内 official registry
-> 尚显旧值；**传播窗口约 3~5 分钟，权威信号始终是 run 日志里的 `+ …@<version>`**）。
-> ⚠️ **`0.6.5-beta.0`（2026-10-27）已发出，但上面的 dist-tags 读数尚未翻新**：Publish run `40477610164`
-> success、日志 `+ @nonamelego/dsh-catppuccin@0.6.5-beta.0` 带 provenance、显式 `tag beta`；CI
-> `40477609960`（check + boot-e2e）双绿；**测试 360 全绿**（20 文件）。内容 = **issue #30**——新 origin
-> 首次加载把配置重置为出厂默认的修复（`replayLocalChanges` 只回放真正动过的字段；arming 只在有增量时；
-> 玻璃订阅只在持久化字段变化时才排写入），方案与三组变异见 `docs/issue-30-boot-pending-push.md`。
-> 下次刷新本行时把 `beta` 改成 `0.6.5-beta.0`。⚠️ 真机验收**未跑**（本机限制，验收步骤在文档 §9）。
+> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.5-beta.0`（2026-10-27 复核，`curl
+> https://registry.npmjs.org/-/package/@nonamelego%2Fdsh-catppuccin/dist-tags`；发布后约 3 分钟才翻新，
+> **权威信号始终是 run 日志里的 `+ …@<version>`**）。
+> `0.6.5-beta.0`（2026-10-27）= **issue #30**——新 origin 首次加载把配置重置为出厂默认的修复
+> （`replayLocalChanges` 只回放真正动过的字段；arming 只在有增量时；玻璃订阅只在持久化字段变化时才排写入），
+> 方案与三组变异见 `docs/issue-30-boot-pending-push.md`。Publish run `40477610164` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.5-beta.0` 带 provenance、显式 `tag beta`；CI `40477609960`
+> （check + boot-e2e）双绿；**测试 360 全绿**（20 文件）。⚠️ 真机验收**未跑**（本机限制，步骤在文档 §9）。
 > **`0.6.0`（正式版）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」按宿主分流 + README 修缮与
 > 四风味预览关玻璃重拍**——四条完整条目见 CHANGELOG 的 `## [0.6.0] - 2026-10-04` 节。⚠️ 真机 e2e **未跑**
 > （本机 Playwright 不可用，属环境限制；详情页设置区可由维护者在官方壳内自测）。
