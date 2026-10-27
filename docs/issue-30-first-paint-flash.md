@@ -2,8 +2,12 @@
 
 > 报告人：`ripley-xl`（2026-10-27 在 issue #30 的**补充评论**，与 pendingLocalPush 竞态是**两个独立问题**）。
 > 他已在 0.6.4 上本地实现并给出实测（CPU 3x、全新浏览器、隔离 profile）：原始版首帧中心像素 `#151517`
-> （官方深色）→ 修复后 `#232634`（Frappé crust）。**状态：方案，未实施。** 属渲染时序改动 + Host 侧新增
-> 注入，建议 `0.6.6`（修复），实施前要维护者点头（不是 #28-B 那种"特性分级"问题，但会改变所有用户的首次绘制）。
+> （官方深色）→ 修复后 `#232634`（Frappé crust）。
+>
+> **状态：已实施（`0.6.6-beta.0`，2026-10-27）**。实现与本文的差异只有两处收紧：① `kind:'style'` 换成
+> `kind:'html'`（要挂 `data-dsh-catppuccin-boot` 才能被 Client 精确摘除）；② 摘除条件从"任何 setTheme
+> 被调用"扩展成"风味真正生效"，补掉 §3.2 的 `preference === desired` 早退漏点（不补就只能等 10 s 兜底）。
+> 实施后实测（见 §10）与本文一致。**真机首帧像素采样仍未跑**（§7）。
 
 ## 1. 现象与根因（已按 0.2.1-rc.3 出厂包复核）
 
@@ -157,3 +161,23 @@ const clearBootPalette = (): void => {
 
 Host 模块 ~120 行 + Client 摘除 ~40 行 + 两个测试文件 + 文档 ≈ 2~3 小时（含真机首帧采样）。
 **前置决定**：① 整表 13 KB 是否接受；② 是否同时向上游提 §8；③ 版本号 `0.6.6`。
+
+## 10. 实施记录（`0.6.6-beta.0`）
+
+| 项 | 实测 |
+|---|---|
+| 行数与落位 | 2 行：`html:head`（样式）+ `script:body`（属性对齐）；`off` 时 **0 行** |
+| head 内声明数 | **286** 处 `--dsw-`（190 条 token + alias 的 `var(--dsw-static-*)` 引用） |
+| 整段注入体积 | **11.6 KB**（frappé）；单风味表 190 token ≈ 13.1 KB 源码 |
+| Host 产物 | `lib/index.js` 40.1 KB → **98.9 KB**（gzip 14.4 → **21.0 KB**）——只为服务端渲染，不发给浏览器 |
+| Client 产物 | `lib/client.js` 248.7 → **251.1 KB**（摘除逻辑 + 共享常量） |
+| 交叉验证方式 | 用 **rc.3 出厂包的 `renderIndexInjections`** 渲染我们的守卫行：样式落 `</head>` 前、脚本落 `<body>` 后 34 字节、`color-scheme:dark`、override 追加在表尾、无 `</style`/`</script` 逃逸 |
+| 测试 | 360 → **373**（22 文件）；Host 8 条 + Client 5 条 |
+| 变异 | 去掉 `setTheme` 里的摘除 ⇒ 摘除用例红；去掉 volatile 闸 ⇒ legacy 用例红 |
+
+**未做**：真机首帧像素采样（§7）。试过用 `dsh web` 临时 DSH_HOME 抓 index HTML，卡在 `/` 的 401
+（token 查询参数在本机脚本口径下没通过），没继续钻——行结构与渲染已用官方渲染器验过，
+`apply(ctx, config)` 传 config 这一点与官方 `ui-theme` 同款（它正是靠 `config.preference.get()` 画启动行的）。
+
+**后续可做**：真机采样（报告人口径）；若 13 KB 成为问题，改成"只注入 `--dsw-static-*` 全表 + alias 层"
+（alias 引用的是 static，剥掉 alias 只能省 1/3 体积，收益不大，暂不做）。

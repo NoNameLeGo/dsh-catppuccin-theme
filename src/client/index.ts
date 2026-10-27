@@ -49,6 +49,7 @@ import { CatppuccinDetailCard, type CatppuccinDetailCardInjected } from './detai
 import { CatppuccinSettingsPage, type CatppuccinSettingsPageInjected } from './settings-section.tsx'
 import { de, en, es, fr, ja, ko, zh, type CatppuccinKey } from './locales.ts'
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorId, type CatppuccinFlavorInfo } from './palettes.ts'
+import { clearBootPalette } from './boot-palette.ts'
 import { SHIKI_TOKENS } from './shiki-tokens.ts'
 import { GlassLayer } from './glass/glass-layer.ts'
 import type { GlassRowInjected } from './glass/glass-row.tsx'
@@ -597,6 +598,10 @@ export function apply(ctx: ClientContext): void {
   // effect below, so they die with the fiber).
   const AUTO_CHECK_BOOT_DELAY_MS = 3000
   const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+  /** How long the Host's pre-paint palette may survive before it is removed
+   *  unconditionally (issue #30 补充). Generous on purpose: removing it EARLY
+   *  re-exposes the official palette for one frame, which is the bug. */
+  const BOOT_PALETTE_FALLBACK_MS = 10_000
   let lastAutoResult: UpdateCheckPayload | null = null
   let armAutoCheck: (() => void) | undefined
 
@@ -628,6 +633,12 @@ export function apply(ctx: ClientContext): void {
     // guard below cannot mistake it for a user choice. Picking a Catppuccin
     // flavour (or the wrapper's own flavour restore) clears the record.
     let liveBuiltinPick: BuiltinPreference | null = null
+    // Issue #30 补充: last-resort removal of the Host's pre-paint palette. Its
+    // `html body` selector outranks the official `body` block, so a sheet left
+    // behind would pin every token and defeat later theme switches — it must
+    // never outlive the boot interval even if every other removal point is
+    // skipped (an unknown host shape, a restore that never runs).
+    const bootPaletteFallback = window.setTimeout(() => { clearBootPalette() }, BOOT_PALETTE_FALLBACK_MS)
     const originalSetTheme = theme.setTheme
     // Named on purpose (R1, 2026-10-10 review): the cleanup below may only
     // restore the original while the method is still OUR wrapper. Another
@@ -636,6 +647,10 @@ export function apply(ctx: ClientContext): void {
     const restoreGuardSetTheme = (id: string): void => {
       liveBuiltinPick = isBuiltinPreference(id) ? id : null
       originalSetTheme.call(theme, id)
+      // Issue #30 补充: the ThemePresenter applies the new tokens inside the
+      // call above, so the pre-paint sheet is spent by the time it returns —
+      // and a built-in pick means a flavour sheet must not survive at all.
+      clearBootPalette()
     }
     theme.setTheme = restoreGuardSetTheme
 
@@ -658,13 +673,22 @@ export function apply(ctx: ClientContext): void {
       queueMicrotask(() => {
         restorePending = false
         const preference = theme.getTheme().preference
-        if (preference === desired) return
+        if (preference === desired) {
+          // The flavour is ALREADY the active theme — no setTheme will run, so
+          // this is the only chance to retire the pre-paint sheet (issue #30
+          // 补充). Nothing is painted between here and the presenter's own
+          // work, so removing it cannot flash.
+          clearBootPalette()
+          return
+        }
         // Re-check the guard at run time: a newer explicit built-in pick
         // (or a newer event) still wins over the persisted flavour.
         if (builtinPickWins(preference, liveBuiltinPick)) return
         // Lazy registration (item JJ): the theme must exist before setTheme.
         ensureThemeRegistered(desired)
         try {
+          // Goes through the wrapper above, which clears the sheet once the
+          // presenter has applied the tokens.
           theme.setTheme(desired)
         } catch {
           // Theme not registered yet — a later theme/change re-runs applyDesired.
@@ -689,13 +713,22 @@ export function apply(ctx: ClientContext): void {
         // authoritative. Without that gate we would fight the document on every
         // boot of a fresh origin.
         const preference = theme.getTheme().preference
-        if (readExplicitFlavorOff() && flavorFromThemeId(preference) !== 'off') {
-          scheduleRestore(readRestoredPreference())
+        if (readExplicitFlavorOff()) {
+          // An explicit 'off' means no flavour is wanted, so a sheet injected
+          // for one (this page may have been rendered while the document still
+          // held a flavour) must go — otherwise it would pin every token.
+          clearBootPalette()
+          if (flavorFromThemeId(preference) !== 'off') scheduleRestore(readRestoredPreference())
         }
         return
       }
       const preference = theme.getTheme().preference
-      if (preference === desired) return
+      if (preference === desired) {
+        // Already rendering this flavour — retire the pre-paint sheet (see the
+        // same case in scheduleRestore).
+        clearBootPalette()
+        return
+      }
       // A built-in preference only wins if the user explicitly picked it in
       // THIS session (matching liveBuiltinPick). "system" and boot/adopt()
       // values adopted from the settings document (liveBuiltinPick null) are
@@ -863,6 +896,10 @@ export function apply(ctx: ClientContext): void {
       offGlass()
       disposer()
       window.removeEventListener('storage', onStorage)
+      window.clearTimeout(bootPaletteFallback)
+      // A stopped plugin must not leave the sheet pinned over the official
+      // theme (issue #30 补充).
+      clearBootPalette()
       window.clearTimeout(bootTimer)
       window.clearInterval(intervalTimer)
       cancelDurablePersist()

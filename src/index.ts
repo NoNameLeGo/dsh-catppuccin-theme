@@ -48,6 +48,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the settings service's Context merge (ctx.settings).
 import type {} from '@deepseek-ai/dsh-settings'
+import { bootPaletteRows, type BootPaletteConfig, type BootPaletteRow } from './boot-palette.ts'
 import { registerUpdateCheckRoute } from './update-check/host.ts'
 import { migrateLegacyStateOnce, scheduleLegacyMigration, type SettingsLike } from './migrate-legacy.ts'
 import { CATPPUCCIN_SETTINGS_BASE, CatppuccinSettingsSchema } from './settings-catppuccin.ts'
@@ -55,6 +56,21 @@ import { CATPPUCCIN_ENTRY_ID, CATPPUCCIN_SETTINGS_NS, hasUserLayerSection } from
 
 /** Stable cordis plugin name (matches cordis.patch.yml insert id). */
 export const name = 'dsh-catppuccin'
+
+/**
+ * The host webserver's index-injection table (issue #30 补充).
+ *
+ * Declared structurally, like `WebServerLike`: `@deepseek-ai/dsh-host-webserver`
+ * is NOT a dependency of this plugin (the event is emitted by the host), and
+ * this is the only event consumed here. The shape matches the installed host
+ * package's `IndexInjection`; a host that does not emit the event simply never
+ * calls the listener (boot rows absent, i.e. the pre-0.6.6 behaviour).
+ */
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    'webserver/index-inject'(table: BootPaletteRow[]): void
+  }
+}
 
 /**
  * Hard dependencies: the update check is a webServer route, so this Host
@@ -110,8 +126,21 @@ function legacyUserLayer(user: unknown): boolean {
 /** Host plugin body: register the update-check route and wire whichever
  *  settings seam the running host offers (webServer is inject; settings is
  *  optional wiring). */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config?: BootPaletteConfig): void {
   registerUpdateCheckRoute(ctx)
+
+  // Pre-paint palette (issue #30 补充, 2026-10-27): the index HTML ships the
+  // persisted flavour's own token table, so the first frame is Catppuccin
+  // instead of the official dark the theme bootstrap paints. The listener reads
+  // the durable value on every render, so a page load always reflects the
+  // document as it stands then.
+  //
+  // `config` is the Loader-validated plugin config; on DSH >= 0.1.7 its fields
+  // are volatile refs, which is the only shape `bootPaletteRows` accepts (see
+  // its module header for why a plain value must NOT be painted).
+  ctx.on('webserver/index-inject', (table) => {
+    table.push(...bootPaletteRows(config))
+  })
 
   ctx.inject(['settings'], (sctx) => {
     const settings = sctx.settings as unknown as LegacySettings & ModernSettings
