@@ -1,7 +1,9 @@
 # issue #25 分析与修复方案：纯色地面下玻璃层失去层次感（背景氛围层）
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/25>（报告人 `TWFU-wcy`，2026-10-15）
-- 状态：**已实施（方案 L2，2026-10-15）+ 本机 CDP 验证通过；随 `0.6.3-beta.0` 发布（与 issue #24 同批）。实施记录与两处草案偏差见 §10。**
+- 状态：**已实施（方案 L2，2026-10-15）+ 本机 CDP 验证通过；`0.6.3-beta.0` 首发（与 issue #24 同批）
+  → `0.6.3` 转正进 `latest`（2026-10-19）**。后续 **issue #26 把光斑改为默认关**（wash 常驻、光斑可选），
+  见 CHANGELOG `0.6.3`。上游 issue 由报告人 `TWFU-wcy` 于 2026-10-15 自行关闭。实施记录与两处草案偏差见 §10。
 - 报告环境：`dsh web`、主题 `@nonamelego/dsh-catppuccin@0.6.2-beta.2`；未写风味（示例为 Mocha）。
 - 关联 issue：**#24**（同一报告人：切换会话时 blur 闪烁）——已另案定位并修复（`docs/issue-24-switch-flicker.md`，commit `918f18b`）：闪烁来自「会话根重挂载 ⇒ 入场动画重播」，**与 `backdrop-filter` / 合成层无关**。本方案 L1/L2 不动任何 blur 与合成层，与 #24 零交互（详见 §8）。
 - 写作/实施时树状态：写作时 HEAD `679a5a2`；实施时 HEAD `918f18b`（#24 修复已提交）。

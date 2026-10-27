@@ -1,7 +1,9 @@
 # issue #24 分析与修复方案：切换会话时顶栏 / 对话框的毛玻璃「闪烁」
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/24>（报告人 `TWFU-wcy`，2026-10-15）
-- 状态：**根因已定位（本机 CDP 实测复现 + 机制取证）；方案 A 已实施（commit `918f18b`）并随 `0.6.3-beta.0` 发 beta（2026-10-15），见 §10。**
+- 状态：**根因已定位（本机 CDP 实测复现 + 机制取证）；方案 A 已实施（commit `918f18b`），`0.6.3-beta.0`
+  首发 beta（2026-10-15）→ `0.6.3` 转正进 `latest`（2026-10-19），见 §10。上游 issue 由报告人
+  `TWFU-wcy` 于 2026-10-15 自行关闭。**
 - 报告环境：`dsh web`、主题 `@nonamelego/dsh-catppuccin@0.6.2-beta.2`、玻璃开（未报 mode；按现象推断为 **mica**，理由见 §4）。
 - 本机复现环境：web profile（`link:D:\Vibe-Coding\dsh-catppuccin`，即当前 HEAD `679a5a2` = 0.6.2 线）+
   官方 `dsh` 0.2.0-rc.2 + headless Chrome（CDP），配置 `mocha / mica / blur 2 / frost 20`。

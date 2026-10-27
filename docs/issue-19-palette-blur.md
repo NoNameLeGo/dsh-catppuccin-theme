@@ -1,8 +1,9 @@
 # issue #19 分析与修复方案：斜杠指令面板（`[data-trigger-menu]`）没有毛玻璃
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/19>
-- 状态：**已定位根因，方案 A 已实施（2026-10-01，见 §10）**；真机 e2e 断言已写进脚本但**本轮未跑**
-  （本机 Node 不能 spawn 子进程 ⇒ Playwright 的 `launch()` 不可用），离线整页 A/B 已给出实测数字。
+- 状态：**已实施并发布**（方案 A，2026-10-01，见 §10）；离线整页 A/B 已给出实测数字，**真机回归已于
+  2026-10-21 补跑**（官方壳 `0.2.1-rc.2` + CDP：命令面板祖先链 `backdrop-filter` / `filter` 命中 **0**，
+  见 §10「还没做的验证」第 1 条）。issue 已于 2026-10-02 由维护者关闭。
 - 报告内容：标题「调用指令后弹出菜单无模糊，可读性不佳」＋截图一张 ＋ 一句「补上这个元素就行」。
 - 报告环境（本机 `~/.dsh/profiles/desktop/cordis.patch.yml` 实测）：玻璃**开**、`mode: mica`、`blur: 2`、`frost: 20`、`brightness: 50`、`flavor: catppuccin-mocha`。
 - 复现环境：本机上游包两线都核过——`0.1.7-rc.2` 与 `0.2.0-rc.2`（`%APPDATA%\DSH\data\versions\<ver>\node_modules\@deepseek-ai\`），另加 npm tgz 取证的 `0.1.7-alpha.2`。

@@ -1,8 +1,10 @@
 # issue #29：底部状态栏背板是实色块，缺磨砂玻璃
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/29>（2026-10-19，无标签，无评论）
-- 状态：**已实施（方案 A / 磨砂幕布），随 `0.6.4-beta.0` 发到 beta 渠道；真机实测通过（2026-10-21）**，
-  见 §5.1。改动 =
+- 状态：**已实施（方案 A / 磨砂幕布），`0.6.4-beta.0` 首发 beta → `0.6.4` 转正进 `latest`（2026-10-21）；
+  真机实测通过（2026-10-21），见 §5.1**。上游 issue 由**报告人 `TWFU-wcy` 于 2026-10-20 自行关闭**
+  （`stateReason=COMPLETED`，**关闭前 0 条评论**——我们没在 issue 里回复过）。⚠️ 关闭是报告人的判断，
+  **不等于维护者验收**；本 issue 的验收证据只有 §5.1 的真机实测。改动 =
   `src/client/glass/glass.module.css`（dock 带子配方重写）+ `tests/glass-css.spec.ts`（#28 的护栏翻面 + 2 条新增）。
 - 报告环境：**未提供**（风味 / 玻璃模式 / 宿主 / 版本都没写）——回帖要问。
 - 前置：issue #28（同一块带子，`docs/issue-28-composer-dock-backdrop.md`）。

@@ -1,10 +1,12 @@
 # issue #28：输入框下的状态栏缺少背板，滚动正文穿透
 
 - 上游 issue：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/28>（2026-10-16，无标签）
-- 状态：**已实施（方案 A），随 `0.6.3-beta.3` 发到 beta 渠道（2026-10-18，Publish run `39109687611`
-  success；稳定版等实测后转正）**。改动 = `src/client/glass/glass.module.css`（dock 背板带）+
+- 状态：**已实施（方案 A），`0.6.3-beta.3` 首发 beta（2026-10-18，Publish run `39109687611` success）
+  → `0.6.3` 转正进 `latest`（2026-10-19）→ `0.6.4` 材质改磨砂幕布（issue #29）**。上游 issue 由
+  **报告人 `TWFU-wcy` 于 2026-10-19 自行关闭**（`stateReason=COMPLETED`，**关闭前 0 条评论**）。
+  改动 = `src/client/glass/glass.module.css`（dock 背板带）+
   `tests/glass-css.spec.ts`（两条护栏）。方案 B（卡与 dock 合成一个圆角矩形 + 中间分割线，设为可开关项）
-  **未实施**，见 §7。
+  **未实施、也未被否决**——报告人关闭只代表「A 对他有效」，B 仍需维护者拍板，见 §7。
 - ⚠️ **§3 决定 3（「不加 backdrop-filter」）已被 [issue #29](./issue-29-dock-glass-veil.md) 推翻并重写**：
   #28 的实色带子在 `0.6.4-beta.0` 换成「同色 α70~84% + blur + 顶部 mask 淡入」。下文保留当时的理由与
   取证，读的时候按 #29 那份对齐。
