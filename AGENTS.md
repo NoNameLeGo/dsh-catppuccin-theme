@@ -385,9 +385,15 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.5-beta.0`（2026-10-27 复核，`curl
-> https://registry.npmjs.org/-/package/@nonamelego%2Fdsh-catppuccin/dist-tags`；发布后约 3 分钟才翻新，
-> **权威信号始终是 run 日志里的 `+ …@<version>`**）。
+> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.6-beta.0`（2026-10-27 复核，`curl
+> https://registry.npmjs.org/-/package/@nonamelego%2Fdsh-catppuccin/dist-tags`；**权威信号始终是 run
+> 日志里的 `+ …@<version>`**，dist-tags 端点这次 1 分钟内就翻新、上一轮却要 3 分钟——别拿它当发布成功的判据）。
+> `0.6.6-beta.0`（2026-10-27）= **issue #30 补充**——首屏不再先闪官方深色：Host 经
+> `webserver/index-inject` 把当前持久化风味的整张 `--dsw-*` 表注入 index（`html body` 选择器 + body script
+> 对齐 `data-ds-dark-theme`），Client 在风味真正生效时摘除。方案与实测见
+> `docs/issue-30-first-paint-flash.md`。Publish run `40481414068` success、日志
+> `+ @nonamelego/dsh-catppuccin@0.6.6-beta.0`、显式 `tag beta`；CI `40481413311`（check + boot-e2e）双绿；
+> **测试 373 全绿**（22 文件）。⚠️ 真机首帧像素采样**未跑**（文档 §7）。
 > `0.6.5-beta.0`（2026-10-27）= **issue #30**——新 origin 首次加载把配置重置为出厂默认的修复
 > （`replayLocalChanges` 只回放真正动过的字段；arming 只在有增量时；玻璃订阅只在持久化字段变化时才排写入），
 > 方案与三组变异见 `docs/issue-30-boot-pending-push.md`。Publish run `40477610164` success、日志
