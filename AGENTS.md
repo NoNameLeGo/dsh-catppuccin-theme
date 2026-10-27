@@ -498,6 +498,14 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
   诊断口诀：**先看 lockfile 的 `specifier:` 与已装 `package.json` 的版本，再看 `pnpm view <pkg>@<tag>`**——
   两者不一致就是撞上了这个窗口，别去查「是不是没发出去」。
 - **把上面 `> ⚠️ 发版版本号` 那句的版本号改掉**（历史：写 0.5.1 时已到 0.5.2/0.5.3、写 0.5.3 时已到 0.5.4 —— 所以把它当成发版流程的最后一步，别指望“下次顺手”）。
+- **误发了版本号怎么办**（2026-10-27 踩过：并行会话把 beta 发成 `0.6.6-beta.0`，维护者裁定该号归位到 `0.6.5-beta.2`）：
+  npm **不允许改名**，只能二选一——① `npm deprecate <pkg>@<ver> "说明"`（保留可安装性、装的人会看到警告，推荐）；
+  ② 72 小时内 `npm unpublish <pkg>@<ver>`（彻底移除，但同版本 24h 内不可再用）。
+  ⚠️ **两件事都做不了走 CI**：`publish.yml` 用的是 OIDC 可信发布，连 token 都不存（`gh secret list` 为空），
+  而 **npm 的可信发布只覆盖 `npm publish`，不覆盖 deprecate/unpublish** ⇒ 只能本机做，且必须先把
+  `~/.npmrc` 里那个 `//registry.npmjs.org/:_authToken` 换成新的（2026-10-27 实测旧 classic token 回 401，
+  `npm whoami` 直接 Unauthorized）。做完把 dist-tag 指回正确的版本，并核对
+  `https://registry.npmjs.org/-/package/@nonamelego%2Fdsh-catppuccin/dist-tags`（该端点不缓存）。
 - **CHANGELOG 底部的链接引用**也要顺手维护：`[Unreleased]` 指向新 tag（`compare/v<new>...HEAD`），并给新版本补一行 `[<version>]: compare/v<prev>...v<new>`。上个版本漏了，导致它停在 `v0.5.1...HEAD`。
 - 若插件已收录于 awesome-dsh-plugin，收录条目无需随发版改动。
 - 正式版发完如 README 需要同步变化点，并入本次 release commit。
