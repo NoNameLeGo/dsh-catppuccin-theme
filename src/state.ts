@@ -344,6 +344,14 @@ export function stateFromSettingsSection(section: CatppuccinSettingsSection): Ca
   return sanitizeState(section)
 }
 
+/** Field-for-field equality of two override maps — the same rule
+ *  {@link settingsSectionsEqual} applies to them (both directions, so a key
+ *  that only one side holds makes them differ). */
+export function sameOverrides(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((key) => b[key] === a[key])
+}
+
 /** Whether two settings sections are field-for-field equal (used to skip
  *  redundant mirror writes and to recognize the Host echoing our own write). */
 export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: CatppuccinSettingsSection): boolean {
@@ -357,6 +365,83 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
     && a.shikiStyle === b.shikiStyle
-    && Object.keys(a.overrides).every((key) => b.overrides[key] === a.overrides[key])
-    && Object.keys(b.overrides).every((key) => a.overrides[key] === b.overrides[key])
+    && sameOverrides(a.overrides, b.overrides)
+}
+
+/**
+ * Replay the local changes a window made BEFORE the durable channel became
+ * usable onto the document state — the issue #30 fix.
+ *
+ * The R2 mechanism (`pendingLocalPush` in `src/client/index.ts`) exists so a
+ * change made during the boot window is not rolled back by the first snapshot
+ * the settings scope resolves. It used to replay the WHOLE local state, and on
+ * a fresh origin (empty localStorage: a new port, a cleared site, a webview
+ * partition) "the whole local state" is nothing but the shipped defaults — so
+ * the first snapshot rewrote the document to `flavor: off`, `glass.enabled:
+ * false`, `mode: mica`. The trigger is not even a user action: the glass layer
+ * republishes on every `theme/change`, and `ui-theme` adopts its preference on
+ * every boot.
+ *
+ * This replays only the fields whose value moved away from `baseline` — the
+ * local section as of the last moment the window knew it was in sync with the
+ * document (boot, or the last adoption / successful write). Everything else
+ * keeps the document's value, and `changed === false` tells the caller to take
+ * the ordinary "document wins" adoption path instead of writing anything.
+ *
+ * ⚠️ Every field of {@link CatppuccinSettingsSection} must be carried here.
+ * A missing one is SILENT in both directions — a boot-window change to it is
+ * dropped, and (because the caller's whole-state fallback is gone) nothing
+ * else would notice. Same rule as `stateToMutateOps` (issue #26), and
+ * `tests/state.spec.ts` holds a drift guard that fails when a field is added
+ * without a mutant here.
+ *
+ * Known gap (accepted): a delta cannot tell "untouched" from "explicitly set
+ * to the current default", so setting a field BACK to its default value inside
+ * the boot window yields to the document. The window is sub-second and the
+ * direction is "document wins", i.e. no durable data is lost.
+ *
+ * @param document - the section the settings document resolved (wins).
+ * @param baseline - the local section at the last sync point.
+ * @param local - the local section right now.
+ * @returns the merged state plus whether anything actually differed.
+ */
+export function replayLocalChanges(
+  document: CatppuccinState,
+  baseline: CatppuccinSettingsSection,
+  local: CatppuccinSettingsSection,
+): { state: CatppuccinState; changed: boolean } {
+  // A fresh section (glass/overrides cloned) so the caller's document state is
+  // never mutated in place.
+  const merged = settingsSectionFromState(document)
+  let changed = false
+  const carry = <K extends 'flavor' | 'autoCheck' | 'updateChannel' | 'shikiStyle'>(key: K): void => {
+    if (local[key] !== baseline[key]) {
+      merged[key] = local[key]
+      changed = true
+    }
+  }
+  const carryGlass = <K extends keyof GlassState>(key: K): void => {
+    if (local.glass[key] !== baseline.glass[key]) {
+      merged.glass[key] = local.glass[key]
+      changed = true
+    }
+  }
+  carry('flavor')
+  carryGlass('enabled')
+  carryGlass('mode')
+  carryGlass('blur')
+  carryGlass('frost')
+  carryGlass('brightness')
+  carryGlass('glow')
+  carry('autoCheck')
+  carry('updateChannel')
+  carry('shikiStyle')
+  // The override map is carried as a WHOLE map: a per-key replay cannot express
+  // a removal (the local map simply lacks the key), and the boot window is far
+  // too short for two windows to edit different tokens inside it.
+  if (!sameOverrides(local.overrides, baseline.overrides)) {
+    merged.overrides = { ...local.overrides }
+    changed = true
+  }
+  return { state: sanitizeState(merged), changed }
 }

@@ -20,11 +20,13 @@ import {
   hasUnpersistableOverrides,
   isDefaultState,
   migrate,
+  replayLocalChanges,
   sanitizeOverrides,
   sanitizeState,
   settingsSectionFromState,
   settingsSectionsEqual,
   stateFromSettingsSection,
+  type CatppuccinSettingsSection,
 } from '../src/state.ts'
 import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
 import { CATPPUCCIN_FLAVOR_VALUES } from '../src/client/index.ts'
@@ -265,5 +267,106 @@ describe('hasUnpersistableOverrides (audit F7)', () => {
     expect(sanitizeOverrides(mixed)).toEqual({ '--keep': '#fff' })
     const clean = sanitizeOverrides(mixed)
     expect(hasUnpersistableOverrides(clean)).toBe(false)
+  })
+})
+
+describe('replayLocalChanges (issue #30)', () => {
+  // The reported bug: a fresh origin (empty localStorage — a new port, cleared
+  // site data, a webview partition) queues a persist before the settings
+  // document is readable, and the first usable snapshot replayed the whole
+  // local state over it. On such an origin that state is nothing but the
+  // shipped defaults ⇒ the document became `flavor: off` / glass off / mica.
+  const documentSection: CatppuccinSettingsSection = {
+    flavor: 'catppuccin-frappe',
+    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, glow: true },
+    autoCheck: false,
+    updateChannel: 'beta',
+    overrides: { '--dsw-static-blue-500': '#89b4fa' },
+    shikiStyle: 'italic-comments',
+  }
+  const documentState = stateFromSettingsSection(documentSection)
+
+  it('replays nothing when the local section never moved off the baseline', () => {
+    const replayed = replayLocalChanges(documentState, defaultSettingsSection(), defaultSettingsSection())
+    expect(replayed.changed).toBe(false)
+    expect(replayed.state).toEqual(documentState)
+  })
+
+  it('replays only the flavour picked during the boot window', () => {
+    const baseline = defaultSettingsSection()
+    const local = { ...baseline, flavor: 'catppuccin-mocha' as const }
+    const replayed = replayLocalChanges(documentState, baseline, local)
+    expect(replayed.changed).toBe(true)
+    expect(replayed.state.flavor).toBe('catppuccin-mocha')
+    expect(replayed.state.glass).toEqual(documentSection.glass)
+    expect(replayed.state.overrides).toEqual(documentSection.overrides)
+    expect(replayed.state.autoCheck).toBe(documentSection.autoCheck)
+  })
+
+  it('replays only the glass knobs and keeps the document flavour', () => {
+    const baseline = defaultSettingsSection()
+    const local = { ...baseline, glass: { ...baseline.glass, enabled: true, mode: 'compat' as const } }
+    const replayed = replayLocalChanges(documentState, baseline, local)
+    expect(replayed.changed).toBe(true)
+    // Per KNOB, not per glass block: only the two that moved are carried, the
+    // document's blur / frost / brightness / glow survive.
+    expect(replayed.state.glass).toEqual({
+      ...documentSection.glass,
+      enabled: true,
+      mode: 'compat',
+    })
+    expect(replayed.state.flavor).toBe('catppuccin-frappe')
+    expect(replayed.state.shikiStyle).toBe('italic-comments')
+  })
+
+  it('carries the override map as a whole map', () => {
+    const baseline = defaultSettingsSection()
+    const local = { ...baseline, overrides: { '--dsw-static-blue-500': '#cba6f7' } }
+    const replayed = replayLocalChanges(documentState, baseline, local)
+    expect(replayed.changed).toBe(true)
+    expect(replayed.state.overrides).toEqual({ '--dsw-static-blue-500': '#cba6f7' })
+    // An unchanged map is not a change, even when the document's differs.
+    const same = replayLocalChanges(documentState, baseline, { ...baseline })
+    expect(same.changed).toBe(false)
+    expect(same.state.overrides).toEqual(documentSection.overrides)
+  })
+
+  it('leaves the document state it was handed untouched', () => {
+    const baseline = defaultSettingsSection()
+    const local = { ...baseline, glass: { ...baseline.glass, blur: 40 } }
+    expect(replayLocalChanges(documentState, baseline, local).changed).toBe(true)
+    expect(documentState.glass.blur).toBe(12)
+  })
+
+  it('matches every document field when nothing moved, and carries every moved one (drift guard)', () => {
+    const baseline = defaultSettingsSection()
+    const mutants: Record<string, (section: CatppuccinSettingsSection) => CatppuccinSettingsSection> = {
+      flavor: (s) => ({ ...s, flavor: 'catppuccin-mocha' }),
+      'glass.enabled': (s) => ({ ...s, glass: { ...s.glass, enabled: true } }),
+      'glass.mode': (s) => ({ ...s, glass: { ...s.glass, mode: 'compat' } }),
+      'glass.blur': (s) => ({ ...s, glass: { ...s.glass, blur: 40 } }),
+      'glass.frost': (s) => ({ ...s, glass: { ...s.glass, frost: 90 } }),
+      'glass.brightness': (s) => ({ ...s, glass: { ...s.glass, brightness: 100 } }),
+      'glass.glow': (s) => ({ ...s, glass: { ...s.glass, glow: true } }),
+      autoCheck: (s) => ({ ...s, autoCheck: false }),
+      updateChannel: (s) => ({ ...s, updateChannel: 'beta' }),
+      overrides: (s) => ({ ...s, overrides: { '--dsw-static-blue-500': '#cba6f7' } }),
+      shikiStyle: (s) => ({ ...s, shikiStyle: 'italic-comments' }),
+    }
+    // A field added to the section without a mutant here would silently stop
+    // being replayable in the boot window (issue #26's lesson, other direction).
+    const expected = [
+      'flavor',
+      ...Object.keys(baseline.glass).map((key) => `glass.${key}`),
+      ...Object.keys(baseline).filter((key) => key !== 'flavor' && key !== 'glass'),
+    ].sort()
+    expect(Object.keys(mutants).sort()).toEqual(expected)
+
+    for (const [field, mutate] of Object.entries(mutants)) {
+      const local = mutate(baseline)
+      const replayed = replayLocalChanges(stateFromSettingsSection(baseline), baseline, local)
+      expect(replayed.changed, field).toBe(true)
+      expect(settingsSectionsEqual(settingsSectionFromState(replayed.state), local), field).toBe(true)
+    }
   })
 })

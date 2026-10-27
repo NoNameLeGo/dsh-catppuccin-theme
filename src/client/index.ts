@@ -63,6 +63,7 @@ import {
   DEFAULT_UPDATE_CHANNEL,
   hasUnpersistableOverrides,
   isDefaultState,
+  replayLocalChanges,
   sanitizeOverrides,
   settingsSectionFromState,
   settingsSectionsEqual,
@@ -536,6 +537,14 @@ export function apply(ctx: ClientContext): void {
   // section that already equals the local state makes the queued write a
   // noop, so the ordinary boot path pays nothing.
   let pendingLocalPush = false
+  // Issue #30: the local section as of the last moment this window knew it was
+  // IN SYNC with the durable document — boot, or the last adoption / successful
+  // write below. `pendingLocalPush` is armed only when the local state has
+  // actually moved away from this baseline, and the replay carries only the
+  // moved fields: on a fresh origin (empty localStorage) the "local state" is
+  // nothing but the shipped defaults, and replaying it whole rewrote the
+  // document to `flavor: off` / `glass: off` / `mica`.
+  let syncedSection = settingsSectionFromState(buildLocalState())
   // The revision the pending write is based on, captured when the change is
   // SCHEDULED (audit F2): reading it at flush time made the read-side staleness
   // guard compare a revision with itself — both reads sit in one synchronous
@@ -548,7 +557,18 @@ export function apply(ctx: ClientContext): void {
     // the debounce beat BEFORE the flush runs (a scope that turns ready
     // inside that beat would hydrate and roll the change back before the
     // flush ever sees it).
-    if (!isScopeUsable(scope.getSnapshot())) pendingLocalPush = true
+    //
+    // Issue #30: armed only on a REAL change. The boot path queues persists on
+    // its own — the glass layer republishes on every `theme/change` (ui-theme
+    // adopts its preference at boot) and on `sync()` — and on a fresh origin
+    // none of those carries a user choice. Arming on them was the bug: the
+    // first usable snapshot then replayed the shipped defaults over the
+    // document. The comparison only runs while the scope is unusable, so the
+    // hot path (a slider drag) pays nothing.
+    if (!isScopeUsable(scope.getSnapshot())
+      && !settingsSectionsEqual(settingsSectionFromState(buildLocalState()), syncedSection)) {
+      pendingLocalPush = true
+    }
     baseRevisionTracker.capture(() => scope.getSnapshot().revision)
     scheduleDurablePersist(persistLocal)
   }
@@ -562,6 +582,8 @@ export function apply(ctx: ClientContext): void {
     void persistStateToScope(scope, state, { baseRevision, lastWrittenSection }).then((outcome) => {
       if (outcome === 'written') {
         lastWrittenSection = settingsSectionFromState(state)
+        // The local cache and the document agree again — a new sync point.
+        syncedSection = lastWrittenSection
       } else if (outcome === 'stale') {
         emitConflict()
         handleStaleConflict?.()
@@ -709,6 +731,10 @@ export function apply(ctx: ClientContext): void {
     window.addEventListener('storage', onStorage)
 
     // Any glass change (enable flag or knob) coalesces into one durable write.
+    // Issue #30: only when a PERSISTED field actually moved. The layer also
+    // republishes on `theme/change` (Appearance switch, `ui-theme` adopt() at
+    // boot) where nothing durable changed — those publishes used to queue a
+    // pointless flush that could land as a false "another window changed it".
     const offGlass = glass.subscribe(() => {
       queuePersist()
     })
@@ -730,13 +756,34 @@ export function apply(ctx: ClientContext): void {
       if (state === null) return // loading / memory / absent — localStorage-only
       const local = buildLocalState()
       // R2: a change made before the scope first became usable wins over the
-      // first usable snapshot (see `pendingLocalPush`). Re-queue it and skip
-      // this adoption pass entirely — the queued write is a noop when the
-      // section already equals the local state.
+      // first usable snapshot (see `pendingLocalPush`) — but only the FIELDS
+      // that actually moved since the last sync point (issue #30). A whole
+      // state replay from a fresh origin carries nothing but the shipped
+      // defaults and wiped the document.
       if (pendingLocalPush) {
         pendingLocalPush = false
-        queuePersist()
-        return
+        const replayed = replayLocalChanges(state, syncedSection, settingsSectionFromState(local))
+        if (replayed.changed) {
+          // The boot-window change is newer than the document: adopt the
+          // MERGED state into the local cache, then let the debounced flush
+          // carry it out (`persistLocal` rebuilds from the cache, so it writes
+          // exactly these values).
+          writeFlavor(replayed.state.flavor)
+          glass.applyRemote(replayed.state.glass)
+          writeAutoCheck(replayed.state.autoCheck)
+          writeUpdateChannel(replayed.state.updateChannel)
+          writeOverrides(replayed.state.overrides)
+          writeShikiStyle(replayed.state.shikiStyle)
+          emitPrefs()
+          reapplyThemePrefs()
+          applyDesired()
+          syncedSection = settingsSectionFromState(replayed.state)
+          queuePersist()
+          return
+        }
+        // Nothing of ours moved (the ordinary fresh-origin boot publish) —
+        // fall through to the adoption path below, exactly as if the flag had
+        // never been armed.
       }
       // The channel owns the "does the document hold a user layer yet?" test:
       // the new form's `user` is an empty object until someone writes, while
@@ -772,6 +819,10 @@ export function apply(ctx: ClientContext): void {
       emitPrefs()
       reapplyThemePrefs()
       applyDesired()
+      // The cache now mirrors the document — a new sync point for the boot
+      // replay above (the scope can go unavailable again on a re-bind, and a
+      // stale baseline would then replay adopted values as "user changes").
+      syncedSection = settingsSectionFromState(state)
     }
     applyScopeSnapshot()
     const offScope = scope.subscribe(applyScopeSnapshot)

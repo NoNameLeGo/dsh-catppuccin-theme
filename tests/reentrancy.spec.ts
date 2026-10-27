@@ -265,7 +265,13 @@ describe('issue #15: the client boots on either settings seam', () => {
   }
 
   it('restores and persists the flavour through configForms (0.1.7+)', async () => {
-    const forms = makeConfigForms()
+    // Issue #30: the fixture resolves a SECTION, like a ready `ConfigForm`
+    // always does. It used to leave `value` undefined, so the push only ever
+    // came from the blind boot flush (which queued a whole-state write before
+    // the document was readable — the bug). With that flush gone the migration
+    // push below (`localStorage`-only session → document with no user layer)
+    // is what has to carry the choice, which is the contract worth pinning.
+    const forms = makeConfigForms({ value: defaultSettingsSection() })
     const { theme } = mount((ctx) => { ctx.provide('configForms', forms.service as never) })
     await new Promise((r) => setTimeout(r, 400)) // boot restore + debounced push
 
@@ -296,7 +302,9 @@ describe('issue #15: the client boots on either settings seam', () => {
     localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-latte')
     apply(ctx)
 
-    const forms = makeConfigForms()
+    // Same resolved-section fixture as above (issue #30); the late bind is
+    // what triggers the adoption + migration push this test is about.
+    const forms = makeConfigForms({ value: defaultSettingsSection() })
     ctx.provide('configForms', forms.service as never)
     await new Promise((r) => setTimeout(r, 400))
 
@@ -346,6 +354,45 @@ describe('issue #15: the client boots on either settings seam', () => {
     expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-mocha')
     const written = forms.mutations.flat() as { op: string; path: string[]; value: unknown }[]
     expect(written.some((op) => op.path.join('.') === 'flavor' && op.value === 'catppuccin-mocha')).toBe(true)
+    await ctx.fiber.dispose()
+  })
+
+  it('does not replay the shipped defaults over the document on a fresh origin (issue #30)', async () => {
+    // Empty localStorage = a NEW origin (another port, cleared site data, a
+    // webview partition). The boot path publishes the glass layer while the
+    // settings document is still unreadable — `ui-theme`'s adopt() at boot is
+    // enough — and that used to arm the pending push. The first usable
+    // snapshot then replayed `flavor: off` / glass off / mica over the
+    // document, which is the bug this test pins.
+    const ctx = new Context()
+    const themeHost = makeThemeHost({ value: undefined })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    const { slots } = makeSlots()
+    ctx.provide('slots', slots as never)
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: () => (key: string) => key })
+    apply(ctx)
+
+    // The document says dark, so the runtime adopts it and the glass layer
+    // republishes (nothing durable changed — the arming condition must see
+    // that).
+    themeHost.setSnapshot({ value: { preference: 'dark' } })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const documentSection = {
+      ...defaultSettingsSection(),
+      flavor: 'catppuccin-frappe' as const,
+      glass: { enabled: true, mode: 'compat' as const, blur: 12, frost: 33, brightness: 77, glow: false },
+    }
+    const forms = makeConfigForms({ user: { flavor: 'catppuccin-frappe' }, value: documentSection, revision: 7 })
+    ctx.provide('configForms', forms.service as never)
+    await new Promise((resolve) => setTimeout(resolve, 700))
+
+    // Nothing was written — no boot-window change existed, so the document wins…
+    expect(forms.mutations).toHaveLength(0)
+    // …and it was ADOPTED, which is the whole point of the fix.
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-frappe')
+    expect(theme.getTheme().preference).toBe('catppuccin-frappe')
     await ctx.fiber.dispose()
   })
 })
