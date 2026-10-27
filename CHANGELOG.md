@@ -8,15 +8,38 @@
 
 ## [Unreleased]
 
-> 本节 = **`0.6.5-beta.0`**（预发布按仓库惯例不单独落版本节）。内容：**issue #30**——新 origin
-> （新端口 / 清站点数据 / webview 分区）首次加载把配置重置为出厂默认的修复。方案与取证见
-> `docs/issue-30-boot-pending-push.md`。
+> 本节 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`**（预发布按仓库惯例不单独落版本节）。
+> `0.6.6-beta.0`：**issue #30 补充**——首屏不再先闪官方深色（pre-paint 调色板注入），
+> 方案与取证见 `docs/issue-30-first-paint-flash.md`。
+> `0.6.5-beta.0`：**issue #30**——新 origin（新端口 / 清站点数据 / webview 分区）首次加载把配置
+> 重置为出厂默认的修复，方案见 `docs/issue-30-boot-pending-push.md`。
 
 ### 修复
 
-- **新 origin 首次加载不再把配置重置为默认值（issue #30）**。症状：`cordis.patch.yml` 的
-  `dsh-catppuccin.config` 被真实改写成 `flavor: off` / `glass.enabled: false` / `mode: mica`，页面退回
-  官方深色。根因不是用户操作——`pendingLocalPush`（R2 机制：boot 窗口内的改动不能被首个快照回滚）在
+- **首屏不再先闪官方深色（issue #30 补充，2026-10-27）**。症状：`flavor` 已持久化为
+  `catppuccin-frappe`，页面首帧仍是官方深色（报告人实测首帧中心像素 `#151517`），随后才切到风味。
+  原因不是持久化：官方 `dsh-client-ui-theme` 的 Host half 经 `webserver/index-inject` prepend 两条
+  启动行（head `:root{color-scheme:dark}body{background-color:#151517;--dsh-boot-bg}` + body script 设
+  `data-ds-dark-theme`），而口味主题只能在 Client bundle 执行后 `register` + `setTheme`，必然晚于首帧。
+  修法（与官方同一接缝）：Host 新增 `src/boot-palette.ts`，`webserver/index-inject` 时把**当前持久化
+  风味**的整张 `--dsw-*` token 表（190 条/风味，含用户 overrides，过滤掉能逃出 `<style>` 的字符）
+  作为 head 行注入，并补一条 body script 把 `data-ds-dark-theme` 对齐到该风味的 `colorScheme`；
+  选择器用 `html body` / `html body[data-ds-dark-theme]`（压过 Client bundle 里以 `body` 声明的官方
+  表，**不靠行顺序**）。Client 侧 `src/client/boot-palette.ts` 在**风味真正生效时**摘掉这张表
+  （`setTheme` 包装器 / `applyDesired` 的两处早退 / 显式 off / 10 s 兜底 / 插件卸载），留在 DOM 会
+  钉住全部 token、让后续切 light/off 失效。
+  **只在 DSH ≥ 0.1.7 注入**：legacy 宿主的 `config.flavor` 是 profile patch 的静态值而不是持久文档，
+  照着画会画错（`bootPaletteRows` 只接受 volatile ref）。`flavor: off` 时**一行都不注入**。
+  **测试 360 → 373**（22 文件）：Host 侧 8 条（off / 未知 id / legacy 闸 / 四风味整表 / 画布色可推导 /
+  元素逃逸 / overrides 过滤与位置）+ Client 侧 5 条（摘除幂等 / 不碰别人的 `<style>` / 风味生效后摘除 /
+  显式 off 摘除 / 无表 no-op）。两组变异验证会红：去掉 `setTheme` 里的摘除 ⇒ 摘除用例红；去掉 volatile
+  闸 ⇒ legacy 用例红。另用**真实宿主渲染器**（rc.3 的 `renderIndexInjections`）交叉验证过：2 行、
+  `html:head` + `script:body`、head 里 286 处 `--dsw-` 声明、整段 HTML 11.6 KB、`off` 时 0 行。
+  ⚠️ **未跑**：真机首帧像素采样（步骤在 `docs/issue-30-first-paint-flash.md` §7）。
+
+- **新 origin 首次加载不再把配置重置为默认值（issue #30，`0.6.5-beta.0`）**。症状：`cordis.patch.yml`
+  的 `dsh-catppuccin.config` 被真实改写成 `flavor: off` / `glass.enabled: false` / `mode: mica`，页面
+  退回官方深色。根因不是用户操作——`pendingLocalPush`（R2 机制：boot 窗口内的改动不能被首个快照回滚）在
   scope 还没 `ready` 时被**任何**一次 `queuePersist()` 置位，而 `GlassLayer` 在每次 `theme/change`
   上无条件 `publish()`（`ui-theme` 每次 boot 都会 `adopt()` 一次偏好）⇒ 正常加载就 arm；首个可用快照
   随即走"回写"分支，`stateToMutateOps` 一次写全 11 个字段，而在空 origin 上"本地状态"就是出厂默认。
@@ -32,6 +55,9 @@
   把 arming 与回放同时改回旧写法 ⇒ `apply()` 级回归红。
   **已知空洞（接受）**：增量法分不清"没动过"与"显式设成默认值"，boot 亚秒窗口内把某项改回默认值会被文档
   覆盖回去——方向是文档优先，不丢持久数据。
+  另：报告人的补丁经**重建可运行变体跑测试**复核为有效（16/16 + 28/28），本人初稿列的"两处必须修"
+  是误判，已在本节对应文档 §4.4 更正。
+
 
 ## [0.6.4] - 2026-10-21
 
@@ -1332,7 +1358,7 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6-beta.0...HEAD
 [0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
