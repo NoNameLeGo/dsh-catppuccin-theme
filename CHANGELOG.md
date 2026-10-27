@@ -6,6 +6,33 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+> 本节 = **`0.6.5-beta.0`**（预发布按仓库惯例不单独落版本节）。内容：**issue #30**——新 origin
+> （新端口 / 清站点数据 / webview 分区）首次加载把配置重置为出厂默认的修复。方案与取证见
+> `docs/issue-30-boot-pending-push.md`。
+
+### 修复
+
+- **新 origin 首次加载不再把配置重置为默认值（issue #30）**。症状：`cordis.patch.yml` 的
+  `dsh-catppuccin.config` 被真实改写成 `flavor: off` / `glass.enabled: false` / `mode: mica`，页面退回
+  官方深色。根因不是用户操作——`pendingLocalPush`（R2 机制：boot 窗口内的改动不能被首个快照回滚）在
+  scope 还没 `ready` 时被**任何**一次 `queuePersist()` 置位，而 `GlassLayer` 在每次 `theme/change`
+  上无条件 `publish()`（`ui-theme` 每次 boot 都会 `adopt()` 一次偏好）⇒ 正常加载就 arm；首个可用快照
+  随即走"回写"分支，`stateToMutateOps` 一次写全 11 个字段，而在空 origin 上"本地状态"就是出厂默认。
+  修法三条：① `src/state.ts` 新增纯函数 `replayLocalChanges()`，把"boot 窗口内改过的**字段**"叠到
+  文档上，其余字段保留文档值——没有任何字段真的动过时（空 origin 的 boot publish 全属此类）**不写任何东西**，
+  直接走原本的"文档优先"采纳路径；② `queuePersist()` 只在"本地 ≠ 上次同步点"时才 arm（滑杆热路径零成本：
+  只在 scope 不可用时比较）；③ 玻璃层订阅只在**持久化字段**真的变化时才排持久化，`theme/change` 引起的
+  republish 不再排一次无谓 flush（顺带掐掉它可能撞出的假"另一窗口已更新"横幅）。
+  同时把 `settingsSectionsEqual` 里的 overrides 双向比较抽成 `sameOverrides()`，让两处规则只有一份。
+  **测试 353 → 360**：`replayLocalChanges` 6 条（含"每个持久化字段必须有变异器"的漂移护栏）+ `apply()`
+  级的 issue #30 回归 1 条（空 localStorage + 文档带 user layer + boot 期 `theme/change` ⇒ 0 次写入且采纳
+  文档）。三组变异验证会红：删掉任一字段的搬运 ⇒ 漂移护栏红；把"只搬动过的字段"改回整段搬运 ⇒ 首条用例红；
+  把 arming 与回放同时改回旧写法 ⇒ `apply()` 级回归红。
+  **已知空洞（接受）**：增量法分不清"没动过"与"显式设成默认值"，boot 亚秒窗口内把某项改回默认值会被文档
+  覆盖回去——方向是文档优先，不丢持久数据。
+
 ## [0.6.4] - 2026-10-21
 
 > 本版 = `0.6.4-beta.0` **转正** + 顶栏宽度的第二半修复（框语言 ⑤）+ 首次真机验收 + 玻璃预览图重拍。
@@ -1305,7 +1332,7 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5-beta.0...HEAD
 [0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
