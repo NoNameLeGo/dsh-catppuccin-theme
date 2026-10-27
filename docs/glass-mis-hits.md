@@ -61,11 +61,20 @@
 装了这类插件时也可以直接写在它的 `config` 里。
 
 否则这一步要用外部注入——浏览器扩展（Stylus / 暴力猴）或 DevTools 的 Overrides——加一条
-`!important` 规则把该族还原，例如：
+`!important` 规则把该族还原。**先只还原我们加的那两项**：
 
 ```css
-[class*='yourRow'] { backdrop-filter: none !important; background: none !important; outline: none !important; }
+[class*='yourRow'] { backdrop-filter: none !important; outline: none !important; }
 ```
+
+只有当该元素**原生没有任何底色**（即我们的填充是它唯一的背景）时，才再补一条
+`background: none !important`。
+
+> ⚠️ **别顺手把 `background` 一起还原**（2026-10-27 实测）：`!important + initial` 式排除会连**宿主自己声明的**
+> 底色一起抹掉——实测三个元素（宿主有底色 / 代码块 / 宿主无声明）还原后全部变成 `rgba(0, 0, 0, 0)`。
+> 想「回到宿主原值」只有两条路，都做得到但都不便宜：按元素重算并注入（我们不会为此内置），或者把规则
+> 塞进 `@layer` 让宿主赢——后者的代价是材质在所有宿主声明过 `background` 的地方**集体失效**（实测），
+> 等于皮肤大面积消失。所以本插件的取向是**修默认规则**，不是给用户一个排除开关。
 
 > ⚠️ `!important` 是临时手段。本插件**不会**为此内置覆写规则：那等于让插件接管第三方容器的结构，
 > 对方一改就碎。正解是第 3 步。

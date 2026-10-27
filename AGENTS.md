@@ -431,9 +431,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > 从 compat 的三条规则里移除，`[class*='card']` 收窄到 `[data-composer-card]`（离线扫描 `0.1.7-rc.2` 全套客户端包
 > 957 个文件里的 **20 个 `*_card` 类名**：18 个自绘 `background` ⇒ blur 被自己的底色盖住、我们的填充等于替换设计 token；
 > 2 个无任何 `background` 声明 ⇒ 规则是唯一把它们画出来的东西，正是报告人的灰纹与孤线）。**未采纳**「加 `compatExclude`
-> 配置项」（要碰 #15 的双通道 settings seam，还得新开一条样式注入通道）与「行级尺寸豁免」（纯 CSS 没有判据；改走运行时
-> 等于在幂等 stamper 里每帧强制布局）。真机 e2e 在 `0.1.7-rc.2` 上 **19/19**。顺带查明**上游与本插件都没有「通用自定义
-> CSS」入口**（两版本全套包 + 前端 bundle + profile patch 全 0 命中），README 因此改用「只读取证脚本 + 外部注入 + 提 issue」三步。
+> 配置项」（真正贵的不是配置面：两套 settings schema 出自同一张 `catppuccinSchemaFields()`，加字段是**一次**编辑，
+> 成本落在 `stateToMutateOps` / `settingsSectionsEqual` / `sanitizeState` / Host schema / 设置行 UI 这几处；贵在
+> **排除语义**——2026-10-27 实测：`!important + initial` 式排除会把宿主自己的底色一起抹成透明，`@layer` 式排除会让
+> 材质在所有宿主声明过 `background` 的地方集体失效，两者都做不到「回到宿主原值」，只能新开一条按元素重算/注入的通道）
+> 与「行级尺寸豁免」（纯 CSS 没有高度判据；改走运行时等于在幂等 stamper 里每帧强制布局）。真机 e2e 在 `0.1.7-rc.2` 上
+> **19/19**。顺带在**上游 + 本插件范围内**查明没有「通用自定义 CSS」入口（两版本全套包 + 前端 bundle + profile patch
+> 全 0 命中；⚠️ **范围只到这里**，别读成「这台机器上没有」，见下条），README 因此改用「只读取证脚本 + 外部注入 + 提 issue」三步。
 > ⚠️ **2026-09-29 报告人更正（issue #17 末条评论）**：上面这条结论的**扫描范围只有 DSH 上游 + 本插件**，别读成「这台机器上没有样式入口」——
 > **第三方插件可以自带**：`dsh-better-sidebar@0.21.1` 就有 `customCss` 配置项，gate 在它自己的 `titleBarScheme === 'custom'` 上
 > （`const customCss = scheme === "custom" ? snapshot.prefs.customCss : ""`），以 `data-dsh-custom-css` 注入，写在 profile patch 里该插件条目的
