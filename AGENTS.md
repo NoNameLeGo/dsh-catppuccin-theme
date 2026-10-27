@@ -529,6 +529,22 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - **关闭者是谁，决定「关闭」能证明什么（2026-10-22 补，踩过）**：`gh issue list --state closed` 只给 `stateReason=COMPLETED`，**看不到 actor**——必须查 timeline 的 `ClosedEvent.actor`（GraphQL `timelineItems(itemTypes:[CLOSED_EVENT])` 或 `/issues/<n>/timeline`）。实测：`#14` 由报告人 `Thytheiu` 关，`#24`–`#29` 由报告人 `TWFU-wcy` 关（其中 `#27` / `#28` / `#29` 关闭前 **0 条评论**），其余为维护者关闭。**报告人自行关闭 ≠ 维护者验收**：它只说明「他那边看起来好了」或「他不再跟进」，验收结论仍只能来自真机实测 / 测试。⇒ 进度文档里凡报告人关闭的 issue，必须同时注明**关闭者**与**关闭前是否有我方回复**。
 - **回复稿要真的贴出去（2026-10-22 补）**：`.debug/issue-<n>/reply.md` 只是草稿，**贴到 issue 才算数**。#27 / #28 / #29 的稿子都写好了，但关闭前 issue 里 0 条评论——报告人是在没看到任何说明的情况下自己关的。发版修好后的顺序应是：**先贴修复说明（版本号 + 升级方式）→ 再关 / 等报告人关**；草稿留在 `.debug/` 不算完成。
 - **审报告人的判据**：先分清他给的每个读数能证明什么。先例（#12）：白底 `#fff` **不能**证明「当时用的是官方主题」——本插件亮度旋钮 100 也给白底（`--dsh-glass-brightness-white: 1`）；能当判据的只有**文字 token**（官方 caption `173,178,184` / secondary `97,102,107` vs Latte `#7c7f93` / `#5c5f77`）。
+- **反过来：我们给他的判断也要先实测再发（2026-10-27 复盘）**。三条规矩，先例见
+  `docs/issue-audit-reporter-vs-agent.md`：
+  1. **评审他给的补丁 → 重建可运行变体跑测试，再下结论**。读 diff 摘录判断分支位置本轮错了两次
+     （#30「两处必须修」全部撤回）；重建时注意单文件 bundle 里本来可见的 import 要补，否则异常被
+     cordis notify 吞掉 → **测试假红**，看起来像补丁失效。
+  2. **说「成本高 / 做不到」之前跑最小实测**。#17 的两处成本论：通用的 CSS 排除（`!important + initial`）
+     实测会把**宿主自己的**底色一起抹掉，`@layer` 又会让材质在所有宿主声明过 `background` 的地方失效
+     ⇒ 机制判断成立；但「两套设置 API 各写一遍」**是错的**——两套 schema 出自同一张
+     `catppuccinSchemaFields()`，真实成本在 `stateToMutateOps` / `settingsSectionsEqual` / Host schema /
+     设置行 UI 四处。
+  3. **写「没有 X」前先问「我的 grep 覆盖了谁」**。#17 那句「DSH 与本插件都没有通用自定义 CSS 入口」源于
+     只扫上游 + 本插件，被报告人用 `dsh-better-sidebar@0.21.1` 的 `customCss` 当场纠正（gate =
+     `titleBarScheme === 'custom'`，注入属性 `data-dsh-custom-css`）。范围不够就写「在本插件与上游范围内
+     未发现」，别写成「不存在」。
+  另记一条**部分成立**的：#17 ②「`:where()` 只降权重、不阻止规则生效」——实测它**能**救回宿主自己也声明
+  过的属性（代码块底色），但救不了「宿主没声明」的元素、也去不掉 blur 成本；正确说法是「只修 A2 那一类」。
 - 报告的机制推断**逐条核对**后再回：本轮 #13 的两处表格错（边缘渐变条、composer 卡片都不是 mica 独有）就是这样查出来的——**自己代码注释里的同类说法也要一起改**。
 
 ## 本机测量资产（真页 A/B 与面积账）
