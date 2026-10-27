@@ -511,12 +511,32 @@ export function apply(ctx: ClientContext): void {
   // Re-register the active flavour after an override/shiki-style change so
   // the new token mix applies (the disposed registration is replaced by one
   // carrying the merged overrides).
+  //
+  // Issue #31: this used to dispose EVERY registration and then re-register the
+  // active one. The ThemeRuntime's disposer resets `preference` to its default
+  // when the disposed theme is the ACTIVE one ("Disposing the theme backing the
+  // active preference resets the preference to the default", ui-theme
+  // `register()`), so the whole UI dropped to the official theme and only a
+  // deferred microtask brought the flavour back — one dropped microtask and the
+  // user's flavour was gone while the row still showed it. Now only the active
+  // flavour is recycled, and the preference is put back in the SAME synchronous
+  // block, so no observer can read the intermediate `system`.
   const reapplyThemePrefs = (): void => {
     const active = theme.getTheme().preference
     const flavor = flavorInfo(active)
-    if (flavor === undefined || !themeDisposers.has(flavor.themeId)) return
-    disposeThemeRegistrations()
+    if (flavor === undefined) return
+    const dispose = themeDisposers.get(flavor.themeId)
+    if (dispose === undefined) return
+    themeDisposers.delete(flavor.themeId)
+    dispose()
     registerThemeFor(flavor)
+    try {
+      // Re-assert synchronously: `dispose()` above already published a snapshot
+      // whose preference is the default.
+      theme.setTheme(flavor.themeId)
+    } catch {
+      /* unregistered — the deferred restore below retries on the next event */
+    }
   }
 
   // Debounced push of the current local state into the settings document.
@@ -528,6 +548,9 @@ export function apply(ctx: ClientContext): void {
   // re-adopted + surfaced in the update row.
   let lastWrittenSection: CatppuccinSettingsSection | undefined
   let handleStaleConflict: (() => void) | undefined
+  // Issue #31: the un-recording setTheme entry point (see `commitTheme`),
+  // published by the restore effect for the `off` paths that live outside it.
+  let applyRestoredPreference: ((id: string) => void) | undefined
   // R2 (2026-10-10 review): whether a local change was made while the durable
   // scope was NOT yet usable — the boot window, when the settings service
   // lands late or its first snapshot is still in flight. Such a change has no
@@ -538,6 +561,34 @@ export function apply(ctx: ClientContext): void {
   // section that already equals the local state makes the queued write a
   // noop, so the ordinary boot path pays nothing.
   let pendingLocalPush = false
+  // Issue #31 (echo race, 2026-10-27): the local section as of the newest change
+  // this window made and has NOT yet committed, or null when there is nothing
+  // owed. It is ARMED on the same predicate as `pendingLocalPush` (local moved
+  // away from `syncedSection`) and DISARMED when a flush settles — the read
+  // side needs it because a snapshot may arrive while a change is still sitting
+  // in the debounce queue or on the wire, carrying the document as it was
+  // BEFORE that change. Adopting such a snapshot silently reverts the user's
+  // pick (measured on the live desktop shell: a flavour click was overwritten
+  // 1.4 s later by `applyScopeSnapshot`, and the queued flush then persisted the
+  // reverted value). `pendingLocalPush` covers only the window where the scope
+  // is not usable yet; this one covers the ordinary, usable-scope case.
+  let pendingLocalSection: CatppuccinSettingsSection | null = null
+  // Issue #31, second guard: the highest namespace revision this window has
+  // seen. A snapshot that reports a LOWER revision is a stale view (a describe
+  // read that resolved late, a superseded write's answer), never a newer
+  // document, so it must not be adopted. `revisionKind` resets the high-water
+  // mark when the durable channel is re-bound (the two seams number their
+  // revisions independently).
+  let maxSeenRevision: number | undefined
+  let revisionKind: string | undefined
+  // Issue #31: the last document section this window actually accepted. A queued
+  // flush whose local section already equals it is not "a change the document
+  // does not hold yet", so it must not arm `pendingLocalSection` — the adoption
+  // path itself re-publishes through the glass layer, and arming on that
+  // self-inflicted publish would block the NEXT external edit for a whole
+  // debounce beat.
+  let lastDocumentSection: CatppuccinSettingsSection | null = null
+
   // Issue #30: the local section as of the last moment this window knew it was
   // IN SYNC with the durable document — boot, or the last adoption / successful
   // write below. `pendingLocalPush` is armed only when the local state has
@@ -566,9 +617,16 @@ export function apply(ctx: ClientContext): void {
     // first usable snapshot then replayed the shipped defaults over the
     // document. The comparison only runs while the scope is unusable, so the
     // hot path (a slider drag) pays nothing.
-    if (!isScopeUsable(scope.getSnapshot())
-      && !settingsSectionsEqual(settingsSectionFromState(buildLocalState()), syncedSection)) {
-      pendingLocalPush = true
+    //
+    // Issue #31: the same "did a real change happen?" predicate also arms
+    // `pendingLocalSection`, which the adoption guard below reads — so it is
+    // computed once and shared.
+    const localSection = settingsSectionFromState(buildLocalState())
+    const pendingVsDocument = lastDocumentSection === null
+      || !settingsSectionsEqual(localSection, lastDocumentSection)
+    if (pendingVsDocument && !settingsSectionsEqual(localSection, syncedSection)) {
+      pendingLocalSection = localSection
+      if (!isScopeUsable(scope.getSnapshot())) pendingLocalPush = true
     }
     baseRevisionTracker.capture(() => scope.getSnapshot().revision)
     scheduleDurablePersist(persistLocal)
@@ -578,17 +636,42 @@ export function apply(ctx: ClientContext): void {
     // behind for the next burst.
     const baseRevision = baseRevisionTracker.take()
     const snapshot = scope.getSnapshot()
-    if (!isScopeUsable(snapshot)) return
+    if (!isScopeUsable(snapshot)) {
+      // Nothing can be pushed, so localStorage is the only store again and the
+      // pending intent must not keep blocking adoption (see `pendingLocalSection`).
+      pendingLocalSection = null
+      return
+    }
     const state = buildLocalState()
+    const flushed = settingsSectionFromState(state)
     void persistStateToScope(scope, state, { baseRevision, lastWrittenSection }).then((outcome) => {
+      // Only disarm the intent this flush actually carried: a newer change may
+      // have re-armed it while the write was on the wire, and THAT one still
+      // owes a write.
+      const settled = pendingLocalSection !== null && settingsSectionsEqual(pendingLocalSection, flushed)
       if (outcome === 'written') {
-        lastWrittenSection = settingsSectionFromState(state)
+        lastWrittenSection = flushed
         // The local cache and the document agree again — a new sync point.
-        syncedSection = lastWrittenSection
+        syncedSection = flushed
+        if (settled) pendingLocalSection = null
+      } else if (outcome === 'noop') {
+        // The document already equals the local state (the normal echo of our
+        // own committed write), so this is a sync point too — without moving the
+        // baseline here a later adoption would compare against a stale one.
+        syncedSection = flushed
+        if (settled) pendingLocalSection = null
       } else if (outcome === 'stale') {
+        // The document moved past us and the movement is NOT our own echo, so
+        // the local change is abandoned: the intent must stop guarding the
+        // adoption below, or the conflict path could never adopt.
+        if (settled) pendingLocalSection = null
         emitConflict()
         handleStaleConflict?.()
       }
+      // 'error' (transport failure / refused mutation) keeps the intent armed on
+      // purpose: the choice is still newer than the document and the next flush
+      // retries it. Adopting on a failed write is exactly the silent revert this
+      // guard exists to stop.
     })
   }
 
@@ -640,19 +723,30 @@ export function apply(ctx: ClientContext): void {
     // skipped (an unknown host shape, a restore that never runs).
     const bootPaletteFallback = window.setTimeout(() => { clearBootPalette() }, BOOT_PALETTE_FALLBACK_MS)
     const originalSetTheme = theme.setTheme
-    // Named on purpose (R1, 2026-10-10 review): the cleanup below may only
-    // restore the original while the method is still OUR wrapper. Another
-    // extension replacing it afterwards owns the slot by then, and an
-    // unconditional write-back of the original would silently unhook it.
-    const restoreGuardSetTheme = (id: string): void => {
-      liveBuiltinPick = isBuiltinPreference(id) ? id : null
+    // Issue #31: an internal restore is NOT an explicit pick. It used to go
+    // through the wrapper below, which recorded `liveBuiltinPick` — so a restore
+    // to `dark` made the plugin believe the user had clicked dark in the
+    // Appearance row THIS session, and `builtinPickWins()` then refused every
+    // later flavour restore (turn the flavour off, another window turns it back
+    // on ⇒ this window never follows). Only a call from OUTSIDE (the Appearance
+    // row) records now.
+    const commitTheme = (id: string, record: boolean): void => {
+      if (record) liveBuiltinPick = isBuiltinPreference(id) ? id : null
       originalSetTheme.call(theme, id)
       // Issue #30 补充: the ThemePresenter applies the new tokens inside the
       // call above, so the pre-paint sheet is spent by the time it returns —
       // and a built-in pick means a flavour sheet must not survive at all.
       clearBootPalette()
     }
+    // Named on purpose (R1, 2026-10-10 review): the cleanup below may only
+    // restore the original while the method is still OUR wrapper. Another
+    // extension replacing it afterwards owns the slot by then, and an
+    // unconditional write-back of the original would silently unhook it.
+    const restoreGuardSetTheme = (id: string): void => { commitTheme(id, true) }
     theme.setTheme = restoreGuardSetTheme
+    // The `off` / cross-window paths live outside this effect; they need the
+    // un-recording entry point.
+    applyRestoredPreference = (id: string) => { commitTheme(id, false) }
 
     // Issue #10: a synchronous setTheme inside a theme/change dispatch
     // re-enters publish() — the ThemePresenter (registered after us) then
@@ -663,17 +757,25 @@ export function apply(ctx: ClientContext): void {
     // presenter sees. A single in-flight restore coalesces repeated
     // observations (boot, adopt() reloads, storage echoes).
     let restorePending = false
+    // Issue #31: the LATEST desired value of the burst, not the first one. The
+    // old coalescing dropped every later observation (`if (restorePending)
+    // return`), so two different intents inside one task left the stale one
+    // applied — and with no further theme/change to correct it.
+    let pendingDesired: string | undefined
     // `desired` is widened to string on purpose: the SAME deferred path also
     // carries the built-in restore (audit F4) — when the persisted choice went
     // 'off' somewhere else, the theme to apply is a built-in preference
     // (`system`/`light`/`dark`), not a flavour id.
     const scheduleRestore = (desired: string): void => {
+      pendingDesired = desired
       if (restorePending) return
       restorePending = true
       queueMicrotask(() => {
         restorePending = false
+        const wanted = pendingDesired as string
+        pendingDesired = undefined
         const preference = theme.getTheme().preference
-        if (preference === desired) {
+        if (preference === wanted) {
           // The flavour is ALREADY the active theme — no setTheme will run, so
           // this is the only chance to retire the pre-paint sheet (issue #30
           // 补充). Nothing is painted between here and the presenter's own
@@ -685,11 +787,10 @@ export function apply(ctx: ClientContext): void {
         // (or a newer event) still wins over the persisted flavour.
         if (builtinPickWins(preference, liveBuiltinPick)) return
         // Lazy registration (item JJ): the theme must exist before setTheme.
-        ensureThemeRegistered(desired)
+        ensureThemeRegistered(wanted)
         try {
-          // Goes through the wrapper above, which clears the sheet once the
-          // presenter has applied the tokens.
-          theme.setTheme(desired)
+          // Records nothing (issue #31): a restore is not a user pick.
+          commitTheme(wanted, false)
         } catch {
           // Theme not registered yet — a later theme/change re-runs applyDesired.
         }
@@ -756,7 +857,8 @@ export function apply(ctx: ClientContext): void {
       // persisted choice — and the settings row of the other window — say off.
       if (flavorFromThemeId(theme.getTheme().preference) === 'off') return
       try {
-        theme.setTheme(readRestoredPreference())
+        // Not an Appearance pick (issue #31), so it must not be recorded.
+        commitTheme(readRestoredPreference(), false)
       } catch {
         /* keep the current theme rather than dropping the user into nothing */
       }
@@ -787,6 +889,20 @@ export function apply(ctx: ClientContext): void {
       const snapshot = scope.getSnapshot()
       const state = durableStateFromSnapshot(snapshot)
       if (state === null) return // loading / memory / absent — localStorage-only
+      // Issue #31, guard 2: revision monotonicity. Writes only ever move the
+      // namespace revision forward, so a snapshot reporting an OLDER revision is
+      // a stale view (a describe read that resolved late, a superseded write's
+      // answer folded after a newer one) — adopting it rewinds the document the
+      // user is looking at.
+      const revision = snapshot.revision
+      if (revision !== undefined) {
+        if (revisionKind !== scope.kind) {
+          revisionKind = scope.kind
+          maxSeenRevision = undefined
+        }
+        if (maxSeenRevision !== undefined && revision < maxSeenRevision) return
+        maxSeenRevision = Math.max(maxSeenRevision ?? revision, revision)
+      }
       const local = buildLocalState()
       // R2: a change made before the scope first became usable wins over the
       // first usable snapshot (see `pendingLocalPush`) — but only the FIELDS
@@ -811,6 +927,9 @@ export function apply(ctx: ClientContext): void {
           reapplyThemePrefs()
           applyDesired()
           syncedSection = settingsSectionFromState(replayed.state)
+          // The snapshot still describes the OLDER document this replay just
+          // beat, so the queued push below must stay armed (issue #31).
+          lastDocumentSection = settingsSectionFromState(state)
           queuePersist()
           return
         }
@@ -833,16 +952,36 @@ export function apply(ctx: ClientContext): void {
       // that is not a `--` token) can never compare equal to the sanitized
       // local shape, so every publish would re-run this adoption forever.
       // Adopt, then push the cleaned map back once so the document converges
-      // (audit F7).
-      if (hasUnpersistableOverrides((snapshot.value as { overrides?: unknown } | undefined)?.overrides)) {
-        queuePersist()
-      }
+      // (audit F7). The push is queued AFTER the adoption below, because the
+      // adoption cancels the queued flush (issue #31).
+      const pushCleaned = hasUnpersistableOverrides((snapshot.value as { overrides?: unknown } | undefined)?.overrides)
       // A document the user wrote wins over the local cache, but echoes of
       // our own committed writes are skipped (they equal the local state).
-      if (settingsSectionsEqual(
-        settingsSectionFromState(local),
-        settingsSectionFromState(state),
-      )) return // our own echo — nothing to adopt
+      const localSection = settingsSectionFromState(local)
+      const documentSection = settingsSectionFromState(state)
+      if (settingsSectionsEqual(localSection, documentSection)) {
+        // Our own echo. Recording the section is what keeps `queuePersist` from
+        // arming a pending intent for it (issue #31).
+        lastDocumentSection = documentSection
+        return
+      }
+      // Issue #31, guard 1 (THE measured bug): this window has a change the
+      // document does not hold yet — it is sitting in the debounce queue or on
+      // the wire. The snapshot therefore describes the document as it was
+      // BEFORE that change, and adopting it silently reverts the user's pick
+      // (and the queued flush then persists the reverted value, so the loss
+      // becomes durable). Keep the local state; the flush carries it out.
+      if (pendingLocalSection !== null && !settingsSectionsEqual(pendingLocalSection, documentSection)) return
+      // Committing to the document: the queued flush would now only write the
+      // pre-adoption state back, so drop it (and the revision it captured — a
+      // stale base would be read as a conflict by the next burst). Both sync
+      // points move BEFORE the writes below, because `glass.applyRemote`
+      // republishes and that publish runs `queuePersist` (issue #31).
+      cancelDurablePersist()
+      baseRevisionTracker.take()
+      pendingLocalSection = null
+      lastDocumentSection = documentSection
+      syncedSection = documentSection
       writeFlavor(state.flavor)
       glass.applyRemote(state.glass)
       writeAutoCheck(state.autoCheck)
@@ -852,10 +991,10 @@ export function apply(ctx: ClientContext): void {
       emitPrefs()
       reapplyThemePrefs()
       applyDesired()
-      // The cache now mirrors the document — a new sync point for the boot
-      // replay above (the scope can go unavailable again on a re-bind, and a
-      // stale baseline would then replay adopted values as "user changes").
-      syncedSection = settingsSectionFromState(state)
+      // `syncedSection` / `lastDocumentSection` were already moved onto the
+      // document above (before the writes), so the boot replay below compares
+      // against the fresh baseline.
+      if (pushCleaned) queuePersist()
     }
     applyScopeSnapshot()
     const offScope = scope.subscribe(applyScopeSnapshot)
@@ -904,6 +1043,7 @@ export function apply(ctx: ClientContext): void {
       window.clearInterval(intervalTimer)
       cancelDurablePersist()
       handleStaleConflict = undefined
+      applyRestoredPreference = undefined
       armAutoCheck = undefined
       // Undo the setTheme wrapper so a stopped plugin leaves the runtime as
       // it found it — but only while the wrapper is still ours (R1): if
@@ -939,9 +1079,12 @@ export function apply(ctx: ClientContext): void {
         writeFlavor('off')
         // Wrapped like every other setTheme call (issue #23 audit): a throw
         // here used to escape into the row's click handler; keep the current
-        // theme instead of dropping the user into nothing.
+        // theme instead of dropping the user into nothing. Issue #31: goes
+        // through the UN-recording entry point — turning the flavour off is not
+        // an Appearance pick, and recording it would veto every later restore.
         try {
-          theme.setTheme(readRestoredPreference())
+          if (applyRestoredPreference !== undefined) applyRestoredPreference(readRestoredPreference())
+          else theme.setTheme(readRestoredPreference())
         } catch {
           /* keep the current theme rather than dropping the user into nothing */
         }
@@ -953,12 +1096,29 @@ export function apply(ctx: ClientContext): void {
       // Persist first so the restore guard (a theme/change listener) sees the
       // new flavour when setTheme below emits synchronously. Lazy
       // registration: the theme must exist before setTheme (item JJ).
+      const previous = readFlavor()
       writeFlavor(flavor.themeId)
       ensureThemeRegistered(flavor.themeId)
+      // Issue #31: a throw here used to be swallowed, leaving the cache on the
+      // NEW flavour and the runtime on the OLD one — "I clicked it and nothing
+      // happened", with no retry and no notice. Retry once after forgetting the
+      // registration memo (a tolerated duplicate skip or a recycled
+      // registration can leave the memo pointing at a dead registrant), and if
+      // it still fails put the cache back so the two stores never disagree.
       try {
         theme.setTheme(flavor.themeId)
       } catch {
-        /* theme unavailable — keep the current one; a later theme/change retries */
+        themeDisposers.get(flavor.themeId)?.()
+        themeDisposers.delete(flavor.themeId)
+        registerThemeFor(flavor)
+        try {
+          theme.setTheme(flavor.themeId)
+        } catch {
+          writeFlavor(previous)
+          emitPrefs()
+          emitConflict()
+          return
+        }
       }
       queuePersist()
     },
