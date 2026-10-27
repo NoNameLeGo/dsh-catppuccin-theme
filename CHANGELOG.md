@@ -8,13 +8,41 @@
 
 ## [Unreleased]
 
-> 本节 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`**（预发布按仓库惯例不单独落版本节）。
+> 本节 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`** + **`0.6.5-beta.2`**（预发布按仓库惯例不单独落版本节）。
+> `0.6.5-beta.2`：**issue #31**——快速切换风味偶发失败的修复（迟到的文档回声不再回滚更新的本地选择）；
+> 同时把误发的 `0.6.6-beta.0` 版本号归位（该预发布的内容已全量包含在本版里）。
 > `0.6.6-beta.0`：**issue #30 补充**——首屏不再先闪官方深色（pre-paint 调色板注入），
 > 方案与取证见 `docs/issue-30-first-paint-flash.md`。
 > `0.6.5-beta.0`：**issue #30**——新 origin（新端口 / 清站点数据 / webview 分区）首次加载把配置
 > 重置为出厂默认的修复，方案见 `docs/issue-30-boot-pending-push.md`。
 
 ### 修复
+
+- **快速切换配色不再被迟到的文档回声回滚（issue #31，2026-10-27）**。症状：连续点几个风味，最后一次
+  **偶发不生效**——界面先切过去、零点几秒后被切回上一个，且没有任何「另一窗口已更新」提示；真机实测
+  （官方桌面壳 + CDP + 给 `Storage.prototype.setItem` 打栈定位写入者）拿到的是
+  `select() → writeFlavor(新值)` 之后 0.1–1.4 s 出现
+  `applyScopeSnapshot → writeFlavor(旧值)`，随后排队的防抖 flush 又把这个被回滚的值写进
+  `cordis.patch.yml`，于是用户的选择在屏幕和磁盘上同时丢失，连冲突横幅都没有。根因：采纳路径的
+  「回声判据」只有一条「本地 == 文档 → 跳过」，它不知道**本地还有一次更晚的变更没落盘**（在防抖队列里
+  或在途）——于是把自己早先那笔写的回声当成外部真相，按「文档优先」覆盖了更新的本地选择。写侧
+  （`persistStateToScope`）有 `baseRevision` + `ourOwnEcho` 两道护栏，读侧一直没有，两侧不对称。
+  修法四条：① `queuePersist()` 在同一处记录 `pendingLocalSection`（本地最新意图，flush 结清才清空），
+  采纳前若「有未落盘意图且快照 section ≠ 该意图」则**不采纳**；② 增加命名空间 revision 高水位，
+  **快照 revision 倒退**即判为过期视图（迟到的 describe 读、被后写覆盖的答复），不采纳；③ 真正采纳时
+  `cancelDurablePersist()` 并丢弃已捕获的 base revision（否则排队的 flush 会把回滚值写盘）；
+  ④ 主题侧 `reapplyThemePrefs()` 不再 dispose-all —— 上游 `register()` 的 disposer 会把**当前**偏好
+  重置成默认值，原来全靠一个 microtask 拉回，丢一次就是「点了没反应」；现在只回收活跃风味并在**同一个
+  同步块**里 `setTheme` 补回。顺带：restore 不再经过 `setTheme` 包装器（否则「关掉风味」会被记成
+  「本次会话显式选了 dark」，`builtinPickWins()` 之后会否决所有风味恢复）；`select()` 里 `setTheme`
+  失败不再静默（强制重注册重试一次，仍失败则回滚缓存 + 报冲突）；`scheduleRestore` 的合并改为记住
+  **最后一个** desired（原来丢弃后来的意图）。
+  **测试 373 → 378**：`tests/reentrancy.spec.ts` 新增 5 条（回声不覆盖 / 过期视图不采纳但新编辑仍采纳 /
+  回收注册时偏好不掉 / off 恢复不算一次 pick / 注册被跳过时的重试与回滚）。**五组变异全部验证会红**：
+  去掉 pending 闸门 ⇒ 首条红；去掉 revision 高水位 ⇒ 第 2 条红；`reapplyThemePrefs` 改回 dispose-all ⇒
+  第 3 条红；off 恢复改成记录 ⇒ 第 4 条红；去掉强制重注册 ⇒ 第 5 条红。
+  方案与真机取证：`docs/issue-31-theme-switch-echo-race.md`。⚠️ **未跑**：前台窗口下的真机复测
+  （本轮实测窗口是隐藏的，定时器被节流到 ~1 s，竞态窗口被拉宽，3 次里复现 2 次）。
 
 - **首屏不再先闪官方深色（issue #30 补充，2026-10-27）**。症状：`flavor` 已持久化为
   `catppuccin-frappe`，页面首帧仍是官方深色（报告人实测首帧中心像素 `#151517`），随后才切到风味。

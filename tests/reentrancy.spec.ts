@@ -177,7 +177,21 @@ function makeConfigForms(options: {
   const service = options.withWhileServed === false
     ? { get: () => form }
     : { get: () => form, whileServed }
-  return { form, mutations, whileServed, service }
+  /**
+   * Publish a NEW snapshot and notify the subscribers — the surface the client
+   * subscribes to. Issue #31 needs it to replay the two shapes the real mirror
+   * produces: an echo that still describes the document as it was BEFORE a
+   * local change (same revision), and a stale view whose revision went
+   * backwards (a describe read answering late).
+   * @param section - the section the document now resolves to.
+   * @param revision - the namespace revision that section was read at.
+   */
+  const push = (section: unknown, revision: number): void => {
+    snap.value = section
+    snap.revision = revision
+    for (const listener of [...subs]) listener()
+  }
+  return { form, mutations, push, whileServed, service }
 }
 
 describe('issue #10: flavour restore must not re-enter the theme/change dispatch', () => {
@@ -408,6 +422,173 @@ describe('issue #15: the client boots on either settings seam', () => {
  * slot's declaration and `whileServed` for the namespace, which is what keeps
  * hosts without a Plugin manager (and the legacy settings seam) quiet.
  */
+/**
+ * Issue #31 (measured on the live desktop shell, 2026-10-27): the adoption path
+ * overwrote changes it had not seen committed yet.
+ *
+ * Picking a flavour wrote the localStorage cache synchronously; 0.1–1.4 s later
+ * `applyScopeSnapshot` rewrote BOTH the cache and the runtime preference from a
+ * snapshot that described the document BEFORE that pick. The debounced flush
+ * then persisted the reverted value (the document flipped too) and no conflict
+ * was surfaced — the pick was silently lost. Three fixes are pinned here: the
+ * pending-intent gate, the revision high-water mark, and the theme side no
+ * longer dropping the runtime preference to its default while it recycles a
+ * registration.
+ */
+describe('issue #31: a late document echo must not revert a newer local change', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  type Forms = ReturnType<typeof makeConfigForms>
+  const sectionOf = (flavor: string) => ({ ...defaultSettingsSection(), flavor })
+
+  const mount = (forms: Forms, options: { builtin?: string } = {}) => {
+    const ctx = new Context()
+    const themeHost = makeThemeHost(options.builtin === undefined ? { value: undefined } : { value: { preference: options.builtin } })
+    const theme = makeThemeRuntime(ctx, themeHost)
+    ctx.provide('theme', theme)
+    const { slots, registered } = makeSlots()
+    ctx.provide('slots', slots as never)
+    ctx.provide('locale', { register: () => () => {}, addLanguage: () => () => {}, bind: (key: string) => key })
+    ctx.provide('configForms', forms.service as never)
+    localStorage.setItem(FLAVOR_STORAGE_KEY, 'catppuccin-frappe')
+    apply(ctx)
+    const page = registered.find((entry) => entry.name === 'settings.section')
+    if (page === undefined) throw new Error('settings page was not registered')
+    const face = (page.options.inject as () => {
+      flavor: {
+        select: (choice: string) => void
+        setOverrides: (overrides: Record<string, string>) => void
+      }
+    })()
+    return { ctx, theme, themeHost, face }
+  }
+
+  it('keeps a pick whose echo of the pre-change document lands during the debounce', async () => {
+    const documentSection = sectionOf('catppuccin-frappe')
+    const forms = makeConfigForms({ user: { flavor: 'catppuccin-frappe' }, value: documentSection, revision: 7 })
+    const { ctx, theme, face } = mount(forms)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // The user picks latte; the durable flush is still 300 ms away.
+    face.flavor.select('catppuccin-latte')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-latte')
+
+    // The mirror publishes the document as it was BEFORE that pick — the echo
+    // of an earlier write, at the revision that write carried.
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    forms.push(documentSection, 7)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY), 'the cache was rolled back').toBe('catppuccin-latte')
+    expect(theme.getTheme().preference, 'the runtime was rolled back').toBe('catppuccin-latte')
+
+    // …and the queued flush still carries the pick out, so the document agrees.
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    const written = forms.mutations.flat() as { op: string; path: string[]; value: unknown }[]
+    expect(written.some((op) => op.path.join('.') === 'flavor' && op.value === 'catppuccin-latte')).toBe(true)
+    await ctx.fiber.dispose()
+  })
+
+  it('ignores a stale view whose revision went backwards, but adopts a newer edit', async () => {
+    const documentSection = sectionOf('catppuccin-latte')
+    const forms = makeConfigForms({ user: { flavor: 'catppuccin-latte' }, value: documentSection, revision: 8 })
+    const { ctx, theme } = mount(forms)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+
+    // A describe read that resolved late: an OLDER document at an older
+    // revision. Adopting it would rewind what the user is looking at.
+    forms.push(sectionOf('catppuccin-mocha'), 5)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-latte')
+
+    // A genuine external edit (another window) moves the document forward and
+    // must still win — the guard is not a blanket "never adopt".
+    forms.push(sectionOf('catppuccin-macchiato'), 9)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-macchiato')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-macchiato')
+    await ctx.fiber.dispose()
+  })
+
+  it('keeps the runtime preference while recycling an override-changed registration', async () => {
+    const forms = makeConfigForms({ user: { flavor: 'catppuccin-mocha' }, value: sectionOf('catppuccin-mocha'), revision: 7 })
+    const { ctx, theme, face } = mount(forms)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-mocha')
+
+    face.flavor.setOverrides({ '--dsw-alias-bg-base': '#000000' })
+    // Synchronously, no microtask in between: disposing the ACTIVE theme makes
+    // the runtime reset its preference to the default, and only the synchronous
+    // re-assert puts it back before any observer can read the gap.
+    expect(theme.getTheme().preference).toBe('catppuccin-mocha')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-mocha')
+    await ctx.fiber.dispose()
+  })
+
+  it('does not treat the off-restore as an Appearance pick', async () => {
+    // The document already carries a user layer (otherwise the adoption path is
+    // not reached at all — a document with no user layer only receives pushes).
+    const forms = makeConfigForms({
+      user: { flavor: 'catppuccin-frappe' },
+      value: sectionOf('catppuccin-frappe'),
+      revision: 3,
+    })
+    const { ctx, theme, face } = mount(forms, { builtin: 'dark' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-frappe')
+
+    // Turning the flavour off hands back the built-in preference — that is not
+    // a pick, so it must not record one (a recorded `dark` used to veto every
+    // later flavour restore).
+    face.flavor.select('off')
+    expect(theme.getTheme().preference).toBe('dark')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    // Another window turns the flavour back on.
+    forms.push(sectionOf('catppuccin-latte'), 9)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(theme.getTheme().preference, 'the restore was vetoed by a recorded pick').toBe('catppuccin-latte')
+    await ctx.fiber.dispose()
+  })
+
+  it('recovers a pick whose registration was skipped, and rolls the cache back when it cannot', async () => {
+    const forms = makeConfigForms({ user: { flavor: 'catppuccin-latte' }, value: sectionOf('catppuccin-latte'), revision: 7 })
+    const { ctx, theme, face } = mount(forms)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(theme.getTheme().preference).toBe('catppuccin-latte')
+
+    // The first registration attempt fails (a tolerated duplicate / dead
+    // registrant): the pick must not end up "applied to the cache only".
+    const original = theme.register.bind(theme)
+    let failed = 0
+    theme.register = (definition) => {
+      if (definition.id === 'catppuccin-mocha' && failed === 0) {
+        failed += 1
+        throw new Error('theme "catppuccin-mocha" is already registered')
+      }
+      return original(definition)
+    }
+    face.flavor.select('catppuccin-mocha')
+    expect(theme.getTheme().preference).toBe('catppuccin-mocha')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-mocha')
+
+    // One that can never register: the cache goes back so the two stores keep
+    // telling the same story (and the row reports the conflict).
+    theme.register = (definition) => {
+      if (definition.id === 'catppuccin-macchiato') throw new Error('nope')
+      return original(definition)
+    }
+    face.flavor.select('catppuccin-macchiato')
+    expect(theme.getTheme().preference).toBe('catppuccin-mocha')
+    expect(localStorage.getItem(FLAVOR_STORAGE_KEY)).toBe('catppuccin-mocha')
+    await ctx.fiber.dispose()
+  })
+})
+
 describe('Plugins-page card', () => {
   beforeEach(() => localStorage.clear())
   afterEach(() => localStorage.clear())
