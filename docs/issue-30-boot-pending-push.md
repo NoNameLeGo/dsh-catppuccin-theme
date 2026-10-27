@@ -5,10 +5,10 @@
 > `--user-data-dir`。报告人已给出复现、注入日志、根因定位与一份自测通过的补丁。
 >
 > **结论：报告正确，采纳其方向（"文档就绪后只回放真正变化过的字段"），但补丁本身有两个必须修的点
-> （见 §4.3）。定性 = bug 修复 ⇒ `0.6.5` 线。**
+> （见 §4.4）。定性 = bug 修复 ⇒ `0.6.5` 线。**
 >
 > **状态：已实施（2026-10-27，`0.6.5-beta.0`）。** 实施与本节方案的差异只有两条，都是收紧：
-> ① 基线叫 `syncedSection` 且在**每个同步点**刷新（方案 §4.4 已要求）；② 玻璃订阅的收窄（P3）一并做了，
+> ① 基线叫 `syncedSection` 且在**每个同步点**刷新（方案 §4.1 已要求）；② 玻璃订阅的收窄（P3）一并做了，
 > 因此 `tests/reentrancy.spec.ts` 的两条 issue #15 用例的 fixture 补上了"ready 的 form 一定解析出
 > section"（原先靠 `value: undefined` 下的盲写来产生 mutation，而那正是本次要关掉的那类写）。
 > 测试 **353 → 360**，三组变异已验证会红（见 CHANGELOG 的 `[Unreleased]` 节）。
@@ -169,12 +169,36 @@ export function replayLocalChanges(
 不携带任何持久化变化。收窄后：① 每次 boot 少一次无谓的 flush；② 去掉它可能撞上
 "文档已移动 ⇒ `stale` ⇒ 弹出'另一窗口已更新'横幅"的假阳性通道。
 
-### 4.4 报告人补丁里必须改的两处
+### 4.4 报告人补丁的复核结论（2026-10-27 二次复核：**推翻本节初稿**）
 
-| 位置 | 问题 | 处理 |
+**初稿说"补丁有两处必须修"，这个判断是错的。** 复核方法是把报告人的 diff 重建成可运行的变体
+（`webServer` 未涉及，只改 `src/client/index.ts`；`sameOverrides` / `sanitizeState` 按 bundle 现实补导入），
+跑本仓库两个测试文件：
+
+| 变体 | `tests/reentrancy.spec.ts` | `tests/state.spec.ts` | 备注 |
+|---|---|---|---|
+| 报告人补丁（重建） | **16/16 pass** | 28/28 pass | 含本次新增的 issue #30 回归：**0 次写入**、localStorage 采纳到 `catppuccin-frappe` |
+
+| 初稿的指控 | 复核结论 | 依据 |
 |---|---|---|
-| `pendingLocalPush` 分支 | 补丁让它**落到**后续分支，但 `!scope.hasUserLayer` 那条会在 `queuePersist()` 后 `return`，merged 目标丢失（文档无 user layer 时回放失效） | 把"回放+采纳+push"收进分支内部并 `return`，`changed === false` 才落到后续分支（§4.1） |
-| `bootLocalSection = settingsSectionFromState(target)` | 只在回放分支刷新基线；scope 可 `unavailable → ready` **反复**（`createDurableScope.attach(undefined)` 后重绑），届时基线陈旧 ⇒ 把已采纳的文档值误当"用户增量"再回放一次 | 基线改为"每次落盘/采纳后刷新"（§4.1 的三处赋值） |
+| "补丁让 `pendingLocalPush` 分支落到 `!hasUserLayer`，merged 丢失、回放失效" | **不成立** | `!hasUserLayer` 意味着文档**还没有 user layer**，那里本来就该"localStorage 会话整段胜出并推上去"（0.5 起的迁移路径）。推 `local` 与推 `merged` 在被覆盖的内容上没有差别（没有 user layer 可被覆盖），且这正是 0.6.4 的既有语义。 |
+| "`bootLocalSection` 只在回放分支刷新，scope 反复 unavailable→ready 时基线陈旧" | **不成立（我读错了缩进）** | 那两行在 `applyScopeSnapshot` 的**函数尾**，等价于"每次采纳后刷新基线"，初稿担心的路径不存在。 |
+
+真正的差异只剩两条**更窄的窗口**，属"我的实现更保守"，不是缺陷：
+
+1. **arming 无条件** ⇒ 每次 boot publish 都会跑一遍"回放 + 采纳"（无害），同时保留一次 300 ms 的 flush。
+   若这 300 ms 内另一个窗口改了文档，而 read-side guard 因 boot 时 `baseRevision` 未捕获而跳过，
+   那次 flush 仍可能用旧值覆盖 —— 与 #30 同类，但窗口从"整段 boot"缩到"一次 debounce"。
+   本仓库实现用 P2（只在有真增量时 arm）+ P3（glass 订阅只在持久化字段变化时排写入）把这次写完全去掉。
+2. **基线不在写盘后刷新** ⇒ 若 scope 之后重新不可用、用户再改一项，delta 会把"上次已写盘的字段"一起重推。
+   同值幂等，只有当另一窗口在这期间改过那些字段时才不同。
+
+**方法学教训（写进流程）**：拿 diff 摘录判断分支位置，两次都错在"上下文缺失 + 缩进被 Markdown 吃掉"。
+以后评审他人补丁，**先重建可运行变体跑测试，再下结论**；读 diff 只用来定位。
+⚠️ 重建时要留意：他的 `lib/client.js` 是单文件 bundle，`sameOverrides` / `sanitizeState` 在同文件内本来可见，
+搬到源码树必须补 import —— 我第一次重建就漏了 `sanitizeState`，导致回放块抛异常被吞、测试出现**假红**
+（写入值是默认值，看起来像补丁失效）。**假红/假绿都要靠"异常是否被吞"这一步排掉。**
+
 
 ## 5. 备选方案（记录未采纳理由）
 
