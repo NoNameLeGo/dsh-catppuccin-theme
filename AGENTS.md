@@ -309,7 +309,14 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.4`**（2026-10-21；Publish run `39614662496` success、日志
+> ⚠️ **发版版本号**：`latest` = **`0.6.5`**（2026-10-29；tag `v0.6.5` → Publish run `40735873824` success、
+> CI `40735873779` 的 check + boot-e2e 双绿、registry `dist-tags.latest` 已翻到 `0.6.5`、
+> `versions['0.6.5'].dist.attestations` 为 true）= 
+> `0.6.5-beta.0` + `0.6.6-beta.0` + `0.6.5-beta.2` 全链**转正**：**issue #30**（新 origin 首次加载把配置
+> 重置为默认值）+ **issue #30 补充**（首屏不再先闪官方深色，Host pre-paint 注入）+ **issue #31**（快速切换
+> 风味偶发失败：迟到的文档回声不再回滚更新的本地选择）。**测试 378 全绿**（22 文件）。
+> ⚠️ 仍未跑：真机首帧像素采样（`docs/issue-30-first-paint-flash.md` §7）、#31 前台窗口复测、#30 真机验收。
+> 上一版 `latest` = **`0.6.4`**（2026-10-21；Publish run `39614662496` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.4` 带 provenance、tag 显式 `latest`；CI `39614583168` 的 check +
 > boot-e2e 双绿）= **`0.6.4-beta.0` 转正** + **框语言 ⑤ 的第二半修复**（顶栏补 `width: 100%`：
 > `margin-inline: auto` 把块级盒降成 fit-content，`max-width` 撑不开，真机顶栏只有 266px 而卡 856px
@@ -317,7 +324,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > 实测、#19 命令面板祖先链 `backdrop-filter` 命中 0、框语言 ①②③⑦ 与 issue #27 设置分区目视过）+
 > **玻璃预览图重拍**（旧图顶栏正是 ⑤ 的塌陷态，且侧栏展开露了工作区名）。**测试 352 全绿**（20 文件；
 > 现为 **353**——`572bbec` 给 ⑤ 补了一条「两份宽度上限必须一致」的漂移护栏。该提交在 `0.6.4` tag 之后，
-> **未随 `0.6.4` 发出，将随下一版**；纯测试，不影响已发产物的行为）。
+> **未随 `0.6.4` 发出，已随 `0.6.5`**；纯测试，不影响产物行为）。
 > 仍未跑：四风味 × mica/compat 全矩阵、`signature` 回归。⑤ 的折叠分支 2026-10-21 已用「临时加
 > `data-sidebar-collapsed`」的方式验过 CSS 分支（1383.3 = 列 − 44、右边缘 −16 无溢出、还原一致），
 > 但**真按钮触发折叠**仍没走过。
@@ -397,7 +404,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > **测试 274 全绿**（269 + 5 条，三组经变异验证）。再上一版 `beta` = **`0.6.1-beta.0`**（2026-10-07；
 > Publish run `37621692087` success 45 s、CI `37621692252` 全绿 1 m 41 s）= 玻璃模式下选中会话行的
 > 定位器重设计。
-> 当前 dist-tags = `latest: 0.6.4` / `beta: 0.6.6-beta.0`（2026-10-27 复核，`curl
+> 当前 dist-tags = `latest: 0.6.5` / `beta: 0.6.5-beta.2`（2026-10-29 复核，`curl
 > https://registry.npmjs.org/-/package/@nonamelego%2Fdsh-catppuccin/dist-tags`；**权威信号始终是 run
 > 日志里的 `+ …@<version>`**，dist-tags 端点这次 1 分钟内就翻新、上一轮却要 3 分钟——别拿它当发布成功的判据）。
 > `0.6.6-beta.0`（2026-10-27）= **issue #30 补充**——首屏不再先闪官方深色：Host 经
