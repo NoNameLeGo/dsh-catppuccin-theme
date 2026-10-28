@@ -8,13 +8,15 @@
 
 ## [Unreleased]
 
-> 本节 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`** + **`0.6.5-beta.2`**（预发布按仓库惯例不单独落版本节）。
-> `0.6.5-beta.2`：**issue #31**——快速切换风味偶发失败的修复（迟到的文档回声不再回滚更新的本地选择）；
-> 同时把误发的 `0.6.6-beta.0` 版本号归位（该预发布的内容已全量包含在本版里）。
-> `0.6.6-beta.0`：**issue #30 补充**——首屏不再先闪官方深色（pre-paint 调色板注入），
-> 方案与取证见 `docs/issue-30-first-paint-flash.md`。
+## [0.6.5] - 2026-10-29
+
+> 本版 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`** + **`0.6.5-beta.2`** 全链**转正**（预发布按仓库惯例不单独落版本节）。
 > `0.6.5-beta.0`：**issue #30**——新 origin（新端口 / 清站点数据 / webview 分区）首次加载把配置
 > 重置为出厂默认的修复，方案见 `docs/issue-30-boot-pending-push.md`。
+> `0.6.6-beta.0`：**issue #30 补充**——首屏不再先闪官方深色（pre-paint 调色板注入），
+> 方案与取证见 `docs/issue-30-first-paint-flash.md`。
+> `0.6.5-beta.2`：**issue #31**——快速切换风味偶发失败的修复（迟到的文档回声不再回滚更新的本地选择）；
+> 同版把误发的 `0.6.6-beta.0` 版本号归位（该预发布的内容已全量包含在本版里）。
 
 ### 修复
 
@@ -1386,7 +1388,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6-beta.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
 [0.6.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.1...v0.6.2
