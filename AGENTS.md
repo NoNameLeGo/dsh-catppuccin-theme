@@ -326,7 +326,18 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.5`**（2026-10-29；tag `v0.6.5` → Publish run `40735873824` success、
+> ⚠️ **发版版本号**：`latest` = **`0.6.6`**（2026-11-01；tag `v0.6.6` → Publish run `41320146274` success、
+> CI `41320142979` 双绿、registry `dist-tags.latest` 已翻到 `0.6.6`、`versions['0.6.6'].dist.attestations`
+> 为 true、制品实测含 `--dsh-glass-glow-strength` 与 `--dsh-glass-gap`）=
+> `0.6.6-beta.1` **转正** + 两条上游建议同批：**issue #33**（设置面板里第三方 `position:fixed`
+> 弹层不再被面板的 `backdrop-filter` 重新锚定 / 弹层过透 / 吸顶条圆角）、**issue #31（上游新号）**
+> （云母模式卡片间距滑条 4–24px，默认 12）、**issue #32**（地面光斑强度 0–200%，100% = 默认）。
+> **测试 398 全绿**（22 文件）。**三条 issue 均已回帖**（#33 `6559838520` / #31 `6559838906` /
+> #32 `6559839413`），等报告人复验。
+> ⚠️ 仍未跑：`#32` 的 Latte 对比度标定与四风味强度截图（`GLOW_STRENGTH_MAX=200` 目前是保守值）、
+> `#31` 的 4/12/24 三档真机截图、真机首帧像素采样（`docs/issue-30-first-paint-flash.md` §7）、
+> #30 真机验收。
+> 上一版 `latest` = **`0.6.5`**（2026-10-29；tag `v0.6.5` → Publish run `40735873824` success、
 > CI `40735873779` 的 check + boot-e2e 双绿、registry `dist-tags.latest` 已翻到 `0.6.5`、
 > `versions['0.6.5'].dist.attestations` 为 true）= 
 > `0.6.5-beta.0` + `0.6.6-beta.0` + `0.6.5-beta.2` 全链**转正**：**issue #30**（新 origin 首次加载把配置
