@@ -396,7 +396,7 @@ describe('issue #15: the client boots on either settings seam', () => {
     const documentSection = {
       ...defaultSettingsSection(),
       flavor: 'catppuccin-frappe' as const,
-      glass: { enabled: true, mode: 'compat' as const, blur: 12, frost: 33, brightness: 77, gap: 12, glow: false },
+      glass: { enabled: true, mode: 'compat' as const, blur: 12, frost: 33, brightness: 77, gap: 12, glowStrength: 100, glow: false },
     }
     const forms = makeConfigForms({ user: { flavor: 'catppuccin-frappe' }, value: documentSection, revision: 7 })
     ctx.provide('configForms', forms.service as never)

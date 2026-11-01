@@ -34,7 +34,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
 import { GLASS_CSS_TEXT } from './glass-css.gen.ts'
-import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, type GlassState } from '../../state.ts'
+import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_STRENGTH_MAX, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -58,6 +58,7 @@ const GLASS_KNOB_PROPERTIES = [
   '--dsh-glass-brightness-white',
   '--dsh-glass-glow',
   '--dsh-glass-gap',
+  '--dsh-glass-glow-strength',
 ] as const
 
 /** localStorage key carrying the layer enable flag. */
@@ -95,6 +96,15 @@ export interface GlassSettings {
    */
   gap: number
   /**
+   * Ground-glow strength, percent of the shipped 0.6.3 alphas (issue #32).
+   * 100 = the look issue #25 shipped, 0 = invisible, ceiling
+   * `GLOW_STRENGTH_MAX`. A separate scalar instead of "0 = off" so that every
+   * existing document (`glow: true`, no strength field) resolves to 100 and
+   * keeps its look — see `GlassState.glowStrength` in `src/state.ts`.
+   * Only read by the stylesheet while {@link glow} is on.
+   */
+  glowStrength: number
+  /**
    * Enable the two static ground glows (issue #26). OFF by default: the page
    * ground is the same-family WASH only, because the glows are fixed to screen
    * coordinates and every translucent pane therefore transmits a different
@@ -128,6 +138,7 @@ export const SETTINGS_DEFAULTS: GlassSettings = {
   frost: DEFAULT_GLASS.frost,
   brightness: DEFAULT_GLASS.brightness,
   gap: DEFAULT_GLASS.gap,
+  glowStrength: DEFAULT_GLASS.glowStrength,
   glow: DEFAULT_GLASS.glow,
 }
 
@@ -137,6 +148,7 @@ const NUMERIC_KEYS = {
   frost: 'dsh.catppuccin.glass.frost',
   brightness: 'dsh.catppuccin.glass.brightness',
   gap: 'dsh.catppuccin.glass.gap',
+  glowStrength: 'dsh.catppuccin.glass.glow-strength',
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
 
@@ -149,6 +161,10 @@ const NUMERIC_BOUNDS: Record<NumericKey, readonly [number, number]> = {
   frost: [0, 100],
   brightness: [0, 100],
   gap: [GLASS_GAP_MIN, GLASS_GAP_MAX],
+  // Issue #32: the glow strength has its own ceiling (a contrast budget, not a
+  // taste number) — folding it into the 0-100 arm would snap the slider back to
+  // 100 the moment it is dragged past it.
+  glowStrength: [0, GLOW_STRENGTH_MAX],
 }
 
 /** The localStorage names of the numeric knobs — the reverse of
@@ -164,7 +180,10 @@ const MODE_KEY = 'dsh.catppuccin.glass.mode'
 /** localStorage key of the ground-glow switch (issue #26). */
 const GLOW_KEY = 'dsh.catppuccin.glass.glow'
 
-/** Clamp a numeric knob into its sane range. */
+/** Clamp a numeric knob into its `NUMERIC_BOUNDS` range. Two knobs are NOT
+ *  0-100 and would silently snap back if folded into that arm: `gap` (issue
+ *  #31, 4-24px) and `glowStrength` (issue #32, 0-`GLOW_STRENGTH_MAX`% — a
+ *  contrast budget, not a taste number). */
 function clampSetting(key: NumericKey, value: number): number {
   const [min, max] = NUMERIC_BOUNDS[key]
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : SETTINGS_DEFAULTS[key]
@@ -345,6 +364,7 @@ export class GlassLayer {
       frost: this.settings.frost,
       brightness: this.settings.brightness,
       gap: this.settings.gap,
+      glowStrength: this.settings.glowStrength,
       glow: this.settings.glow,
     }
   }
@@ -360,6 +380,7 @@ export class GlassLayer {
       frost: clampSetting('frost', remote.frost),
       brightness: clampSetting('brightness', remote.brightness),
       gap: clampSetting('gap', remote.gap),
+      glowStrength: clampSetting('glowStrength', remote.glowStrength),
       glow: remote.glow === true,
     }
     writeEnabled(this.enabled)
@@ -368,6 +389,7 @@ export class GlassLayer {
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
     writeSetting('gap', this.settings.gap)
+    writeSetting('glowStrength', this.settings.glowStrength)
     writeGlow(this.settings.glow)
     this.sync()
   }
@@ -445,6 +467,18 @@ export class GlassLayer {
     this.publish()
   }
 
+  /** Set the ground-glow strength, percent of the shipped look (issue #32).
+   *  Only scales the two radial layers — the wash is deliberately untouchable
+   *  (it is the issue #26 default) and the switch stays the on/off. */
+  setGlowStrength(value: number): void {
+    const next = clampSetting('glowStrength', value)
+    if (next === this.settings.glowStrength) return
+    this.settings.glowStrength = next
+    writeSetting('glowStrength', next)
+    if (this.enabled) this.applySettings()
+    this.publish()
+  }
+
   /** Restore every knob to the shipped defaults (persisted immediately). */
   resetDefaults(): void {
     this.settings = { ...SETTINGS_DEFAULTS }
@@ -453,6 +487,7 @@ export class GlassLayer {
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
     writeSetting('gap', this.settings.gap)
+    writeSetting('glowStrength', this.settings.glowStrength)
     writeGlow(this.settings.glow)
     if (this.enabled) this.applySettings()
     this.publish()
@@ -466,6 +501,7 @@ export class GlassLayer {
       frost: readSetting('frost'),
       brightness: readSetting('brightness'),
       gap: readSetting('gap'),
+      glowStrength: readSetting('glowStrength'),
       glow: readGlow(),
     }
   }
@@ -512,6 +548,13 @@ export class GlassLayer {
       // `color-mix`, so the #25 invalidation trap does not apply: a length that
       // travels through a custom property does recompute on change.
       '--dsh-glass-gap': `${this.settings.gap}px`,
+      // Ground-glow STRENGTH (issue #32): a plain multiplier on both radial
+      // alphas, 100% = the shipped 0.6.3 look. Kept as its own property rather
+      // than folding it into `--dsh-glass-glow` — that one is the 0/1 switch
+      // issue #26 locked, and the two answer different questions (on/off vs
+      // how much). Read inline in the `background` declaration, same #25
+      // invalidation trap as above.
+      '--dsh-glass-glow-strength': String(this.settings.glowStrength / 100),
     }
     for (const [property, value] of Object.entries(knobs)) style.setProperty(property, value)
 

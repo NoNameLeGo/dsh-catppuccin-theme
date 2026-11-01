@@ -129,6 +129,24 @@ export interface GlassState {
    */
   gap: number
   /**
+   * How strong the ground glows read, percent of the shipped 0.6.3 look
+   * (`GLOW_STRENGTH_DEFAULT` = 100 = the alphas issue #25 shipped; 0 = gone).
+   * Only meaningful while {@link glow} is on — a separate scalar instead of
+   * folding the switch into the number, because the settings seam reads
+   * "resolves to the shipped default" as "no user choice yet": merging the two
+   * would make every existing `glow: true` document (which has no strength
+   * field) resolve to 0 and silently switch the glows off.
+   *
+   * The ceiling is a PROVISIONAL, deliberately conservative number: the glows
+   * are painted under text, and Latte is the strictest scheme (both glows sit
+   * on `#eff1f5`). 200% keeps the brand glow's peak alpha at 24%, which is the
+   * last step that plausibly leaves `label-primary` at AA over the brightest
+   * patch — the CDP contrast run that pins the real limit is listed as an open
+   * item in `docs/issue-32-glow-tuning.md` §6. Lower this constant if that run
+   * disagrees; never raise it without one.
+   */
+  glowStrength: number
+  /**
    * The optional ground GLOWS (issue #26, 2026-10-16). The page ground is
    * always a same-family wash (the "C" answer to the reporter's report: the
    * wash gives the glass something to transmit without localising the
@@ -193,6 +211,18 @@ export const GLASS_GAP_MIN = 4
  *  exceeded on purpose rather than by accident: every value above 16 makes the
  *  rail overlap the transcript's card, so the ceiling keeps that at 8px. */
 export const GLASS_GAP_MAX = 24
+/** Upper bound of the ground-glow strength (issue #32), in percent of the
+ *  shipped look. Provisional: see {@link GlassState.glowStrength} — the number
+ *  is a contrast budget, and the CDP run that pins it is still open. Above it
+ *  the brand glow starts erasing the text contrast it is painted under (worst
+ *  on Latte). The client and the Host schema both clamp to it so a hand-edited
+ *  document cannot exceed it. */
+export const GLOW_STRENGTH_MAX = 200
+
+/** The shipped glow strength: 100% = exactly the two alphas issue #25
+ *  introduced, so a profile that never opens the new knob renders the same
+ *  ground it rendered in 0.6.6. */
+export const GLOW_STRENGTH_DEFAULT = 100
 
 /** Shipped glass defaults — the single source of truth; the client glass layer
  *  (`src/client/glass/glass-layer.ts`) derives its knob defaults from here. */
@@ -206,6 +236,7 @@ export const DEFAULT_GLASS: GlassState = {
   // This default IS the pre-#31 look, so an untouched profile renders
   // byte-identically to 0.6.x.
   gap: 12,
+  glowStrength: GLOW_STRENGTH_DEFAULT,
   glow: false,
 }
 
@@ -296,6 +327,10 @@ export function sanitizeState(input: unknown): CatppuccinState {
   // Issue #31: the floating-card inset. Its own range (not 0-100) — a
   // hand-edited document must not be able to push the cards off the window.
   state.glass.gap = clampFinite(glass.gap, GLASS_GAP_MIN, GLASS_GAP_MAX, DEFAULT_GLASS.gap)
+  // Issue #32: the glow STRENGTH. Its own range, and an absent field means the
+  // shipped 100% — a document written by 0.6.x has `glow: true` and no
+  // strength, and must keep rendering exactly what it rendered then.
+  state.glass.glowStrength = clampFinite(glass.glowStrength, 0, GLOW_STRENGTH_MAX, DEFAULT_GLASS.glowStrength)
   // Issue #26: boolean-only, shipped OFF (the wash-only ground is the fix).
   state.glass.glow = glass.glow === true
 
@@ -342,6 +377,7 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.frost === expected.glass.frost
     && state.glass.brightness === expected.glass.brightness
     && state.glass.gap === expected.glass.gap
+    && state.glass.glowStrength === expected.glass.glowStrength
     && state.glass.glow === expected.glass.glow
     && state.autoCheck === expected.autoCheck
     && state.updateChannel === expected.updateChannel
@@ -398,6 +434,7 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.frost === b.glass.frost
     && a.glass.brightness === b.glass.brightness
     && a.glass.gap === b.glass.gap
+    && a.glass.glowStrength === b.glass.glowStrength
     && a.glass.glow === b.glass.glow
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
@@ -470,6 +507,7 @@ export function replayLocalChanges(
   carryGlass('frost')
   carryGlass('brightness')
   carryGlass('gap')
+  carryGlass('glowStrength')
   carryGlass('glow')
   carry('autoCheck')
   carry('updateChannel')

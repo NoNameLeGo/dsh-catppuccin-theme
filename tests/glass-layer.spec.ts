@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { GLASS_ENABLED_KEY, GlassLayer } from '../src/client/glass/glass-layer.ts'
+import { GLOW_STRENGTH_MAX } from '../src/state.ts'
 
 const BLUR_KEY = 'dsh.catppuccin.glass.blur'
 const MODE_KEY = 'dsh.catppuccin.glass.mode'
@@ -79,6 +80,31 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
     expect(document.documentElement.style.getPropertyValue('--dsh-glass-glow')).toBe('0')
   })
 
+  it('tracks the glow STRENGTH too (issue #32)', () => {
+    const layer = new GlassLayer(fakeCtx())
+    // Shipped default is 100% — the exact alphas issue #25 shipped, so an
+    // untouched profile keeps rendering the 0.6.x ground.
+    expect(layer.getSnapshot().glowStrength).toBe(100)
+
+    crossTabWrite(GLASS_ENABLED_KEY, 'true')
+    crossTabWrite('dsh.catppuccin.glass.glow', 'true')
+    crossTabWrite('dsh.catppuccin.glass.glow-strength', '180')
+    expect(layer.getSnapshot().glowStrength).toBe(180)
+    // 180% → the multiplier the stylesheet reads (1.8).
+    expect(document.documentElement.style.getPropertyValue('--dsh-glass-glow-strength')).toBe('1.8')
+
+    // The ceiling is a measured contrast limit (`GLOW_STRENGTH_MAX`), not 100:
+    // a clamp that fell back to the plain 0-100 arm would snap the slider here.
+    crossTabWrite('dsh.catppuccin.glass.glow-strength', '1000')
+    expect(layer.getSnapshot().glowStrength).toBe(GLOW_STRENGTH_MAX)
+
+    // The setter clamps the same way (this is the path the settings row uses).
+    layer.setGlowStrength(260)
+    expect(layer.getSnapshot().glowStrength).toBe(GLOW_STRENGTH_MAX)
+    layer.setGlowStrength(-40)
+    expect(layer.getSnapshot().glowStrength).toBe(0)
+  })
+
   it('keeps the mode and enable-flag branches working', () => {
     const layer = new GlassLayer(fakeCtx())
 
@@ -133,6 +159,7 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
       '--dsh-glass-brightness-white',
       '--dsh-glass-glow',
       '--dsh-glass-gap',
+      '--dsh-glass-glow-strength',
     ]) {
       expect(body!.style.getPropertyValue(property)).toBe(
         document.documentElement.style.getPropertyValue(property),

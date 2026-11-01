@@ -44,6 +44,7 @@ import {
   DEFAULT_UPDATE_CHANNEL,
   GLASS_GAP_MAX,
   GLASS_GAP_MIN,
+  GLOW_STRENGTH_MAX,
   defaultSettingsSection,
   type CatppuccinSettingsSection,
 } from './state.ts'
@@ -93,6 +94,11 @@ export function catppuccinSchemaFields(): Record<string, Schema> {
       // immediately clamp away (that difference would make every publish
       // re-write the document).
       gap: Schema.number().min(GLASS_GAP_MIN).max(GLASS_GAP_MAX).default(DEFAULT_GLASS.gap),
+      // Issue #32: how strong the two glows read. Bounded by the same ceiling
+      // the sanitizer uses — the form is the one place a raw number can be
+      // typed, so it must not be able to hold a value `sanitizeState` would
+      // immediately clamp away (that gap would make every publish re-write).
+      glowStrength: Schema.number().min(0).max(GLOW_STRENGTH_MAX).default(DEFAULT_GLASS.glowStrength),
       // Issue #26: the optional ground glows (the wash-only ground is the
       // shipped default, so this must default to the same value as
       // `DEFAULT_GLASS.glow` — the client reads "resolves to the shipped
@@ -162,6 +168,8 @@ export interface CatppuccinConfig {
     brightness: { get(): number }
     /** Issue #31 floating-card inset, px. */
     gap: { get(): number }
+    /** Issue #32 ground-glow strength, percent of the shipped look. */
+    glowStrength: { get(): number }
   }
   autoCheck: { get(): boolean }
   updateChannel: { get(): CatppuccinSettingsSection['updateChannel'] }

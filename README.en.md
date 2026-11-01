@@ -262,7 +262,10 @@ The **Glass** section lives on the **Settings → Catppuccin** page:
   collapses back to pure white / pure black.
 - **Ground glows**: adds two screen-pinned soft glows on top of the ground (the `0.6.3` look),
   **off by default** — they do not follow the panes, so each pane transmits a different slice
-  of them and the top-left corner brightens visibly when on.
+  of them and the top-left corner brightens visibly when on. Once on, a **glow strength** knob
+  (0–200%, `100%` = that look and the default; the ceiling is a conservative
+  contrast budget on Latte, see `docs/issue-32-glow-tuning.md`) scales the two glows only — the wash is never touched, and at either end of the
+  brightness knob the ambience collapses and the glows fade out with it.
 - **In-place previews**: a **ground sample strip** in the glass section (drag brightness or
   toggle the glows and it changes on the spot — it is painted by the page ground's own rule);
   a **code sample** under the highlight picker (reads `--shiki-token-*`, so switching to

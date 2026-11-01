@@ -457,6 +457,29 @@ describe('ground ambience (issue #25, revised by #26)', () => {
     }
   })
 
+  it('scales both glows through the strength knob (issue #32)', () => {
+    // Issue #32 turned the on/off switch into a knob pair: the SAME two
+    // radials, multiplied by `--dsh-glass-glow-strength` (100% = the alphas
+    // #25 shipped). Two things must hold, or "100% is the 0.6.3 look" stops
+    // being true: the multiplier rides BOTH glows (a half-scaled pair reads as
+    // a different composition), and it stays OUT of the wash (the wash is the
+    // #26 default every pane transmits — scaling it would make the depth cue
+    // depend on a glow setting).
+    const radials = (ground!.decls.match(/radial-gradient\([^;]*?(?=,\s*(?:radial|linear)-gradient|$)/g) ?? [])
+      .map((part) => part.trim())
+    expect(radials.length, 'expected exactly the two glow layers').toBe(2)
+    for (const [index, radial] of radials.entries()) {
+      expect(radial, `glow ${index + 1} ignores the strength knob`).toContain(
+        'var(--dsh-glass-glow-strength',
+      )
+    }
+    const wash = /linear-gradient\(([^;]*)\)\s*;/.exec(ground!.decls)?.[1] ?? ''
+    expect(
+      wash,
+      'the wash picked up the glow strength — it is the issue #26 default, not a glow',
+    ).not.toContain('--dsh-glass-glow-strength')
+  })
+
   it('ships the glow switch OFF — the reported look is wash-only', () => {
     // The default IS the fix: a user who changes nothing gets the wash-only
     // ground. Reading the same constant the layer writes into

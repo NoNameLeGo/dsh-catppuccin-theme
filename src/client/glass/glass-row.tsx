@@ -16,7 +16,7 @@ import { useId, useState, useSyncExternalStore } from 'react'
 import { Button, SegmentedControl, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
-import { GLASS_GAP_MAX, GLASS_GAP_MIN } from '../../state.ts'
+import { GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_STRENGTH_MAX } from '../../state.ts'
 import type { CatppuccinKey } from '../locales.ts'
 import { HelpBadge } from '../HelpBadge.tsx'
 import css from './GlassRow.module.css'
@@ -42,6 +42,9 @@ export interface GlassRowInjected {
   setGap: (value: number) => void
   /** Toggle the two static ground glows (issue #26; wash-only is the default). */
   setGlow: (value: boolean) => void
+  /** Set the ground-glow strength, 0-`GLOW_STRENGTH_MAX`% of the shipped look
+   *  (issue #32; 100 = the 0.6.3 alphas). */
+  setGlowStrength: (value: number) => void
   /** Restore every knob to the shipped defaults. */
   resetDefaults: () => void
   /** Close the settings surface so the user can look at the real main UI. The
@@ -176,9 +179,9 @@ const GAP_PRESETS: readonly { id: string; key: CatppuccinKey; gap: number }[] = 
  * @param props - composed slot props.
  * @returns the settings row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, setGlowStrength, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, gap, glow, dark } = state
+  const { enabled, mode, blur, frost, brightness, gap, glow, glowStrength, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -294,6 +297,23 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
               <Switch checked={glow} onChange={(next) => { setGlow(next) }} label={t('glass.glow')} />
             </div>
             <div className={css.rowHint}>{t('glass.glowHint')}</div>
+            {/* Issue #32: how strong the glows read. Rendered ONLY while the
+                switch above is on — with the glows off this knob would be a
+                control with no target (the same reason the whole knob block
+                hides behind the master switch). 100% is the shipped 0.6.3
+                look, so a user who only drags this one number still knows
+                where "unchanged" is. */}
+            {glow && (
+              <Knob
+                label={t('glass.glowStrength')}
+                value={glowStrength}
+                min={0}
+                max={GLOW_STRENGTH_MAX}
+                step={5}
+                unit="%"
+                onChange={setGlowStrength}
+              />
+            )}
             {/* Ground sample: brightness and the glow switch move the PAGE
                 ground, which this dialog covers with its own bluish fill — so
                 both knobs were unverifiable in place. The strip is painted by
