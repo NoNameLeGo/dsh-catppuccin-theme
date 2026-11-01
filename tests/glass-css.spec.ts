@@ -721,7 +721,9 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     )
     expect(header!.decls, 'the cap must track the drag handle').toContain('--dsh-chat-user-width')
     expect(header!.decls, 'the header must be centred, not left-aligned').toMatch(
-      /margin\s*:\s*12px auto 0/,
+      // The top inset rides the issue #31 gap knob; the horizontal centring is
+      // still `auto`, and the gap's own fallback must stay 12px.
+      /margin\s*:\s*var\(--dsh-glass-gap,\s*12px\) auto 0/,
     )
     // `margin-inline: auto` demotes a block box to fit-content, so `max-width`
     // alone never stretches it — the card shipped 266px wide against a 856px
@@ -750,7 +752,7 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     const trajectory = rules.find((rule) => rule.selector.includes('[data-dsh-glass-trajectory]'))
     expect(trajectory?.selector, 'the trajectory panel lost its rule').toBeDefined()
     expect(trajectory!.decls).toContain('--dsh-chat-user-width')
-    expect(trajectory!.decls).toMatch(/margin\s*:\s*8px auto 12px/)
+    expect(trajectory!.decls).toMatch(/margin\s*:\s*8px auto var\(--dsh-glass-gap,\s*12px\)/)
   })
 
   it('⑤ keeps the two copies of the reading-column cap identical', () => {
@@ -1114,7 +1116,7 @@ describe('the top-bar card selector stays off the page head (issue #21)', () => 
         (rule) =>
           /\[data-dsh-glass-frame\]\[data-sidebar-collapsed\][^,]*\[data-phase\][^,]*header/.test(
             rule.selector,
-          ) && /margin-left\s*:\s*28px/.test(rule.decls),
+          ) && /margin-left\s*:\s*calc\(var\(--dsh-glass-gap,\s*12px\) \+ 16px\)/.test(rule.decls),
       ),
       'the collapsed rail must still step the top bar right — and only the top bar',
     ).toBe(true)
@@ -1700,5 +1702,77 @@ describe('settings ground sample (2026-10-19)', () => {
     for (const rule of sample) {
       expect(blurOf(rule.decls), `${rule.selector} must not blur the ground it is made of`).toBeUndefined()
     }
+  })
+})
+
+describe('floating-card gap (issue #31)', () => {
+  // One knob, six consumers, zero literals left behind. The reporter asked for
+  // "the whitespace between the floating cards and the window edge" — that is
+  // six different declarations in the mica layout, and a knob wired into five
+  // of them would look broken in exactly the place the user is staring at
+  // while dragging. The default (12) IS the pre-#31 geometry, so the shipped
+  // look must stay reachable without touching the sheet.
+  const ruleFor = (selector: string) => rules.find((rule) => rule.selector === selector)
+
+  const consumers: readonly { selector: string; property: string }[] = [
+    { selector: "[data-dsh-glass-float] [class*='sidebarCol']", property: 'margin' },
+    { selector: "[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [class*='sidebarCol']", property: 'margin' },
+    { selector: "[data-dsh-glass-float] [data-phase] header:not([class*='headerBlank'])", property: 'margin' },
+    {
+      selector: "[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [data-phase] header:not([class*='headerBlank'])",
+      property: 'margin-left',
+    },
+    { selector: '[data-dsh-glass-float] [data-dsh-glass-trajectory]', property: 'margin' },
+    {
+      selector: "[data-dsh-glass-float] [data-dsh-glass-inputbar]:not([class*='hero']):not(:has([data-dsh-glass-stats]))",
+      property: 'padding-bottom',
+    },
+  ]
+
+  it('drives every mica card inset from --dsh-glass-gap', () => {
+    for (const consumer of consumers) {
+      const rule = ruleFor(consumer.selector)
+      expect(rule, `${consumer.selector} disappeared`).toBeDefined()
+      expect(
+        declOf(rule!.decls, consumer.property),
+        `${consumer.selector} still hardcodes its inset — the gap slider would move only part of the chrome`,
+      ).toContain('var(--dsh-glass-gap')
+    }
+  })
+
+  it('ships 12px, i.e. the 0.6.x geometry', () => {
+    expect(DEFAULT_GLASS.gap, 'the shipped default moved — that silently restyles every untouched profile').toBe(12)
+  })
+
+  it('caps the collapsed rail\u2019s intrusion so it cannot land on the transcript', () => {
+    // The rail's right edge lands exactly `gap` px past the sidebar column and
+    // the transcript card's own gutter is 16px, so an uncapped negative margin
+    // overlaps scrolling text from 17px up. `min(..., 16px)` is the fix; a bare
+    // `calc(-1 * var(--dsh-glass-gap))` is the regression.
+    const rail = ruleFor("[data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [class*='sidebarCol']")
+    expect(declOf(rail!.decls, 'margin')).toContain('min(var(--dsh-glass-gap, 12px), 16px)')
+  })
+
+  it('keeps the trajectory height in step with the knob (or the card overflows)', () => {
+    const trajectory = ruleFor('[data-dsh-glass-float] [data-dsh-glass-trajectory]')
+    expect(declOf(trajectory!.decls, 'height')).toContain('var(--dsh-glass-gap')
+  })
+
+  it('leaves the reading-column gutter and the header/body offset as literals', () => {
+    // Two numbers that must NOT ride the knob: `calc(100% - 32px)` is the
+    // reading column's padding (content width, which the reporter asked to keep)
+    // and `padding-top: 107px` is the transcript's clearance under the floating
+    // header (95px of card + 12px of air), not a card inset.
+    const header = ruleFor("[data-dsh-glass-float] [data-phase] header:not([class*='headerBlank'])")
+    expect(declOf(header!.decls, 'max-width')).toContain('calc(100% - 32px)')
+    const scroll = ruleFor("[data-dsh-glass-float] [data-phase='active'] [data-conversation-scroll]")
+    expect(declOf(scroll!.decls, 'padding-top')).toBe('107px')
+  })
+
+  it('never reads the knob from a compat rule (compat keeps the stock layout)', () => {
+    const offenders = rules
+      .filter((rule) => rule.selector.includes('[data-dsh-glass-compat]') && rule.decls.includes('--dsh-glass-gap'))
+      .map((rule) => rule.selector)
+    expect(offenders, 'compat mode must stay byte-identical to stock layout').toEqual([])
   })
 })

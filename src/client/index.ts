@@ -1156,6 +1156,7 @@ export function apply(ctx: ClientContext): void {
     setBlur: (blur) => { glass.setBlur(blur) },
     setFrost: (frost) => { glass.setFrost(frost) },
     setBrightness: (brightness) => { glass.setBrightness(brightness) },
+    setGap: (gap) => { glass.setGap(gap) },
     setGlow: (glow) => { glass.setGlow(glow) },
     resetDefaults: () => { glass.resetDefaults() },
   })

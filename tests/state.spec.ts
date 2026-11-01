@@ -42,6 +42,7 @@ describe('durable state defaults', () => {
         blur: 5,
         frost: 20,
         brightness: 50,
+        gap: 12,
         glow: false,
       },
       autoCheck: true,
@@ -90,6 +91,18 @@ describe('sanitizeState', () => {
     expect(glass.frost).toBe(0)
     expect(glass.brightness).toBe(50)
     expect(sanitizeState({ glass: {} }).glass).toEqual(DEFAULT_GLASS)
+  })
+
+  it('keeps the gap knob inside 4-24 and defaults it to the 0.6.x inset (issue #31)', () => {
+    // Its own range, NOT the shared 0-100 clamp: a hostile document must not be
+    // able to push the floating cards off the window, and the shipped default
+    // has to stay 12 so an untouched profile renders exactly like 0.6.x.
+    expect(DEFAULT_GLASS.gap).toBe(12)
+    expect(sanitizeState({ glass: { gap: 999 } }).glass.gap).toBe(24)
+    expect(sanitizeState({ glass: { gap: -3 } }).glass.gap).toBe(4)
+    expect(sanitizeState({ glass: { gap: 0 } }).glass.gap).toBe(4)
+    expect(sanitizeState({ glass: { gap: 'wide' } }).glass.gap).toBe(12)
+    expect(sanitizeState({ glass: { gap: 17 } }).glass.gap).toBe(17)
   })
 
   it('keeps the glow switch boolean-only and OFF by default (issue #26)', () => {
@@ -278,7 +291,7 @@ describe('replayLocalChanges (issue #30)', () => {
   // shipped defaults ⇒ the document became `flavor: off` / glass off / mica.
   const documentSection: CatppuccinSettingsSection = {
     flavor: 'catppuccin-frappe',
-    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, glow: true },
+    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glow: true },
     autoCheck: false,
     updateChannel: 'beta',
     overrides: { '--dsw-static-blue-500': '#89b4fa' },
@@ -347,6 +360,7 @@ describe('replayLocalChanges (issue #30)', () => {
       'glass.blur': (s) => ({ ...s, glass: { ...s.glass, blur: 40 } }),
       'glass.frost': (s) => ({ ...s, glass: { ...s.glass, frost: 90 } }),
       'glass.brightness': (s) => ({ ...s, glass: { ...s.glass, brightness: 100 } }),
+      'glass.gap': (s) => ({ ...s, glass: { ...s.glass, gap: 20 } }),
       'glass.glow': (s) => ({ ...s, glass: { ...s.glass, glow: true } }),
       autoCheck: (s) => ({ ...s, autoCheck: false }),
       updateChannel: (s) => ({ ...s, updateChannel: 'beta' }),

@@ -85,6 +85,10 @@
    `builtinPickWins()` 之后否决所有风味恢复）。护栏 = `tests/reentrancy.spec.ts` 的
    `issue #31: a late document echo…` 一组（5 条，五组变异都验证过会红），方案与真机取证见
    `docs/issue-31-theme-switch-echo-race.md`。
+   ⚠️ **编号撞车（2026-11-01）**：那份文档用的是**内部编号 #31**，写的时候上游还没有 #31；现在
+   GitHub #31 是另一件事（云母模式「卡片间距」滑条，特性 / `0.7.0`），其文档为
+   `docs/issue-gh-31-card-gap.md`。**新增 issue 文档前先看上游有没有同号**，撞了就加 `gh-` 前缀，
+   别再造第二份 `issue-31-*.md`。
 
 ### 用这条准绳做过的判定（可引用的先例）
 

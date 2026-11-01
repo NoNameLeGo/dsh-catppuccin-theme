@@ -112,6 +112,23 @@ export interface GlassState {
   /** Backdrop brightness, 0-100. */
   brightness: number
   /**
+   * Floating-card inset, px (issue #31, {@link GLASS_GAP_MIN}..{@link GLASS_GAP_MAX}).
+   *
+   * The whitespace between every mica-mode card and the window edge: the
+   * sidebar sheet's margin on all four sides, the header card's top margin,
+   * the trajectory card's top/bottom margin and the composer bar's bottom pad.
+   * ONE knob for all of them, because they were all a hardcoded 12px and the
+   * reporter's problem ("在我这块屏上略挤") is the whole chrome reading tight,
+   * not one card.
+   *
+   * It deliberately does NOT touch content width: the chat column keeps its
+   * upstream-computed width and the reading-column gutter (`calc(100% - 32px)`)
+   * stays a literal. The sidebar SHEET does narrow by the delta, because its
+   * margin is taken out of the (upstream-fixed) sidebar column — that trade is
+   * the documented semantics, see `docs/issue-gh-31-card-gap.md`.
+   */
+  gap: number
+  /**
    * The optional ground GLOWS (issue #26, 2026-10-16). The page ground is
    * always a same-family wash (the "C" answer to the reporter's report: the
    * wash gives the glass something to transmit without localising the
@@ -166,6 +183,17 @@ export interface CatppuccinSettingsSection {
   shikiStyle: ShikiStyle
 }
 
+/** Lower bound of the floating-card inset (issue #31). 4px is the tightest a
+ *  card can sit against the window edge and still read as a floating sheet —
+ *  below that the rim and the drop shadow collapse into the edge. */
+export const GLASS_GAP_MIN = 4
+
+/** Upper bound of the floating-card inset (issue #31). 24px is where the
+ *  collapsed sidebar rail's right-edge cap (16px, see the CSS) starts to be
+ *  exceeded on purpose rather than by accident: every value above 16 makes the
+ *  rail overlap the transcript's card, so the ceiling keeps that at 8px. */
+export const GLASS_GAP_MAX = 24
+
 /** Shipped glass defaults — the single source of truth; the client glass layer
  *  (`src/client/glass/glass-layer.ts`) derives its knob defaults from here. */
 export const DEFAULT_GLASS: GlassState = {
@@ -174,6 +202,10 @@ export const DEFAULT_GLASS: GlassState = {
   blur: 5,
   frost: 20,
   brightness: 50,
+  // The 0.6.x chrome: every floating card sat 12px in from the window edge.
+  // This default IS the pre-#31 look, so an untouched profile renders
+  // byte-identically to 0.6.x.
+  gap: 12,
   glow: false,
 }
 
@@ -261,6 +293,9 @@ export function sanitizeState(input: unknown): CatppuccinState {
   state.glass.blur = clampFinite(glass.blur, 0, 40, DEFAULT_GLASS.blur)
   state.glass.frost = clampFinite(glass.frost, 0, 100, DEFAULT_GLASS.frost)
   state.glass.brightness = clampFinite(glass.brightness, 0, 100, DEFAULT_GLASS.brightness)
+  // Issue #31: the floating-card inset. Its own range (not 0-100) — a
+  // hand-edited document must not be able to push the cards off the window.
+  state.glass.gap = clampFinite(glass.gap, GLASS_GAP_MIN, GLASS_GAP_MAX, DEFAULT_GLASS.gap)
   // Issue #26: boolean-only, shipped OFF (the wash-only ground is the fix).
   state.glass.glow = glass.glow === true
 
@@ -306,6 +341,7 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.blur === expected.glass.blur
     && state.glass.frost === expected.glass.frost
     && state.glass.brightness === expected.glass.brightness
+    && state.glass.gap === expected.glass.gap
     && state.glass.glow === expected.glass.glow
     && state.autoCheck === expected.autoCheck
     && state.updateChannel === expected.updateChannel
@@ -361,6 +397,7 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.blur === b.glass.blur
     && a.glass.frost === b.glass.frost
     && a.glass.brightness === b.glass.brightness
+    && a.glass.gap === b.glass.gap
     && a.glass.glow === b.glass.glow
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
@@ -432,6 +469,7 @@ export function replayLocalChanges(
   carryGlass('blur')
   carryGlass('frost')
   carryGlass('brightness')
+  carryGlass('gap')
   carryGlass('glow')
   carry('autoCheck')
   carry('updateChannel')

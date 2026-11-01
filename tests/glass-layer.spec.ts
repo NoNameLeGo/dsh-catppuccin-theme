@@ -132,6 +132,7 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
       '--dsh-glass-brightness-black',
       '--dsh-glass-brightness-white',
       '--dsh-glass-glow',
+      '--dsh-glass-gap',
     ]) {
       expect(body!.style.getPropertyValue(property)).toBe(
         document.documentElement.style.getPropertyValue(property),

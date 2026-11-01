@@ -34,7 +34,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
 import { GLASS_CSS_TEXT } from './glass-css.gen.ts'
-import { DEFAULT_GLASS, type GlassState } from '../../state.ts'
+import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -57,6 +57,7 @@ const GLASS_KNOB_PROPERTIES = [
   '--dsh-glass-brightness-black',
   '--dsh-glass-brightness-white',
   '--dsh-glass-glow',
+  '--dsh-glass-gap',
 ] as const
 
 /** localStorage key carrying the layer enable flag. */
@@ -85,6 +86,14 @@ export interface GlassSettings {
   frost: number
   /** Backdrop brightness, 0-100 (0 = pure black, 50 = transparent, 100 = pure white; half-range per scheme). */
   brightness: number
+  /**
+   * Floating-card inset, px (issue #31). The whitespace between the mica-mode
+   * cards and the window edge — sidebar sheet (all four sides), header card
+   * (top), trajectory card (top/bottom) and the composer bar's bottom pad.
+   * Content width is untouched; the sidebar sheet narrows by the delta because
+   * its margin comes out of the upstream-fixed sidebar column.
+   */
+  gap: number
   /**
    * Enable the two static ground glows (issue #26). OFF by default: the page
    * ground is the same-family WASH only, because the glows are fixed to screen
@@ -118,6 +127,7 @@ export const SETTINGS_DEFAULTS: GlassSettings = {
   blur: DEFAULT_GLASS.blur,
   frost: DEFAULT_GLASS.frost,
   brightness: DEFAULT_GLASS.brightness,
+  gap: DEFAULT_GLASS.gap,
   glow: DEFAULT_GLASS.glow,
 }
 
@@ -126,8 +136,20 @@ const NUMERIC_KEYS = {
   blur: 'dsh.catppuccin.glass.blur',
   frost: 'dsh.catppuccin.glass.frost',
   brightness: 'dsh.catppuccin.glass.brightness',
+  gap: 'dsh.catppuccin.glass.gap',
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
+
+/** Per-knob [min, max]. One table instead of the old `key === 'blur' ? 40 : 100`
+ *  test: the gap knob is the first one that is NOT zero-based (4-24, issue
+ *  #31), and a shared "0 to max" clamp would have silently turned its floor
+ *  into 0 and its ceiling into 100. */
+const NUMERIC_BOUNDS: Record<NumericKey, readonly [number, number]> = {
+  blur: [0, 40],
+  frost: [0, 100],
+  brightness: [0, 100],
+  gap: [GLASS_GAP_MIN, GLASS_GAP_MAX],
+}
 
 /** The localStorage names of the numeric knobs — the reverse of
  *  `NUMERIC_KEYS`. Used by the cross-tab `storage` handler: the event's `key`
@@ -144,8 +166,8 @@ const GLOW_KEY = 'dsh.catppuccin.glass.glow'
 
 /** Clamp a numeric knob into its sane range. */
 function clampSetting(key: NumericKey, value: number): number {
-  const max = key === 'blur' ? 40 : 100
-  return Number.isFinite(value) ? Math.min(max, Math.max(0, value)) : SETTINGS_DEFAULTS[key]
+  const [min, max] = NUMERIC_BOUNDS[key]
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : SETTINGS_DEFAULTS[key]
 }
 
 /** Read one numeric knob from localStorage (absent/parse failure means the default). */
@@ -322,6 +344,7 @@ export class GlassLayer {
       blur: this.settings.blur,
       frost: this.settings.frost,
       brightness: this.settings.brightness,
+      gap: this.settings.gap,
       glow: this.settings.glow,
     }
   }
@@ -336,6 +359,7 @@ export class GlassLayer {
       blur: clampSetting('blur', remote.blur),
       frost: clampSetting('frost', remote.frost),
       brightness: clampSetting('brightness', remote.brightness),
+      gap: clampSetting('gap', remote.gap),
       glow: remote.glow === true,
     }
     writeEnabled(this.enabled)
@@ -343,6 +367,7 @@ export class GlassLayer {
     writeSetting('blur', this.settings.blur)
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
+    writeSetting('gap', this.settings.gap)
     writeGlow(this.settings.glow)
     this.sync()
   }
@@ -394,6 +419,23 @@ export class GlassLayer {
     this.publish()
   }
 
+  /**
+   * Set the floating-card inset (px, 4-24) — issue #31.
+   *
+   * Layout-only: it writes `--dsh-glass-gap`, which the mica rules read for the
+   * sidebar sheet's margin, the header/trajectory margins and the composer
+   * bar's bottom pad. No repaint of any material, so a drag is cheap; the
+   * presets call it with a constant.
+   */
+  setGap(value: number): void {
+    const next = clampSetting('gap', value)
+    if (next === this.settings.gap) return
+    this.settings.gap = next
+    writeSetting('gap', next)
+    if (this.enabled) this.applySettings()
+    this.publish()
+  }
+
   /** Toggle the two static ground glows (issue #26; wash-only is the default). */
   setGlow(value: boolean): void {
     if (value === this.settings.glow) return
@@ -410,6 +452,7 @@ export class GlassLayer {
     writeSetting('blur', this.settings.blur)
     writeSetting('frost', this.settings.frost)
     writeSetting('brightness', this.settings.brightness)
+    writeSetting('gap', this.settings.gap)
     writeGlow(this.settings.glow)
     if (this.enabled) this.applySettings()
     this.publish()
@@ -422,6 +465,7 @@ export class GlassLayer {
       blur: readSetting('blur'),
       frost: readSetting('frost'),
       brightness: readSetting('brightness'),
+      gap: readSetting('gap'),
       glow: readGlow(),
     }
   }
@@ -463,6 +507,11 @@ export class GlassLayer {
       // invalidation trap): it is read directly there, never through a
       // intermediate custom property.
       '--dsh-glass-glow': this.settings.glow ? '1' : '0',
+      // Floating-card inset (issue #31), px straight through. Every consumer
+      // reads it in a `margin` / `padding` / `calc()` — never inside a
+      // `color-mix`, so the #25 invalidation trap does not apply: a length that
+      // travels through a custom property does recompute on change.
+      '--dsh-glass-gap': `${this.settings.gap}px`,
     }
     for (const [property, value] of Object.entries(knobs)) style.setProperty(property, value)
 

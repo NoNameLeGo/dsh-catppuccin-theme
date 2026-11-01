@@ -298,6 +298,11 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
     { op: 'set', path: ['glass', 'blur'], value: section.glass.blur },
     { op: 'set', path: ['glass', 'frost'], value: section.glass.frost },
     { op: 'set', path: ['glass', 'brightness'], value: section.glass.brightness },
+    // Issue #31: the floating-card inset. Same rule as the glow switch above —
+    // a field that is missing from this list is written by nobody, so the
+    // document keeps its schema default and the next adoption snaps the slider
+    // back to 12 a second after every drag.
+    { op: 'set', path: ['glass', 'gap'], value: section.glass.gap },
     // Issue #26: the ground-glow switch is part of the durable section like every
     // other knob. MISSING HERE IS SILENT: the write simply never carries the
     // field, the document keeps its schema default, and the client's next

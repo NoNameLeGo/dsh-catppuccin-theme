@@ -344,6 +344,8 @@ function makeGlassRow(state: {
   brightness: number
   /** Issue #26 ground-glow switch. */
   glow?: boolean
+  /** Issue #31 floating-card inset, px. Unset renders as the shipped 12. */
+  gap?: number
   dark: boolean
 }) {
   // The glow switch is issue #26's; an unset state renders as OFF (the shipped
@@ -351,7 +353,7 @@ function makeGlassRow(state: {
   // hoisted ON PURPOSE: `useSyncExternalStore` needs a cached snapshot, and a
   // fresh object per call is an infinite re-render ("getSnapshot should be
   // cached") — every GlassRow test in this file breaks if this moves back inline.
-  const snapshot = { glow: false, ...state }
+  const snapshot = { glow: false, gap: 12, ...state }
   return {
     t,
     getState: () => snapshot,
@@ -361,6 +363,7 @@ function makeGlassRow(state: {
     setBlur: vi.fn(),
     setFrost: vi.fn(),
     setBrightness: vi.fn(),
+    setGap: vi.fn(),
     setGlow: vi.fn(),
     resetDefaults: vi.fn(),
   } as unknown as GlassRowProps
@@ -452,6 +455,38 @@ describe('GlassRow ground-glow switch (issue #26)', () => {
   })
 })
 
+describe('GlassRow floating-card gap (issue #31)', () => {
+  // The knob is a mica-only layout control: every rule it drives is gated on
+  // `data-dsh-glass-float`, so in compat mode it would be a slider that moves
+  // nothing. Both halves matter — the control must exist where it works and be
+  // ABSENT where it does not.
+  it('offers the slider plus three tiers in mica mode, writing through', () => {
+    const props = makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, gap: 12, dark: true })
+    render(<GlassRow {...props} />)
+    expect(screen.getByRole('slider', { name: t('glass.gap') })).toBeDefined()
+    const group = screen.getByRole('group', { name: t('glass.gap') })
+    const cells = [...group.querySelectorAll('button')] as HTMLButtonElement[]
+    expect(cells).toHaveLength(3)
+    // 12 === the shipped "standard" tier, so exactly one cell reads pressed.
+    expect(cells.map((cell) => cell.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false'])
+    fireEvent.click(cells[0]!)
+    expect((props as unknown as { setGap: (value: number) => void }).setGap).toHaveBeenCalledWith(8)
+  })
+
+  it('hides the whole control in compat mode (it would move nothing there)', () => {
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'compat', blur: 5, frost: 20, brightness: 50, gap: 12, dark: true })} />)
+    expect(screen.queryByRole('slider', { name: t('glass.gap') })).toBeNull()
+    expect(screen.queryByRole('group', { name: t('glass.gap') })).toBeNull()
+  })
+
+  it('shows a custom value as no pressed tier', () => {
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, gap: 17, dark: true })} />)
+    const group = screen.getByRole('group', { name: t('glass.gap') })
+    const pressed = [...group.querySelectorAll('button')].filter((cell) => cell.getAttribute('aria-pressed') === 'true')
+    expect(pressed).toHaveLength(0)
+  })
+})
+
 describe('GlassRow ground sample (2026-10-19)', () => {
   // Brightness and the glow switch move the PAGE ground, which the settings
   // page covers with its own fill — the strip is the only in-place target.
@@ -497,7 +532,7 @@ describe('GlassRow knobs', () => {
     // The snapshot object must keep a stable identity: `useSyncExternalStore`
     // compares by reference and would re-render forever on a fresh object
     // (the same contract the real face honours via `overridesSnapshot`).
-    const state = { enabled: true, mode: 'mica' as const, blur: 14, frost: 20, brightness: 30, dark: true }
+    const state = { enabled: true, mode: 'mica' as const, blur: 14, frost: 20, brightness: 30, gap: 12, dark: true }
     const props = {
       t,
       getState: () => state,
@@ -512,9 +547,10 @@ describe('GlassRow knobs', () => {
     render(<GlassRow {...props} />)
 
     // The qualitative tier names stay out of the dictionaries on purpose, so
-    // the contract is value+unit, not a phrase.
+    // the contract is value+unit, not a phrase. Order follows the row: blur,
+    // frost, brightness, then the issue #31 card-gap slider.
     const ranges = screen.getAllByRole('slider')
-    expect(ranges.map((range) => range.getAttribute('aria-valuetext'))).toEqual(['14px', '20%', '30%'])
+    expect(ranges.map((range) => range.getAttribute('aria-valuetext'))).toEqual(['14px', '20%', '30%', '12px'])
   })
 })
 

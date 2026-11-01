@@ -26,7 +26,8 @@
  * ========================================================================== */
 
 /* ---------- Knobs: the settings row writes --dsh-glass-blur (px),
-   --dsh-glass-frost (0-1.4 alpha multiplier; 50 on the slider = 1x) and
+   --dsh-glass-frost (0-1.4 alpha multiplier; 50 on the slider = 1x),
+   --dsh-glass-gap (px, the floating-card inset — issue #31) and
    the scheme-aware brightness fractions onto <html>. The glass surfaces
    consume them, so the sliders move the whole skin live.
    NOTE: the recipes are defined on BODY — they reference the --dsw-alias-*
@@ -855,7 +856,11 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    The collapsed-rail rule further down MUST reset this to `auto`: its margins
    are fixed (28 / 16), so `100%` there would overflow the column by 44px. */
   width: 100%;
-  margin: 12px auto 0;
+  /* Issue #31: the card's inset from the window's top edge rides the gap knob.
+     The HORIZONTAL gutter below (`calc(100% - 32px)`) deliberately stays a
+     literal: it is the reading column's padding, i.e. content width, which the
+     knob must not move. */
+  margin: var(--dsh-glass-gap, 12px) auto 0;
   max-width: min(
     calc(
       var(
@@ -891,7 +896,11 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      margins are fixed (28 / 16), not `auto`, so the box already stretches and
      `width: 100%` would add those 44px on top of the column width. */
   width: auto;
-  margin-left: 28px;
+  /* Issue #31: the rail's right edge sits `gap` px past the sidebar column, so
+     the header must start gap + 16px in to keep its 16px clearance from the
+     rail (was a hardcoded 28 = 12 + 16). The right margin stays a literal 16:
+     it aligns with the transcript card's own gutter, not with the card inset. */
+  margin-left: calc(var(--dsh-glass-gap, 12px) + 16px);
   margin-right: 16px;
   max-width: none;
 }
@@ -922,7 +931,12 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      the header or the panel's top edge sits under the top bar (ported
      from the original project). */
   z-index: 9;
-  margin: 12px;
+  /* Issue #31: all four sides ride the gap knob (the reporter's "在一个屏上略挤"
+     is the whole chrome reading tight). Because the margin is taken out of the
+     upstream-sized sidebar COLUMN, a larger gap narrows the sheet itself — the
+     chat column and the reading column do not move, which is the documented
+     trade (`docs/issue-gh-31-card-gap.md`). */
+  margin: var(--dsh-glass-gap, 12px);
   padding: 10px 12px 14px;
   /* Border uniform on all four sides (issue #22). The right edge used to be
      overridden with the accent at 40% ("luminous right edge"): in Latte that
@@ -1016,12 +1030,27 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 }
 
 /* Collapsed rail: floats too (mica mode) — same geometry as the original
-   project: a 12px left margin plus a matching negative right margin (outer
-   size unchanged, the main column does not move; the rail just reaches
-   12px into the chat gutter), 16px corners, and a margin transition that
-   runs on the same clock as the app's own collapse crossfade. */
+   project: a gap-sized left margin plus a matching negative right margin
+   (outer size unchanged, the main column does not move; the rail just reaches
+   `gap` px into the chat gutter), 16px corners, and a margin transition that
+   runs on the same clock as the app's own collapse crossfade.
+
+   ISSUE #31 — the intrusion is CAPPED at 16px. The transcript card's own left
+   gutter is 16px, and the rail's right edge lands exactly `gap` px past the
+   sidebar column, so any gap above 16 makes the rail lie ON TOP of the
+   transcript (measured geometry: clearance = 16 − gap, i.e. 4px at the shipped
+   12, −4px at 20, −8px at 24). Capping the negative margin keeps the rail off
+   the text; the cost is that above 16px the rail's outer box grows by
+   `gap − 16`, so the chat column shifts right by that much while the sidebar is
+   collapsed (it does not while it is expanded). The alternative — letting the
+   rail intrude the full gap — was rejected: an 8px overlap with scrolling text
+   at the max setting is a visible defect, not a spacing preference. */
 [data-dsh-glass-float] [data-dsh-glass-frame][data-sidebar-collapsed] [class*='sidebarCol'] {
-  margin: 12px -12px 12px 12px;
+  margin:
+    var(--dsh-glass-gap, 12px)
+    calc(-1 * min(var(--dsh-glass-gap, 12px), 16px))
+    var(--dsh-glass-gap, 12px)
+    var(--dsh-glass-gap, 12px);
   padding: 0;
   border-radius: 16px;
   transition: margin 150ms var(--ds-ease-in-out), border-radius 150ms var(--ds-ease-in-out);
@@ -1047,7 +1076,11 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      too — otherwise narrowing only the header would trade one misalignment for
      another the moment the 轨迹 tab is opened. Same inline expression as the
      header rule; see the note there for why it is not a custom property. */
-  margin: 8px auto 12px;
+  /* Issue #31: the BOTTOM margin (window edge below the card) rides the gap
+     knob; the 8px top stays a literal — it is the card's clearance from the
+     header card above it, not an edge inset. `height` therefore subtracts
+     both, or the card would overflow its scroll body by the delta. */
+  margin: 8px auto var(--dsh-glass-gap, 12px);
   width: calc(100% - 32px);
   max-width: min(
     calc(
@@ -1058,7 +1091,7 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
     ),
     calc(100% - 32px)
   );
-  height: calc(100% - 20px);
+  height: calc(100% - 8px - var(--dsh-glass-gap, 12px));
   border: 1px solid var(--dsh-glass-rim);
   border-radius: 20px;
   background: var(--dsh-glass-card);
@@ -1139,10 +1172,12 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 }
 
 /* ---------- Composer bar spacing (the "fused slab" is gone — see the note
-   below). Keeps a 12px bottom pad on the session view's inputbar when no stats
-   row sits inside it; the hero view has its own spacing. ---------- */
+   below). Keeps the card's bottom inset on the session view's inputbar when no
+   stats row sits inside it; the hero view has its own spacing. Issue #31: the
+   inset is the gap knob (was a literal 12px) — it is the distance from the
+   composer card to the window's bottom edge. ---------- */
 [data-dsh-glass-float] [data-dsh-glass-inputbar]:not([class*='hero']):not(:has([data-dsh-glass-stats])) {
-  padding-bottom: 12px;
+  padding-bottom: var(--dsh-glass-gap, 12px);
 }
 
 /* ⚠️ 2026-10-13（维护者决定）：fused slab 废除 —— 「性能与用量」统计行不再

@@ -16,6 +16,7 @@ import { useId, useState, useSyncExternalStore } from 'react'
 import { Button, SegmentedControl, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
+import { GLASS_GAP_MAX, GLASS_GAP_MIN } from '../../state.ts'
 import type { CatppuccinKey } from '../locales.ts'
 import { HelpBadge } from '../HelpBadge.tsx'
 import css from './GlassRow.module.css'
@@ -37,6 +38,8 @@ export interface GlassRowInjected {
   setFrost: (value: number) => void
   /** Set the backdrop brightness, 0-100. */
   setBrightness: (value: number) => void
+  /** Set the floating-card inset, px (4-24) — issue #31. */
+  setGap: (value: number) => void
   /** Toggle the two static ground glows (issue #26; wash-only is the default). */
   setGlow: (value: boolean) => void
   /** Restore every knob to the shipped defaults. */
@@ -156,14 +159,26 @@ const GLASS_PRESETS: readonly { id: string; key: CatppuccinKey; blur: number; fr
 ]
 
 /**
+ * Floating-card inset presets (issue #31) — a SEPARATE axis from the material
+ * presets above, and deliberately not folded into them: `activePreset` matches
+ * on the blur/frost/brightness triple, so a gap-only change would otherwise
+ * flip the material row to "custom" for no reason. The three tiers sit inside
+ * the knob's 4-24 range; the slider stays for anything in between.
+ */
+const GAP_PRESETS: readonly { id: string; key: CatppuccinKey; gap: number }[] = [
+  { id: 'compact', key: 'glass.gapCompact', gap: 8 },
+  { id: 'standard', key: 'glass.gapStandard', gap: SETTINGS_DEFAULTS.gap },
+  { id: 'loose', key: 'glass.gapLoose', gap: 20 },
+]
+/**
  * Render the glass row: title, the master switch, and — while enabled — the
  * mode picker and every knob.
  * @param props - composed slot props.
  * @returns the settings row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGlow, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, glow, dark } = state
+  const { enabled, mode, blur, frost, brightness, gap, glow, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -175,6 +190,9 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
   const activePreset = GLASS_PRESETS.find(
     (p) => p.blur === blur && p.frost === frost && p.brightness === brightness,
   )?.id ?? ''
+
+  // Issue #31: same idea on the layout axis, matched only on `gap`.
+  const activeGapPreset = GAP_PRESETS.find((p) => p.gap === gap)?.id ?? ''
 
   return (
     <div className={rowCss.row} data-catppuccin-row="glass">
@@ -240,6 +258,32 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
             <div className={css.rowHint}>
               {t(dark ? 'glass.brightnessHintDark' : 'glass.brightnessHintLight')}
             </div>
+            {/* Issue #31: the floating-card inset. MICA ONLY — in compat mode
+                the layout rules are all gated on data-dsh-glass-float, so this
+                knob would move nothing while looking perfectly live. The hint
+                says so instead of leaving a dead slider on screen. */}
+            {mode === 'mica' && (
+              <>
+                <div className={css.row}>
+                  <span className={css.rowLabel}>{t('glass.gap')}</span>
+                  <div className={css.presetGroup} role="group" aria-label={t('glass.gap')}>
+                    {GAP_PRESETS.map((preset) => (
+                      <Button
+                        key={preset.id}
+                        size="sm"
+                        variant={activeGapPreset === preset.id ? 'primary' : 'outline'}
+                        aria-pressed={activeGapPreset === preset.id}
+                        onClick={() => { setGap(preset.gap) }}
+                      >
+                        {t(preset.key)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Knob label={t('glass.gap')} value={gap} min={GLASS_GAP_MIN} max={GLASS_GAP_MAX} step={1} unit="px" onChange={setGap} />
+                <div className={css.rowHint}>{t('glass.gapHint')}</div>
+              </>
+            )}
             {/* Issue #26: the ground glows are opt-in. The switch sits with the
                 other material knobs, AFTER the sliders, because it is a
                 different axis (a fixed-to-screen light field, not a property of

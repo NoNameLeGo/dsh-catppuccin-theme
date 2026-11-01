@@ -42,6 +42,8 @@ import {
   DEFAULT_GLASS,
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
+  GLASS_GAP_MAX,
+  GLASS_GAP_MIN,
   defaultSettingsSection,
   type CatppuccinSettingsSection,
 } from './state.ts'
@@ -85,6 +87,12 @@ export function catppuccinSchemaFields(): Record<string, Schema> {
       blur: Schema.number().min(0).max(40).default(DEFAULT_GLASS.blur),
       frost: Schema.number().min(0).max(100).default(DEFAULT_GLASS.frost),
       brightness: Schema.number().min(0).max(100).default(DEFAULT_GLASS.brightness),
+      // Issue #31: the floating-card inset. Bounded by the same pair the
+      // sanitizer uses — the form is the ONE place a user can type a raw
+      // number, so it must not be able to hold a value `sanitizeState` would
+      // immediately clamp away (that difference would make every publish
+      // re-write the document).
+      gap: Schema.number().min(GLASS_GAP_MIN).max(GLASS_GAP_MAX).default(DEFAULT_GLASS.gap),
       // Issue #26: the optional ground glows (the wash-only ground is the
       // shipped default, so this must default to the same value as
       // `DEFAULT_GLASS.glow` — the client reads "resolves to the shipped
@@ -152,6 +160,8 @@ export interface CatppuccinConfig {
     blur: { get(): number }
     frost: { get(): number }
     brightness: { get(): number }
+    /** Issue #31 floating-card inset, px. */
+    gap: { get(): number }
   }
   autoCheck: { get(): boolean }
   updateChannel: { get(): CatppuccinSettingsSection['updateChannel'] }
