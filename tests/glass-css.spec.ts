@@ -643,7 +643,10 @@ describe('frame language: one rim ladder, one shadow language (2026-10-19 audit)
     rules.find(
       (rule) =>
         rule.selector.includes(`data-dsh-glass-${mode}`) &&
-        rule.selector.includes("[role='dialog'][aria-modal='true']"),
+        rule.selector.includes("[role='dialog'][aria-modal='true']") &&
+        // issue #33 put the material on a `::before` plane; the surface rule is
+        // the one WITHOUT the pseudo-element.
+        !rule.selector.includes('::before'),
     )
 
   it('① gives the modal its drop shadow in BOTH modes — the top layer is not the flattest', () => {
@@ -870,6 +873,46 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
     ).toEqual([])
   })
 
+  it('keeps the settings panel off the fixed-position containing block (issue #33)', () => {
+    // DSH portals its settings shell as `[role=dialog][aria-modal=true]`
+    // (800px, centred, overflow:hidden) and renders every `settings.section`
+    // plugin inside it. Those plugins place their menus with `position:fixed` +
+    // VIEWPORT coordinates, so a `backdrop-filter` on the panel re-anchors them
+    // to the panel origin — measured in the live shell: a fixed probe at
+    // left/top 0 landed at (240, 60) with the blur and at (0, 0) without it.
+    const sel = "[role='dialog'][aria-modal='true']"
+    const onSurface = blurring.filter(
+      (rule) => rule.selector.includes(sel) && !rule.selector.includes('::before'),
+    )
+    expect(
+      onSurface.map((rule) => rule.selector),
+      'issue #33: a blur here makes the settings panel the containing block of every third-party fixed popover — move the material to its ::before plane',
+    ).toEqual([])
+    // …and the material must actually land on that plane, fill included (a
+    // plane without a fill reads the panel's own background as its backdrop).
+    const planes = rules.filter(
+      (rule) =>
+        rule.selector.includes(sel) &&
+        rule.selector.includes('::before') &&
+        blurOf(rule.decls) !== undefined,
+    )
+    expect(planes.map((rule) => rule.selector)).toHaveLength(2) // mica + compat
+    for (const plane of planes) {
+      expect(plane.decls, `${plane.selector} must own the fill`).toMatch(
+        /(?:^|;)\s*background\s*:/,
+      )
+    }
+    // The panel itself keeps its rim ladder: anchor it relative so the plane's
+    // `inset: 0` resolves, and isolate so `z-index:-1` cannot escape behind the
+    // mask (`isolation` is NOT a backdrop root — issue #19).
+    const surface = rules.find(
+      (rule) => rule.selector.includes("[data-dsh-glass-float]") &&
+        rule.selector.includes(sel) && !rule.selector.includes('::before'),
+    )
+    expect(surface?.decls).toMatch(/(?:^|;)\s*isolation\s*:\s*isolate/)
+    expect(surface?.decls).toMatch(/(?:^|;)\s*background\s*:\s*none/)
+  })
+
   it('keeps the composer material on a ::before plane that owns the fill too', () => {
     // The plane must carry the FILL, not just the blur: anything the host paints
     // below the plane (a background, an inset shadow) becomes what the plane
@@ -915,6 +958,108 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
         ).toMatch(/^(?:none|transparent)$/)
       }
     }
+  })
+})
+
+describe('popup readability floor inside the settings seam (issue #33 follow-up)', () => {
+  // The settings remap turns `--dsw-alias-bg-layer-3` into `30% + 30% * frost`
+  // (42% at the default frost 20) — correct for a settings CARD, unreadable for
+  // a POPUP, which covers dense unrelated rows. Measured on the live GUI with
+  // dsh-plugin-tool-management's SourceSelect menu: `rgba(49,50,68,0.42)`, no
+  // blur, the skills list running straight through it.
+  const floor = rules.filter(
+    (rule) =>
+      rule.selector.includes('[data-dsh-glass-settings]') &&
+      // popups only — the toolbar strip below also anchors on the ground, at a
+      // lower (78%) floor because it is chrome, not a surface over text.
+      (rule.selector.includes('dsm-select-menu') || rule.selector.includes("[role='menu']")) &&
+      /var\(--dsh-glass-ground\)/.test(rule.decls),
+  )
+
+  it('anchors popup fills on the ground, not on the diluted alias', () => {
+    expect(floor.map((rule) => rule.selector).join(' ')).toContain('dsm-select-menu')
+    expect(floor.map((rule) => rule.selector).join(' ')).toContain("[role='menu']")
+    for (const rule of floor) {
+      const alpha = /var\(--dsh-glass-ground\)\s*(\d+)%/.exec(rule.decls)?.[1]
+      expect(Number(alpha), `${rule.selector} must stay ≥85% opaque`).toBeGreaterThanOrEqual(85)
+      // The popup covers moving content, so its blur IS paid for (unlike the
+      // ground-only surfaces in the issue #13 block).
+      expect(rule.decls, `${rule.selector} lost its blur`).toContain('backdrop-filter')
+    }
+  })
+
+  it('does not reach popups outside the settings seam', () => {    // `.dsm-select-menu` is the plugin's own namespace; the settings scope is
+    // what keeps this from repainting its page-mode menus too. A generic
+    // `[role='listbox']` rule is NOT an option — upstream ClockPicker puts
+    // that role on the dial's columns (`dsh-client-ui-schedule`).
+    const offenders = rules.filter(
+      (rule) => rule.selector.includes('dsm-select-menu') &&
+        !rule.selector.includes('[data-dsh-glass-settings]'),
+    )
+    expect(offenders.map((rule) => rule.selector)).toEqual([])
+  })
+})
+
+describe('settings toolbar strip (issue #33 follow-up)', () => {
+  // dsh-plugin-tool-management's `.dsm-panel-head` is a STICKY bar
+  // (`position: sticky; top: 0`) filled with `--dsw-alias-bg-layer-2`. In
+  // stock that equals the panel's own opaque layer-2, so the bar is invisible
+  // by design — hence its square corners. Under the glass remap the panel
+  // dropped to ~25% while the bar kept 53%, so it read as a foreign slab with
+  // 90° edges inside a 20px panel (reporter's screenshot).
+  const bar = rules.filter((rule) => rule.selector.includes('.dsm-panel-head'))
+
+  it('rides a ::before plane, never a filter on the bar itself', () => {
+    // The bar hosts the plugin's scope dropdown, whose menu is
+    // `position: fixed` — a filter here re-anchors it (the issue's main bug).
+    const onSurface = blurring.filter(
+      (rule) => rule.selector.includes('.dsm-panel-head') && !rule.selector.includes('::before'),
+    )
+    expect(onSurface.map((rule) => rule.selector)).toEqual([])
+    const plane = bar.find((rule) => rule.selector.includes('::before'))
+    expect(plane?.selector, 'the toolbar lost its material plane').toBeDefined()
+    expect(plane!.decls).toContain('backdrop-filter')
+    expect(plane!.decls, 'the plane must own the fill').toMatch(/background\s*:/)
+  })
+
+  it('keeps sticky: no position override, and it is rounded', () => {
+    const surface = bar.find((rule) => !rule.selector.includes('::before'))
+    expect(surface?.selector, 'the toolbar surface rule disappeared').toBeDefined()
+    // `position: relative` (the usual plane anchor) would KILL the host's
+    // sticky — sticky is already a positioned ancestor for the plane.
+    expect(surface!.decls, 'a position declaration breaks the sticky bar').not.toMatch(
+      /(?:^|;)\s*position\s*:/,
+    )
+    expect(surface!.decls, 'the toolbar is still square').toMatch(/border-radius\s*:\s*14px/)
+    // Rim by outline: a border would move the host's box model (the plugin's
+    // grid rows would shift by 2px).
+    expect(surface!.decls).toMatch(/outline\s*:\s*1px solid var\(--dsh-glass-rim-soft\)/)
+    expect(surface!.decls).toMatch(/outline-offset\s*:\s*-1px/)
+    // The host's own layout is flush to its edges (invisible bar in stock), so
+    // the card needs a gutter or the text hugs the rim.
+    expect(surface!.decls, 'the toolbar content is flush to its rounded rim').toMatch(
+      /padding\s*:\s*\d+px 12px \d+px/,
+    )
+  })
+})
+
+describe('dialog entry animation stays opacity-only (issue #33)', () => {
+  // Same reason the page transitions are opacity-only: a running `transform`
+  // makes the element the containing block of its `position: fixed`
+  // descendants. The settings panel hosts every `settings.section` plugin, and
+  // those place menus in VIEWPORT coordinates — a dropdown opened during the
+  // 240ms entry window was measured 237px off (dx=237 against an expected 0).
+  it('carries no transform in its keyframes', () => {
+    // `rules` cannot see inside a nested `@keyframes` block, so read the raw
+    // sheet for this one.
+    const block = /@keyframes dsh-glass-dialog-in\s*\{([\s\S]*?)\n\}/.exec(
+      CSS.replace(/\/\*[\s\S]*?\*\//g, ''),
+    )
+    expect(block, 'the dialog entry keyframes disappeared').not.toBeNull()
+    expect(
+      block![1],
+      'a transform here re-anchors the settings panel\'s fixed popovers for 240ms',
+    ).not.toMatch(/(?:^|[;\s])transform\s*:/)
   })
 })
 

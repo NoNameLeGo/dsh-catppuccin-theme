@@ -8,6 +8,49 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **设置面板里的第三方下拉/「⋯」菜单不再乱飞或被裁掉（issue #33，2026-11-01）**。症状：装了
+  `dsh-plugin-tool-management` 后，它的「全部场景 / 全部级别」下拉**点开看不到菜单**、行尾「⋯」
+  菜单**直接不出现**，偶尔出现时**离触发器很远**。根因：本皮肤给
+  `[role='dialog'][aria-modal='true']` 加了 `backdrop-filter`，浏览器据此把它变成 `position:fixed`
+  后代的**包含块**；而宿主设置壳正是把每个 `settings.section` 插件渲染在这个面板里（`800px`
+  居中、`overflow:hidden`），插件又用 `position:fixed` + **视口坐标**摆菜单（它的代码注释明写
+  「本插件没有任何祖先带 transform/filter」）。真机实测（官方壳 + CDP，mica，blur 5，视口
+  1280×822，面板原点 239.3/59.3）：面板内插 `position:fixed;left:0;top:0` 探针落在 **(240, 60)**，
+  把面板 `backdrop-filter` 置 `none` 后回到 **(0, 0)**。于是每张菜单整体平移一个面板原点
+  （1440 宽下 320px），右对齐的菜单被 `overflow:hidden` 裁光 —— 报告人的「打不开」与「乱跑」是
+  同一个根因。修法沿用 issue #19 的材质面配方：填充与 blur 一起搬到
+  `::before`（`inset:0; z-index:-1`），面板本体 `background:none; backdrop-filter:none;
+  isolation:isolate`（mica / compat 各一条）。护栏 = `tests/glass-css.spec.ts` 的
+  `backdrop-root hygiene` 组新增用例；取证与残留见 `docs/issue-33-fixed-popover-containing-block.md`。
+- **设置面板里的弹层不再「透到读不了」（issue #33 后半，2026-11-01）**。症状：同一个插件的
+  「全部来源 / 全部级别」下拉展开后，底下技能列表的文字直接穿过来，菜单项看不清。根因不是位置，
+  而是**取错了 token**：设置缝把 `--dsw-alias-bg-layer-3` 换成 `30% + 30% * frost`（默认 frost 20
+  ⇒ 42%），这对「设置在面板上的卡片」是对的，但**弹层**读同一个 token，而弹层盖住的是密集的、无关的
+  列表。真机实测：菜单 `rgba(49, 50, 68, 0.42)`，且**没有 blur**。修法：设置缝内的手写弹层
+  （`[role='menu']` 的守卫对 + 该插件自己的 `.dsm-select-menu`）给一条**以地面色锚定的不透明度下限**
+  ——`color-mix(in srgb, var(--dsh-glass-ground) 92%, transparent)` + `blur(12px)` + `--dsh-glass-drop`。
+  这里的 blur 是花得值的（弹层底下是滚动的列表，不是 #13 说的恒定地面）。**没用通用的 `[role='listbox']`**：
+  上游 `dsh-client-ui-schedule` 的 ClockPicker 把该 role 挂在表盘「列」上，通用规则会把选择器糊成一块板。
+  护栏 = `tests/glass-css.spec.ts` 的 `popup readability floor inside the settings seam` 两条。
+- **设置里那条吸顶工具条不再是「另一块直角色板」（issue #33 第三段，2026-11-01）**。
+  `dsh-plugin-tool-management` 的 `.dsm-panel-head`（吸顶，装着「全局默认」下拉 + 页签）用
+  `--dsw-alias-bg-layer-2` 填充。**在出厂皮肤里它和面板是同一个不透明色，本来就该隐形**——这正是它
+  不带圆角的原因。我们的玻璃把面板压到 ~25%，它却仍是 53%，于是成了圆角面板里的一块直角异色板。
+  修法：按其它浮条的老配方处理——地面色锚定 78%（#29 dock 那条带宽）、`blur(12px)`、14px 圆角、
+  `--dsh-glass-rim-soft` 描边（用 `outline`，不改盒模型，否则插件的两行 grid 会位移 2px）、
+  **`padding: 6px 12px 4px`**（出厂布局是贴边的——它本来隐形所以没人需要留白；变成卡片后不留白就贴边）。
+  **填充和 blur 都放在 `::before` 平面上**：这条 bar 里就装着插件的下拉，blur 落在本体上会把它的
+  `position:fixed` 菜单重新锚定（就是本 issue 前半段那个缺陷）；`position` 一律不覆盖，否则 sticky 失效。
+  护栏 = `tests/glass-css.spec.ts` 的 `settings toolbar strip (issue #33 follow-up)` 两条。
+- **对话框入场动画不再带位移/缩放（issue #33 收尾，2026-11-01）**。`dsh-glass-dialog-in` 原为
+  `translateY(8px) scale(.985)`，`transform` 让面板在入场那 **240ms 内重新成为包含块**——这期间点开
+  插件的下拉同样会偏。真机实测（动画 pause 在 40%）：旧版该帧 `matrix(.9942,…,3.09)`、下拉
+  `dx=237 / dy=68`；改成纯 `opacity` 后 transform 为 `none`、下拉 `dx=0 / dy=+4`。
+  这也是仓库既有原则（页面过渡早已纯 opacity，理由逐字相同），视觉上 8px+1.5% 在 240ms 内不可辨。
+  护栏 = `tests/glass-css.spec.ts` 的 `dialog entry animation stays opacity-only (issue #33)`。
+
 ## [0.6.5] - 2026-10-29
 
 > 本版 = **`0.6.5-beta.0`** + **`0.6.6-beta.0`** + **`0.6.5-beta.2`** 全链**转正**（预发布按仓库惯例不单独落版本节）。

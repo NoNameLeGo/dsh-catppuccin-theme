@@ -1311,13 +1311,33 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 
 /* ---------- Settings / modal dialogs: the raised panel becomes the same
    live glass as the other surfaces. Scoped to `aria-modal=true` so small
-   role=dialog popups (the context meter, etc.) keep their own surfaces —
-   and this panel carries no fixed-position descendants, so backdrop-filter
-   cannot re-anchor anything. The panel rides the same --dsh-glass-* knobs,
-   so dragging blur / frost / brightness in the glass row is a live
-   preview on the panel itself. ---------- */
+   role=dialog popups (the context meter, etc.) keep their own surfaces.
+   The panel rides the same --dsh-glass-* knobs, so dragging blur / frost /
+   brightness in the glass row is a live preview on the panel itself.
+
+   issue #33 (2026-11-01): the material rides a `::before` plane and the
+   panel itself stays filter-free. The old note here claimed the panel "carries
+   no fixed-position descendants" — third-party SLOT content falsifies it. The
+   settings shell portals this exact `[role=dialog][aria-modal=true]`
+   (800px, centred, `overflow:hidden`, `.options` `overflow-y:auto`) and every
+   `settings.section` plugin renders inside it; dsh-plugin-tool-management's
+   `SourceSelect` / `RowMenu` place their menus with `position:fixed` + VIEWPORT
+   coordinates (they assume "no ancestor carries transform/filter"). A
+   `backdrop-filter` here makes the panel their containing block, so measured in
+   the live shell (mica, blur 5, 1280x822 viewport, panel origin 239.3/59.3) a
+   `position:fixed;left:0;top:0` probe landed at (240, 60) instead of (0, 0) —
+   and flipping the panel's `backdrop-filter` to `none` put it back at (0, 0).
+   Every popover therefore shifts by the panel origin (320px at 1440 wide) and
+   is clipped by the panel's `overflow:hidden`: right-aligned menus (the row
+   "⋯") vanish entirely — the reporter's「三个点更多打不开」— while the others
+   appear far from their trigger —「悬浮菜单会乱跑」. Same plane recipe as
+   issue #19 (fill AND blur move together; `isolation` is not a backdrop root). */
 [data-dsh-glass-float] [role='dialog'][aria-modal='true'] {
-  background: var(--dsh-glass-card-raised);
+  /* Zero paint on the panel: it is the excluded containing block. */
+  position: relative;
+  isolation: isolate;
+  background: none;
+  backdrop-filter: none;
   border: 1px solid var(--dsh-glass-rim);
   /* Two fixes from the 2026-10-19 frame-language audit (docs/frame-language-
      audit-2026-10-19.md ① and ③):
@@ -1332,7 +1352,20 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      Both are paint-only: no box-model change, no descendant moves. */
   border-radius: 20px;
   box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
+}
+
+/* The panel's material plane (issue #33). `inset: 0` = padding box, i.e. 1px
+   less coverage than the element background it replaces; the rim is the
+   translucent `--dsh-glass-rim`, so that 1px is not observable. */
+[data-dsh-glass-float] [role='dialog'][aria-modal='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsh-glass-card-raised);
   backdrop-filter: blur(var(--dsh-glass-blur, 14px));
+  pointer-events: none;
 }
 
 /* ---------- Readability on the glass: a 1px halo blurs the backdrop right
@@ -1442,7 +1475,16 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 }
 
 @keyframes dsh-glass-dialog-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  /* Opacity only — the same rule the page transitions already follow (issue
+     #24's note above): a running `transform` makes the element the containing
+     block of its `position: fixed` descendants mid-flight. Here it is not
+     theoretical: the settings panel hosts every `settings.section` plugin, and
+     dsh-plugin-tool-management's menus are fixed in VIEWPORT coordinates. A
+     dropdown opened inside the 240ms entry window was measured 237px off
+     (`dx=237 / dy=68` against an expected 0/+4); with the transform gone the
+     same click lands at 0/+4. Visually the 8px rise + 1.5% scale over 240ms is
+     imperceptible (issue #33, 2026-11-01). */
+  from { opacity: 0; }
 }
 
 /* ---------- Keyboard focus and text selection. ---------- */
@@ -1630,12 +1672,107 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    mode (the generic blur above alone would sit behind an opaque panel), and
    since the 2026-10-19 frame-language audit the same edge + drop as well —
    the material is mode-independent, only the LAYOUT is stock here, so the
-   radius stays whatever the host declares (no 20px step in compat). */
+   radius stays whatever the host declares (no 20px step in compat).
+   issue #33: same plane split as float — the panel hosts third-party
+   `settings.section` content whose menus are `position:fixed` in viewport
+   coordinates, so it must not be a containing block. */
 [data-dsh-glass-compat] [role='dialog'][aria-modal='true'] {
-  background: var(--dsh-glass-card-raised);
+  position: relative;
+  isolation: isolate;
+  background: none;
+  backdrop-filter: none;
   border: 1px solid var(--dsh-glass-rim);
   box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
+}
+
+[data-dsh-glass-compat] [role='dialog'][aria-modal='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--dsh-glass-card-raised);
   backdrop-filter: blur(var(--dsh-glass-blur, 12px));
+  pointer-events: none;
+}
+
+/* ---------- Popup readability floor inside the settings seam (issue #33
+   follow-up, 2026-11-01).
+
+   The settings remap above turns `--dsw-alias-bg-layer-3` into
+   `30% + 30% * frost` of `bluish-800` (42% at the default frost 20), which is
+   right for a settings CARD — the panel under it is the same family — but a
+   popup reads that token too, and a popup covers DENSE, unrelated rows. Live
+   measurement of dsh-plugin-tool-management's `SourceSelect` menu inside the
+   settings dialog: `rgba(49, 50, 68, 0.42)` with **no** blur, over the skills
+   list — the list's own text ran straight through the menu (reporter's
+   screenshot, issue #33 thread).
+
+   So popups get an explicit floor, anchored on the page ground instead of the
+   diluted alias: ~92% is the same "the surface must be more solid than what it
+   covers" rule the model-parade menu already uses (70% there, over the
+   transcript). The blur IS paid for here: the popup sits over a moving list,
+   not over the flat ground (issue #13's budget note does not apply).
+
+   Scope note — why the plugin class and not a generic role hook:
+   `[role='listbox']` is NOT popup-only upstream (`dsh-client-ui-schedule`'s
+   ClockPicker puts it on the dial's COLUMNS inside a dialog), so a generic
+   rule would paint a slab across a picker. `.dsm-select-menu` is
+   dsh-plugin-tool-management's own stable namespace (`dsm-`), used by both its
+   `SourceSelect` and its row "⋯" `RowMenu`, and this block is scoped to the
+   settings seam, so nothing outside that dialog can be hit. */
+[data-dsh-glass-settings] [role='menu']:not([data-menu-material]):not([data-menu-material] *),
+[data-dsh-glass-settings] .dsm-select-menu {
+  background: color-mix(in srgb, var(--dsh-glass-ground) 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--dsh-glass-drop);
+}
+
+/* ---------- Settings toolbar strip (issue #33 follow-up, 2026-11-01).
+
+   dsh-plugin-tool-management draws `.dsm-panel-head` as a sticky bar
+   (`position: sticky; top: 0; z-index: 6`, holding the scope dropdown and the
+   section tabs) filled with `--dsw-alias-bg-layer-2`. In STOCK that fill is
+   the same opaque layer-2 the panel itself uses, so the bar is INVISIBLE by
+   design — which is exactly why it ships with square corners. Our remap
+   leaves the panel at ~25% (card-raised) while the bar kept 53% layer-2, so it
+   read as a foreign slab with 90° corners inside a 20px panel (reporter's
+   screenshot).
+
+   Fix: treat it like the other floating strips — denser ground-anchored fill
+   (78%, the #29 dock-veil band), frost, a 14px radius and the soft rim. Denser
+   than the panel on purpose: the bar has a REAL job, rows scroll under it.
+
+   Fill AND blur ride a `::before` plane: the bar hosts the plugin's scope
+   dropdown, whose menu is `position: fixed`, so a filter on the bar itself
+   would re-anchor it — the very defect this issue is about. `position:
+   sticky` + `z-index` already make the bar a stacking context, so the plane's
+   `z-index: -1` cannot escape behind the panel. */
+[data-dsh-glass-settings] .dsm-panel-head {
+  /* NO `position` override here: the host's `sticky` is the point of the bar,
+     and `relative` would kill it. Sticky is already a positioned ancestor for
+     the plane. */
+  isolation: isolate;
+  border-radius: 14px;
+  outline: 1px solid var(--dsh-glass-rim-soft);
+  outline-offset: -1px;
+  background: none;
+  /* The host lays the bar out flush to its own edges (it was invisible in
+     stock, so there was nothing to pad). As a rounded card it needs a gutter:
+     12px inline so "单会话独立设置" / the tabs stop hugging the rim, and a
+     few px at the bottom so the tab rule stops sitting ON the corner radius. */
+  padding: 6px 12px 4px;
+}
+
+[data-dsh-glass-settings] .dsm-panel-head::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--dsh-glass-ground) 78%, transparent);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
 }
 
 /* ---------- Reduced motion: keep the static look, drop every effect. ---------- */
