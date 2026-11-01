@@ -24,6 +24,7 @@
   `tests/glass-layer.spec.ts` 的镜像清单、`tests/rows.spec.tsx` 的三条 UI 用例；
   语义与残留见 `docs/issue-gh-31-card-gap.md`（文件名带 `gh-` 是为了和内部的
   `docs/issue-31-theme-switch-echo-race.md` 区分）。
+  **发布目标：`0.6.6` 正式版**（维护者 2026-11-01 定；本次特性不另开 `0.7.0`）。
 
 ### 修复
 
