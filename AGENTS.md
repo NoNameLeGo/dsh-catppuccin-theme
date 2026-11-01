@@ -362,7 +362,18 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > Publish run `37181444425` success 33 s、日志 `+ @nonamelego/dsh-catppuccin@0.6.0` 带 provenance；
 > CI `37181444159` check + boot-e2e 双绿 1 m 49 s）= 插件详情页加上设置区 + 插件卡片图标 + 「检查更新」
 > 按宿主分流 + README 修缮与四风味预览关玻璃重拍（完整条目见 CHANGELOG 的 `## [0.6.0]` 节）。
-> **`beta` = 暂无**（`0.6.4-beta.0` 已被 `0.6.4` 吸收）。上一版 `beta` = **`0.6.4-beta.0`**（2026-10-19；
+> **`beta` = `0.6.6-beta.1`**（2026-11-01；Publish run `41317223773` success、CI `41317223588` success、
+> registry `dist-tags.beta` 已翻到 `0.6.6-beta.1`，`latest` 仍是 `0.6.5`）= **issue #33**：设置面板里第三方
+> 插件（`dsh-plugin-tool-management`）的 `position:fixed` 弹层被面板的 `backdrop-filter` 重新锚定
+> （菜单整体平移一个面板原点 → 打不开 / 乱跑）+ 弹层过透（42% 无 blur）+ 吸顶工具条是圆角面板里的
+> 直角色板 + 入场动画 `transform` 留了 240ms 空窗。真机 CDP 逐项实测，测试 **384 全绿**（22 文件）。
+> 取证：`docs/issue-33-fixed-popover-containing-block.md`。
+> ⚠️ 版本号选 `0.6.6-beta.1` 而不是 `0.6.6-beta.0`：后者是 2026-10-27 并行会话误发的号（内容已归位到
+> `0.6.5`），再发 `-beta.0` 会与它撞车。
+> ⚠️ 未做：compat 的 `[data-sidebar-right-panel]` blur（同族缺陷，元素某些状态 `width:0`，需单独量）；
+> issue #33 报告人未复验。
+>
+> 上一版 `beta` = **`0.6.5-beta.2`**（0.6.5 转正后未被覆盖）；再上一版 `beta` = **`0.6.4-beta.0`**（2026-10-19；
 > Publish run `39248943503` success、日志
 > `+ @nonamelego/dsh-catppuccin@0.6.4-beta.0` 带 provenance、tag 显式 `beta`；CI `39248943583`
 > check + boot-e2e 双绿）= **issue #29 状态栏背板改磨砂幕布**（同色 α70~84% + blur + 顶部 18px mask
