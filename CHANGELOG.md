@@ -8,6 +8,15 @@
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-11-01
+
+> 本版 = **`0.6.6-beta.1`** 转正（预发布按仓库惯例不单独落版本节）+ 两条上游建议同批落地。
+> `0.6.6-beta.1`：**issue #33**——设置面板里第三方插件（`dsh-plugin-tool-management`）的
+> `position:fixed` 弹层不再被面板的 `backdrop-filter` 重新锚定（「打不开 / 乱跑」），弹层不再透到
+> 读不了，吸顶工具条改圆角卡片；取证见 `docs/issue-33-fixed-popover-containing-block.md`。
+> **issue #31（上游新号）**：云母模式「卡片间距」滑条 4–24px、默认 12，见 `docs/issue-gh-31-card-gap.md`。
+> **issue #32**：地面光斑强度 0–200%（`100%` = 默认 = 原观感），见 `docs/issue-32-glow-tuning.md`。
+
 ### 新增
 
 - **云母模式新增「卡片间距」滑条（issue #31）**。报告人的问题是「卡片间距固定 12px，在我这块屏上略挤，
@@ -1461,7 +1470,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
 [0.6.3-beta.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.2...v0.6.3-beta.0
