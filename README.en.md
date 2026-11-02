@@ -335,7 +335,7 @@ matches are exactly these:
 | Composer card | `[data-composer-card]` (the material is painted on its `::before`, see issue #19) |
 | Menus | `[data-menu-material='translucent']` (the host MenuSurface's own material hook — the recipe overrides the `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter` its material plane reads) plus the hand-rolled-menu fallback `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | Popovers | `[class*='popover']` / `[class*='dropdown']` (still substrings) |
-| Modal dialogs | `[role='dialog'][aria-modal='true']` |
+| Modal dialogs | `[role='presentation'] > [role='dialog'][aria-modal='true']` (**seat guard**: only a panel seated under `[role='presentation']`; a body-level full-screen layer is not one — see issue #34) |
 | Host right sidebar (open state only) | `[data-sidebar-right-panel][data-sidebar-right-open]` |
 
 **A new class name in a third-party plugin can still be misread.** When you hit one, work through three

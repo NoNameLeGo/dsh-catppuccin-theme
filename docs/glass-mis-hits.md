@@ -19,7 +19,7 @@
 | 输入框卡片 | `[data-composer-card]`（宿主自己的属性；材质画在它的 `::before` 上，见 issue #19） |
 | 菜单 | `[data-menu-material='translucent']`（宿主 MenuSurface 自己的材质钩子；配方覆写它自带材质面读的 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`，不在表面上画填充/blur）+ 手写菜单兜底 `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | 弹出层 | `[class*='popover']` / `[class*='dropdown']`（这两个仍是子串） |
-| 模态框 | `[role='dialog'][aria-modal='true']` |
+| 模态框 | `[role='presentation'] > [role='dialog'][aria-modal='true']`（**座位守卫**，issue #34：`aria-modal` 本身不是身份——宿主把图片预览整层做成 body 直挂的同一个元素，裸选择器会把它的 `position:fixed` 改成 `relative`，见 `docs/issue-34-dialog-seat-not-role.md`） |
 | 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |
 
 `0.5.8` 把最宽的三族收窄掉了（宽泛的 `card` 子串、`panel` 子串、行级 tooltip），

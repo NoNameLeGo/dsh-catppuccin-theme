@@ -3,6 +3,12 @@
 报告：<https://github.com/NoNameLeGo/dsh-catppuccin-theme/issues/33>（`aszmk`，2026-11-01，open）
 对象插件：`dsh-plugin-tool-management@0.21.9`（npm，作者 ouli1242，仓库 `ouli-1242/dsh-plugin-tool-management`）
 
+> ⚠️ **战后修订（issue #34，2026-11-02）**：本例的选择器后来收窄成了**座位守卫**
+> `[role='presentation'] > [role='dialog'][aria-modal='true']`——裸 `[role='dialog'][aria-modal='true']`
+> 还会命中 body 直挂的全屏浮层（图片预览、桌面壳账户页），把它们的 `position:fixed` 改成 `relative`。
+> 本文下面引用的选择器是 #33 当时的形态，结论（材质搬 `::before`、容器本体零绘制）不变；
+> 座位判据见 `docs/issue-34-dialog-seat-not-role.md`。
+
 ## 症状（报告人原话）
 
 > 这种选项和三个点更多打不开，悬浮菜单会乱跑

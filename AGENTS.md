@@ -72,6 +72,23 @@
    `backdrop-root hygiene` 组里 `issue #33` 那一条；取证见 `docs/issue-33-fixed-popover-containing-block.md`。
    ⚠️ 仍待取证的同族项：compat 的 `[data-sidebar-right-panel][data-sidebar-right-open]` 也带 blur，而该插件还
    `slots.inject('sidebar.panellist')`；那个元素在某些状态下 `width:0`，平面不是直接可换，需单独量。
+   **推论五（issue #34 实测，2026-11-02）：`[role='dialog'][aria-modal='true']` 不是座位，宿主在同一个 role 下有两种形状。**
+   `0.6.6` 的 #33 修复给这条裸选择器加了 `position: relative`，结果把**图片预览层本身**降级成流内块——宿主的
+   `ImageLightbox`（`dsh-client-ui-attachment` 缩略图 → primitives）**把整层做成一个**这样的元素并
+   `createPortal(..., document.body)`，靠它自己的 `position: fixed; inset: 0` 当浮层；子元素全是 `absolute`
+   ⇒ 高度塌成 0，图片与遮罩消失，`top/right:20px` 的关闭按钮留在框外。桌面壳账户页的 `PlatformOverlay`
+   （`dsh-client-ui-settings-account`，`position:fixed;inset:0;z-index:1001`，body 直挂）同族。
+   **座位真源 = 它是 `[role='presentation']` 的（直接）子元素**：设置壳（`.overlay[role=presentation] > .panel`）
+   与 primitives `Modal`（`.root[role=presentation] > .dialog`）是这个座位，全屏浮层不是。
+   凡给 `[role='dialog'][aria-modal='true']` 写**几何**（`position` / `inset` / `overflow`）必须带座位守卫；
+   只写 paint（rim / shadow / radius）时风险低些，但同样建议带——它会画到全屏遮罩上。
+   护栏 = `tests/glass-css.spec.ts` 的 `dialog seat guard` 组（变异：去掉 4 处守卫 → 点名 4 条规则变红）；
+   真机 A/B（rc.5 + mica，真实 lightbox 实例）：修前 `relative` / rect `(0,721,1413,2)`、修后
+   `fixed` / `(0,0,1418,802)`，同时设置面板的 `::before` blur 与 #33 的 fixed 探针 (0,0) 未变。
+   取证与遗留（接缝 `:has(> …)` 会误标 `<body>`——因调色板在 body 内联样式里，token 实际不变，属 P3）见
+   `docs/issue-34-dialog-seat-not-role.md`。
+   ⚠️ 探针教训：复刻宿主浮层**不能**用内联 `style="position:fixed"` 造节点（内联压过样式表 ⇒ 假阴性），
+   必须照宿主的样子用**类名**声明定位。
 5. **boot 关键路径上的注册一律走 `tolerantRegistration`（issue #23）。** entry 的 `apply()` 一同步抛错 → entry FAILED → 整个 `web boot` 中止（`web boot: N entry(s) did not activate`）→ 官方壳崩溃救援 `disableAllPlugins()` 把**所有**第三方插件关停；而 `ctx.effect` 是同步执行并原样 rethrow 的（`ctx.slots.inject` 在槽已声明时同样同步）。⇒ **凡在 apply 同步路径上调用外部注册表**（`ctx.locale.register/addLanguage`、`theme.register`、`ctx.slots.register`、宿主 `webServer.register`）都必须经 `src/registration-tolerance.ts` 的 `tolerantRegistration`：已知「他方已占用」形态（语言包抢 BCP 47 ID、双份安装抢路由/slot/theme id）静默跳过，其余 warn 后同样跳过——没有任何一项注册值得用户的全套插件陪葬。⚠️ **漏包在本地测不出来**：`tests/registration-tolerance.spec.ts` 只穿过已包好的调用路径，全仓库没有任何用例扫 `src/client/index.ts` 的调用点（2026-10-14 核实，此前此处写的「变异检查会红」不成立）——漏包只会在真机 boot 上暴露，所以新增注册点时必须手工对照上面这份调用面。6. **「文档优先」的采纳必须先问「本地有没有更晚、还没落盘的意图」（issue #31）。** 持久状态是三层：
    ① localStorage 即时缓存 ② ThemeRuntime 偏好 ③ 官方 settings 文档（权威）。三者靠
    「本地改 → 300 ms 防抖 → 写文档 → 文档回声 → 采纳」收敛，**回声永远可能晚于下一次本地改**。

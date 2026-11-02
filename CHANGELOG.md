@@ -9,6 +9,10 @@
 ## [Unreleased]
 
 ### 新增,,- **地面光斑可以调「范围」了（issue #32 第二轮，2026-11-02）**。`0.6.6` 上了强度旋钮后，报告人复验给,  了关键反例：Mocha 200% 自然，但 **Latte 200% 左上角像贴了一块色斑，150% 就正常**——他要的不是更亮，,  而是**别把光堆在一角**（他自己算过对比度 6.1:1 → 5.7:1 仍过 AA，所以上限不必降，该动的是几何）。,  于是「地面光斑」开关下面、强度旋钮之后多了 **地面光斑范围**：**100–250%**，**100% = 原来的两枚半径,  （`58% 46%` / `48% 42%`）、也是默认和下限**——旋钮只放大，因为更小的热点正是被投诉的那种效果。,  `--dsh-glass-glow-size` 只乘在两条 `radial-gradient` 的**半径**上（`calc(58% * var(--dsh-glass-glow-size, 1))`），,  alpha 与 `at 18% 6%` / `at 86% 14%` 的座位一字未动：**位置那一维仍然不开放**（那正是 issue #26 出事的轴）。,  副作用是好的——半径是几何不是不透明度，放大后峰值不变、单块面板内部的亮度变化反而更小（#26 的 per-pane Δ,  随半径下降），与强度旋钮的方向正好相反。护栏 = `tests/glass-css.spec.ts`「半径带倍数 / 座位仍是字面量 /,  alpha 不带」、`tests/glass-layer.spec.ts`「默认 100 / 跨窗口 / 下限 40 → 100 / 上限 999 → 250」、,  `tests/rows.spec.tsx`「关时不渲染 / 100–250 写穿」；两条变异（去掉一条半径倍数、下限改回 0）已验红。,  全量 **402/402**，双 typecheck 与构建绿。详见 `docs/issue-32-glow-tuning.md` §8。,  **发布目标：下一个正式版**（维护者 2026-11-03 定；**不另开 `0.7.0`**，与 issue #34 的修复同批出去）。,,### 修复,,- **宿主的图片预览不再被压成流内元素（issue #34，2026-11-02）**。0.6.6 的 #33 修复给,  `[role='dialog'][aria-modal='true']` 补了 `position: relative`，而宿主的图片预览,  （`dsh-client-ui-attachment` 的输入框缩略图 → primitives 的 `ImageLightbox`）正是**把整个,  全屏层做成一个**这样的元素、portal 到 `document.body`，靠它自己的 `position: fixed; inset: 0`,  当浮层。特异性 (0,3,0) 压过宿主的 (0,1,0) 之后，预览层变成 `#root` 之后的流内块：子元素全是,  `absolute` ⇒ 高度塌成 0，图片与遮罩一起消失，`top/right: 20px` 的关闭按钮孤零零飘在应用框外,  （深浅主题表现相同，0.6.5 无此规则故正常）。,  **修法 = 座位守卫**：两条规则收窄为 `[role='presentation'] > [role='dialog'][aria-modal='true']` ——,  设置壳（`dsh-client-ui-settings-general`：`.overlay[role=presentation] > .panel`）与 primitives,  `Modal`（`.root[role=presentation] > .dialog`）都是这个座位，图片预览不是。,  护栏 = `tests/glass-css.spec.ts` 的 `dialog seat guard` 组（变异验证：去掉守卫 → 4 条规则被点名，实测会红）。
+  冷门同族：同一条规则也命中**桌面壳账户页**（`dsh-client-ui-settings-account` 的 `PlatformOverlay`，
+  body 直挂的全屏 `[role=dialog][aria-modal]`），本次守卫一并排除；那一面要进账户页才渲染，未真机触发
+  （源码 + 合成复现）。真机 A/B、座位判据与遗留（接缝 `:has(> …)` 会误标 `<body>`，token 实际不变）
+  见 `docs/issue-34-dialog-seat-not-role.md`。**发布目标：与 issue #32 范围旋钮同批进 `0.6.7`。**
 
 ## [0.6.6] - 2026-11-01
 

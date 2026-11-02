@@ -296,7 +296,7 @@ dsh plugin --profile dsh-tui add https://github.com/NoNameLeGo/dsh-catppuccin-th
 | 输入框卡片 | `[data-composer-card]`（材质画在它的 `::before` 上，见 issue #19） |
 | 菜单 | `[data-menu-material='translucent']`（宿主 MenuSurface 的材质钩子；配方覆写它自带材质面读的 `--dsw-menu-surface-fill` / `--dsw-menu-backdrop-filter`）+ 手写菜单兜底 `[role='menu']:not([data-menu-material]):not([data-menu-material] *)` |
 | 弹出层 | `[class*='popover']` / `[class*='dropdown']`（仍是子串） |
-| 模态框 | `[role='dialog'][aria-modal='true']` |
+| 模态框 | `[role='presentation'] > [role='dialog'][aria-modal='true']`（**座位守卫**：只命中挂在 `[role='presentation']` 下面的面板；body 直挂的全屏浮层不算，见 issue #34） |
 | 宿主右侧栏（仅展开态） | `[data-sidebar-right-panel][data-sidebar-right-open]` |
 
 **第三方插件里新出现的类名仍可能被误命中**。遇到时走三步：**① 只读取证**（一段粘进控制台的探针脚本，
