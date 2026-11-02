@@ -1014,6 +1014,39 @@ describe('backdrop-root hygiene: the trigger-palette host stays filter-free (iss
   })
 })
 
+describe('dialog seat guard: only the host modal panel is ours (issue #34)', () => {
+  // DSH has exactly two [role=dialog][aria-modal=true] surfaces and they are not
+  // shaped alike:
+  //
+  //  - the settings shell (dsh-client-ui-settings-general) and the primitives
+  //    Modal portal <div role=presentation> <div class=mask> <div role=dialog
+  //    aria-modal=true> — the panel is the SEAT's child: a ~800px card that wants
+  //    our material;
+  //  - the image lightbox (dsh-client-ui-attachment's composer thumbnail ->
+  //    primitives' ImageLightbox) portals ONE div[role=dialog][aria-modal=true]
+  //    straight into document.body, and that element's own position: fixed;
+  //    inset: 0 IS the full-screen layer.
+  //
+  // A bare [role=dialog][aria-modal=true] matches both, and position: relative here
+  // — (0,3,0), above the host's (0,1,0) ._backdrop_* — demoted the lightbox to an
+  // in-flow block at the end of body. Every child inside it is absolutely
+  // positioned, so it collapsed to 0 height: no image, no mask, and its
+  // top: 20px; right: 20px close button floated outside the app frame (issue #34;
+  // 0.6.6, both themes — 0.6.5 carried no position in this rule and was fine).
+  const SEAT = "[role='presentation'] > [role='dialog'][aria-modal='true']"
+  const ARIA_MODAL = "[role='dialog'][aria-modal='true']"
+
+  it('scopes every aria-modal rule to the [role=presentation] seat', () => {
+    const offenders = rules.filter(
+      (rule) => rule.selector.includes(ARIA_MODAL) && !rule.selector.includes(SEAT),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'issue #34: a body-level full-screen dialog matches this selector too — keep the seat guard so the host keeps its own position',
+    ).toEqual([])
+  })
+})
+
 describe('popup readability floor inside the settings seam (issue #33 follow-up)', () => {
   // The settings remap turns `--dsw-alias-bg-layer-3` into `30% + 30% * frost`
   // (42% at the default frost 20) — correct for a settings CARD, unreadable for
