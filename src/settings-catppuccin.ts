@@ -44,6 +44,8 @@ import {
   DEFAULT_UPDATE_CHANNEL,
   GLASS_GAP_MAX,
   GLASS_GAP_MIN,
+  GLOW_SIZE_MAX,
+  GLOW_SIZE_MIN,
   GLOW_STRENGTH_MAX,
   defaultSettingsSection,
   type CatppuccinSettingsSection,
@@ -99,6 +101,9 @@ export function catppuccinSchemaFields(): Record<string, Schema> {
       // typed, so it must not be able to hold a value `sanitizeState` would
       // immediately clamp away (that gap would make every publish re-write).
       glowStrength: Schema.number().min(0).max(GLOW_STRENGTH_MAX).default(DEFAULT_GLASS.glowStrength),
+      // Issue #32 follow-up: the glow SPREAD. Same rule — the form must not be
+      // able to hold a value the sanitizer would clamp away on the next publish.
+      glowSize: Schema.number().min(GLOW_SIZE_MIN).max(GLOW_SIZE_MAX).default(DEFAULT_GLASS.glowSize),
       // Issue #26: the optional ground glows (the wash-only ground is the
       // shipped default, so this must default to the same value as
       // `DEFAULT_GLASS.glow` — the client reads "resolves to the shipped

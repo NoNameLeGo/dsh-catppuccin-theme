@@ -264,7 +264,9 @@ The **Glass** section lives on the **Settings → Catppuccin** page:
   **off by default** — they do not follow the panes, so each pane transmits a different slice
   of them and the top-left corner brightens visibly when on. Once on, a **glow strength** knob
   (0–200%, `100%` = that look and the default; the ceiling is a conservative
-  contrast budget on Latte, see `docs/issue-32-glow-tuning.md`) scales the two glows only — the wash is never touched, and at either end of the
+  contrast budget on Latte, see `docs/issue-32-glow-tuning.md`) and a **glow spread**
+  knob (100–250%, `100%` = the shipped radii; it only enlarges, so the light stops
+  piling up in one corner) scale the two glows only — the wash is never touched, and at either end of the
   brightness knob the ambience collapses and the glows fade out with it.
 - **In-place previews**: a **ground sample strip** in the glass section (drag brightness or
   toggle the glows and it changes on the spot — it is painted by the page ground's own rule);

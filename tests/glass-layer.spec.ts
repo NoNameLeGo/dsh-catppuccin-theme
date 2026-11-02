@@ -13,7 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { GLASS_ENABLED_KEY, GlassLayer } from '../src/client/glass/glass-layer.ts'
-import { GLOW_STRENGTH_MAX } from '../src/state.ts'
+import { GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX } from '../src/state.ts'
 
 const BLUR_KEY = 'dsh.catppuccin.glass.blur'
 const MODE_KEY = 'dsh.catppuccin.glass.mode'
@@ -105,6 +105,26 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
     expect(layer.getSnapshot().glowStrength).toBe(0)
   })
 
+  it('tracks the glow SPREAD too (issue #32 follow-up)', () => {
+    const layer = new GlassLayer(fakeCtx())
+    // 100% = the shipped radii, and the axis STARTS there (the knob only
+    // enlarges), so "unchanged" is always the left end.
+    expect(layer.getSnapshot().glowSize).toBe(100)
+
+    crossTabWrite(GLASS_ENABLED_KEY, 'true')
+    crossTabWrite('dsh.catppuccin.glass.glow', 'true')
+    crossTabWrite('dsh.catppuccin.glass.glow-size', '180')
+    expect(layer.getSnapshot().glowSize).toBe(180)
+    expect(document.documentElement.style.getPropertyValue('--dsh-glass-glow-size')).toBe('1.8')
+
+    // A floor is the part the old 0-100 arm would have destroyed: 40 is not a
+    // valid spread, it is the shipped 100 (see NUMERIC_BOUNDS).
+    layer.setGlowSize(40)
+    expect(layer.getSnapshot().glowSize).toBe(GLOW_SIZE_MIN)
+    layer.setGlowSize(999)
+    expect(layer.getSnapshot().glowSize).toBe(GLOW_SIZE_MAX)
+  })
+
   it('keeps the mode and enable-flag branches working', () => {
     const layer = new GlassLayer(fakeCtx())
 
@@ -160,6 +180,7 @@ describe('GlassLayer storage-event wiring (audit F1)', () => {
       '--dsh-glass-glow',
       '--dsh-glass-gap',
       '--dsh-glass-glow-strength',
+      '--dsh-glass-glow-size',
     ]) {
       expect(body!.style.getPropertyValue(property)).toBe(
         document.documentElement.style.getPropertyValue(property),

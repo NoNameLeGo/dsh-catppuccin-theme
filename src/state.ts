@@ -147,6 +147,24 @@ export interface GlassState {
    */
   glowStrength: number
   /**
+   * How far the two ground glows SPREAD, percent of the shipped 0.6.3 geometry
+   * (issue #32 follow-up, 100 = `58% 46%` / `48% 42%` as #25 drew them).
+   * `GLOW_SIZE_MIN` is 100 on purpose — the knob only ENLARGES, and its left
+   * end is the shipped look, so "unchanged" is always reachable without
+   * guessing. Enlarging keeps the peak alpha where it was (the radius is
+   * geometry, not opacity) and flattens the falloff, which is the answer to
+   * the reporter's real complaint: at 200% strength on Latte the TWO centre
+   * patches read as "a stuck-on colour dab"; spreading them does not touch the
+   * peak, it just stops the light piling up in the corner. It also LOWERS the
+   * per-pane variation issue #26 measured, because the gradient slope across a
+   * pane shrinks with the radius.
+   *
+   * Only meaningful while {@link glow} is on. Positions stay hardcoded — the
+   * "where is the light" axis is deliberately not exposed (see
+   * `docs/issue-32-glow-tuning.md` §2).
+   */
+  glowSize: number
+  /**
    * The optional ground GLOWS (issue #26, 2026-10-16). The page ground is
    * always a same-family wash (the "C" answer to the reporter's report: the
    * wash gives the glass something to transmit without localising the
@@ -212,17 +230,33 @@ export const GLASS_GAP_MIN = 4
  *  rail overlap the transcript's card, so the ceiling keeps that at 8px. */
 export const GLASS_GAP_MAX = 24
 /** Upper bound of the ground-glow strength (issue #32), in percent of the
- *  shipped look. Provisional: see {@link GlassState.glowStrength} — the number
- *  is a contrast budget, and the CDP run that pins it is still open. Above it
- *  the brand glow starts erasing the text contrast it is painted under (worst
- *  on Latte). The client and the Host schema both clamp to it so a hand-edited
- *  document cannot exceed it. */
+ *  shipped look. A contrast budget, not a taste number: the glows are painted
+ *  under text and Latte is the strictest scheme. Evidence now exists — the
+ *  reporter measured body text on Latte at 100% ≈ 6.1:1 and 200% ≈ 5.7:1
+ *  (both AA; the top-bar label 4.3 → 4.2 was already low before the glows), so
+ *  200% stays. Raise it only with a new measurement; see
+ *  {@link GlassState.glowStrength} and `docs/issue-32-glow-tuning.md` §6. */
 export const GLOW_STRENGTH_MAX = 200
 
 /** The shipped glow strength: 100% = exactly the two alphas issue #25
  *  introduced, so a profile that never opens the new knob renders the same
  *  ground it rendered in 0.6.6. */
 export const GLOW_STRENGTH_DEFAULT = 100
+
+/** Lower bound of the glow SPREAD (issue #32 follow-up). 100% = the shipped
+ *  0.6.3 geometry, i.e. the knob only enlarges: a tighter hotspot is what the
+ *  reporter complained about, so the axis starts at "unchanged". */
+export const GLOW_SIZE_MIN = 100
+
+/** Upper bound of the glow spread, in percent of the shipped radii (2.5x).
+ *  Above this the two ellipses cover the whole page and the field stops
+ *  reading as two light sources — it becomes an off-centre wash, which is the
+ *  wash's job, not the glows'. */
+export const GLOW_SIZE_MAX = 250
+
+/** The shipped glow spread: 100% = `58% 46%` / `48% 42%` exactly as #25 drew
+ *  them, so an untouched profile renders the 0.6.x ground. */
+export const GLOW_SIZE_DEFAULT = 100
 
 /** Shipped glass defaults — the single source of truth; the client glass layer
  *  (`src/client/glass/glass-layer.ts`) derives its knob defaults from here. */
@@ -237,6 +271,7 @@ export const DEFAULT_GLASS: GlassState = {
   // byte-identically to 0.6.x.
   gap: 12,
   glowStrength: GLOW_STRENGTH_DEFAULT,
+  glowSize: GLOW_SIZE_DEFAULT,
   glow: false,
 }
 
@@ -331,6 +366,10 @@ export function sanitizeState(input: unknown): CatppuccinState {
   // shipped 100% — a document written by 0.6.x has `glow: true` and no
   // strength, and must keep rendering exactly what it rendered then.
   state.glass.glowStrength = clampFinite(glass.glowStrength, 0, GLOW_STRENGTH_MAX, DEFAULT_GLASS.glowStrength)
+  // Issue #32 follow-up: the glow SPREAD. Its own range (100-250%) — a
+  // hand-edited document must not be able to collapse the two light sources
+  // into a pinhole or blow them up past the page.
+  state.glass.glowSize = clampFinite(glass.glowSize, GLOW_SIZE_MIN, GLOW_SIZE_MAX, DEFAULT_GLASS.glowSize)
   // Issue #26: boolean-only, shipped OFF (the wash-only ground is the fix).
   state.glass.glow = glass.glow === true
 
@@ -378,6 +417,7 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.brightness === expected.glass.brightness
     && state.glass.gap === expected.glass.gap
     && state.glass.glowStrength === expected.glass.glowStrength
+    && state.glass.glowSize === expected.glass.glowSize
     && state.glass.glow === expected.glass.glow
     && state.autoCheck === expected.autoCheck
     && state.updateChannel === expected.updateChannel
@@ -435,6 +475,7 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.brightness === b.glass.brightness
     && a.glass.gap === b.glass.gap
     && a.glass.glowStrength === b.glass.glowStrength
+    && a.glass.glowSize === b.glass.glowSize
     && a.glass.glow === b.glass.glow
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
@@ -508,6 +549,7 @@ export function replayLocalChanges(
   carryGlass('brightness')
   carryGlass('gap')
   carryGlass('glowStrength')
+  carryGlass('glowSize')
   carryGlass('glow')
   carry('autoCheck')
   carry('updateChannel')

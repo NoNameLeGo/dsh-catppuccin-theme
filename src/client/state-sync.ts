@@ -308,6 +308,8 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
     // the field, the document keeps its schema default, and the next adoption
     // drags the slider back to 100 a second after every move.
     { op: 'set', path: ['glass', 'glowStrength'], value: section.glass.glowStrength },
+    // Issue #32 follow-up: the glow spread rides the same list.
+    { op: 'set', path: ['glass', 'glowSize'], value: section.glass.glowSize },
     // Issue #26: the ground-glow switch is part of the durable section like every
     // other knob. MISSING HERE IS SILENT: the write simply never carries the
     // field, the document keeps its schema default, and the client's next

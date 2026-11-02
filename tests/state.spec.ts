@@ -44,6 +44,7 @@ describe('durable state defaults', () => {
         brightness: 50,
         gap: 12,
         glowStrength: 100,
+        glowSize: 100,
         glow: false,
       },
       autoCheck: true,
@@ -292,7 +293,7 @@ describe('replayLocalChanges (issue #30)', () => {
   // shipped defaults ⇒ the document became `flavor: off` / glass off / mica.
   const documentSection: CatppuccinSettingsSection = {
     flavor: 'catppuccin-frappe',
-    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glowStrength: 150, glow: true },
+    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glowStrength: 150, glowSize: 180, glow: true },
     autoCheck: false,
     updateChannel: 'beta',
     overrides: { '--dsw-static-blue-500': '#89b4fa' },
@@ -363,6 +364,7 @@ describe('replayLocalChanges (issue #30)', () => {
       'glass.brightness': (s) => ({ ...s, glass: { ...s.glass, brightness: 100 } }),
       'glass.gap': (s) => ({ ...s, glass: { ...s.glass, gap: 20 } }),
       'glass.glowStrength': (s) => ({ ...s, glass: { ...s.glass, glowStrength: 180 } }),
+      'glass.glowSize': (s) => ({ ...s, glass: { ...s.glass, glowSize: 220 } }),
       'glass.glow': (s) => ({ ...s, glass: { ...s.glass, glow: true } }),
       autoCheck: (s) => ({ ...s, autoCheck: false }),
       updateChannel: (s) => ({ ...s, updateChannel: 'beta' }),

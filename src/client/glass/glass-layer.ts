@@ -34,7 +34,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
 import { GLASS_CSS_TEXT } from './glass-css.gen.ts'
-import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_STRENGTH_MAX, type GlassState } from '../../state.ts'
+import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -59,6 +59,7 @@ const GLASS_KNOB_PROPERTIES = [
   '--dsh-glass-glow',
   '--dsh-glass-gap',
   '--dsh-glass-glow-strength',
+  '--dsh-glass-glow-size',
 ] as const
 
 /** localStorage key carrying the layer enable flag. */
@@ -105,6 +106,14 @@ export interface GlassSettings {
    */
   glowStrength: number
   /**
+   * How far the two ground glows SPREAD, percent of the shipped radii (issue
+   * #32 follow-up): 100 = `58% 46%` / `48% 42%` exactly as #25 drew them, and
+   * the knob only enlarges up to `GLOW_SIZE_MAX`. Radius is geometry, not
+   * opacity, so the peak stays where it was and the falloff just flattens —
+   * which is the fix for "the light piles up in the top-left corner".
+   */
+  glowSize: number
+  /**
    * Enable the two static ground glows (issue #26). OFF by default: the page
    * ground is the same-family WASH only, because the glows are fixed to screen
    * coordinates and every translucent pane therefore transmits a different
@@ -139,6 +148,7 @@ export const SETTINGS_DEFAULTS: GlassSettings = {
   brightness: DEFAULT_GLASS.brightness,
   gap: DEFAULT_GLASS.gap,
   glowStrength: DEFAULT_GLASS.glowStrength,
+  glowSize: DEFAULT_GLASS.glowSize,
   glow: DEFAULT_GLASS.glow,
 }
 
@@ -149,6 +159,7 @@ const NUMERIC_KEYS = {
   brightness: 'dsh.catppuccin.glass.brightness',
   gap: 'dsh.catppuccin.glass.gap',
   glowStrength: 'dsh.catppuccin.glass.glow-strength',
+  glowSize: 'dsh.catppuccin.glass.glow-size',
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
 
@@ -165,6 +176,9 @@ const NUMERIC_BOUNDS: Record<NumericKey, readonly [number, number]> = {
   // taste number) — folding it into the 0-100 arm would snap the slider back to
   // 100 the moment it is dragged past it.
   glowStrength: [0, GLOW_STRENGTH_MAX],
+  // Issue #32 follow-up: the spread is NOT zero-based either — 100% is the
+  // shipped geometry and the knob only enlarges, so the floor is deliberate.
+  glowSize: [GLOW_SIZE_MIN, GLOW_SIZE_MAX],
 }
 
 /** The localStorage names of the numeric knobs — the reverse of
@@ -365,6 +379,7 @@ export class GlassLayer {
       brightness: this.settings.brightness,
       gap: this.settings.gap,
       glowStrength: this.settings.glowStrength,
+      glowSize: this.settings.glowSize,
       glow: this.settings.glow,
     }
   }
@@ -381,6 +396,7 @@ export class GlassLayer {
       brightness: clampSetting('brightness', remote.brightness),
       gap: clampSetting('gap', remote.gap),
       glowStrength: clampSetting('glowStrength', remote.glowStrength),
+      glowSize: clampSetting('glowSize', remote.glowSize),
       glow: remote.glow === true,
     }
     writeEnabled(this.enabled)
@@ -390,6 +406,7 @@ export class GlassLayer {
     writeSetting('brightness', this.settings.brightness)
     writeSetting('gap', this.settings.gap)
     writeSetting('glowStrength', this.settings.glowStrength)
+    writeSetting('glowSize', this.settings.glowSize)
     writeGlow(this.settings.glow)
     this.sync()
   }
@@ -479,6 +496,19 @@ export class GlassLayer {
     this.publish()
   }
 
+  /** Set the ground-glow SPREAD, percent of the shipped radii (issue #32
+   *  follow-up). Geometry only: the peak alpha stays put, the falloff flattens
+   *  — and positions stay hardcoded (no "where" axis, see
+   *  `docs/issue-32-glow-tuning.md` §2). */
+  setGlowSize(value: number): void {
+    const next = clampSetting('glowSize', value)
+    if (next === this.settings.glowSize) return
+    this.settings.glowSize = next
+    writeSetting('glowSize', next)
+    if (this.enabled) this.applySettings()
+    this.publish()
+  }
+
   /** Restore every knob to the shipped defaults (persisted immediately). */
   resetDefaults(): void {
     this.settings = { ...SETTINGS_DEFAULTS }
@@ -488,6 +518,7 @@ export class GlassLayer {
     writeSetting('brightness', this.settings.brightness)
     writeSetting('gap', this.settings.gap)
     writeSetting('glowStrength', this.settings.glowStrength)
+    writeSetting('glowSize', this.settings.glowSize)
     writeGlow(this.settings.glow)
     if (this.enabled) this.applySettings()
     this.publish()
@@ -502,6 +533,7 @@ export class GlassLayer {
       brightness: readSetting('brightness'),
       gap: readSetting('gap'),
       glowStrength: readSetting('glowStrength'),
+      glowSize: readSetting('glowSize'),
       glow: readGlow(),
     }
   }
@@ -555,6 +587,11 @@ export class GlassLayer {
       // how much). Read inline in the `background` declaration, same #25
       // invalidation trap as above.
       '--dsh-glass-glow-strength': String(this.settings.glowStrength / 100),
+      // Ground-glow SPREAD (issue #32 follow-up): a multiplier on the two
+      // radial SIZES only. 100% = `58% 46%` / `48% 42%` as #25 shipped them.
+      // Same #25 trap — read inline in `background`, never through an
+      // intermediate property.
+      '--dsh-glass-glow-size': String(this.settings.glowSize / 100),
     }
     for (const [property, value] of Object.entries(knobs)) style.setProperty(property, value)
 

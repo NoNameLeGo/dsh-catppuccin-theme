@@ -24,7 +24,7 @@ import { ISSUES_URL, LinksRow, REPO_URL, type LinksRowProps } from '../src/clien
 import { UPDATE_RETRY_AFTER_MS, UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
 import type { UpdateChannel } from '../src/update-check.ts'
 import { zh, type CatppuccinKey } from '../src/client/locales.ts'
-import { GLOW_STRENGTH_MAX, type ShikiStyle } from '../src/state.ts'
+import { GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type ShikiStyle } from '../src/state.ts'
 
 afterEach(cleanup)
 
@@ -348,6 +348,8 @@ function makeGlassRow(state: {
   gap?: number
   /** Issue #32 ground-glow strength, percent of the shipped look. */
   glowStrength?: number
+  /** Issue #32 follow-up glow spread, percent of the shipped radii. */
+  glowSize?: number
   dark: boolean
 }) {
   // The glow switch is issue #26's and the strength is #32's; unset values
@@ -356,7 +358,7 @@ function makeGlassRow(state: {
   // hoisted ON PURPOSE: `useSyncExternalStore` needs a cached snapshot, and a
   // fresh object per call is an infinite re-render ("getSnapshot should be
   // cached") — every GlassRow test in this file breaks if this moves back inline.
-  const snapshot = { glow: false, gap: 12, glowStrength: 100, ...state }
+  const snapshot = { glow: false, gap: 12, glowStrength: 100, glowSize: 100, ...state }
   return {
     t,
     getState: () => snapshot,
@@ -369,6 +371,7 @@ function makeGlassRow(state: {
     setGap: vi.fn(),
     setGlow: vi.fn(),
     setGlowStrength: vi.fn(),
+    setGlowSize: vi.fn(),
     resetDefaults: vi.fn(),
   } as unknown as GlassRowProps
 }
@@ -512,6 +515,29 @@ describe('GlassRow glow strength (issue #32)', () => {
     expect(slider.max).toBe(String(GLOW_STRENGTH_MAX))
     fireEvent.change(slider, { target: { value: '160' } })
     expect((props as unknown as { setGlowStrength: (value: number) => void }).setGlowStrength).toHaveBeenCalledWith(160)
+  })
+})
+
+describe('GlassRow glow spread (issue #32 follow-up)', () => {
+  // Same conditional as the strength knob: no glows, no knob. The axis is
+  // 100-250 on purpose — the left end IS the shipped geometry, because the
+  // reporter's problem was the light piling up in a corner, not being too big.
+  it('hides the knob while the glows are off', () => {
+    render(<GlassRow {...makeGlassRow({ enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, dark: true })} />)
+    expect(screen.queryByRole('slider', { name: t('glass.glowSize') })).toBeNull()
+  })
+
+  it('offers 100-250% while they are on, and writes through', () => {
+    const props = makeGlassRow({
+      enabled: true, mode: 'mica', blur: 5, frost: 20, brightness: 50, glow: true, glowStrength: 150, glowSize: 100, dark: true,
+    })
+    render(<GlassRow {...props} />)
+    const slider = screen.getByRole('slider', { name: t('glass.glowSize') }) as HTMLInputElement
+    expect(slider.value).toBe('100')
+    expect(slider.min).toBe(String(GLOW_SIZE_MIN))
+    expect(slider.max).toBe(String(GLOW_SIZE_MAX))
+    fireEvent.change(slider, { target: { value: '200' } })
+    expect((props as unknown as { setGlowSize: (value: number) => void }).setGlowSize).toHaveBeenCalledWith(200)
   })
 })
 

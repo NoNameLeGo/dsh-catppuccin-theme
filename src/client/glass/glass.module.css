@@ -182,12 +182,17 @@
        the knob both stay INLINE here — the #25 trap: a weight that travels
        through an intermediate custom property does not recompute when the
        brightness/glow variables change. */
-    radial-gradient(58% 46% at 18% 6%,
+    /* The ellipse RADII carry `--dsh-glass-glow-size` (issue #32 follow-up,
+       100% = these two numbers): geometry only, so enlarging spreads the same
+       peak over more of the page instead of making it brighter. Positions
+       (`at 18% 6%`) stay literals — "where the light is" is deliberately not a
+       knob (it is exactly the axis issue #26 got burned on). */
+    radial-gradient(calc(58% * var(--dsh-glass-glow-size, 1)) calc(46% * var(--dsh-glass-glow-size, 1)) at 18% 6%,
       color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color)
         calc(12% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
           * var(--dsh-glass-glow-strength, 1)), transparent), transparent 68%),
-    /* Glow 2 — the success hue, top-right; gated the same way. */
-    radial-gradient(48% 42% at 86% 14%,
+    /* Glow 2 — the success hue, top-right; gated and scaled the same way. */
+    radial-gradient(calc(48% * var(--dsh-glass-glow-size, 1)) calc(42% * var(--dsh-glass-glow-size, 1)) at 86% 14%,
       color-mix(in srgb, var(--dsw-alias-state-success-tertiary)
         calc(10% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
           * var(--dsh-glass-glow-strength, 1)), transparent), transparent 62%),

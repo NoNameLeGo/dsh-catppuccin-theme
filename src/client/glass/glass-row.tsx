@@ -16,7 +16,7 @@ import { useId, useState, useSyncExternalStore } from 'react'
 import { Button, SegmentedControl, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
-import { GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_STRENGTH_MAX } from '../../state.ts'
+import { GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX } from '../../state.ts'
 import type { CatppuccinKey } from '../locales.ts'
 import { HelpBadge } from '../HelpBadge.tsx'
 import css from './GlassRow.module.css'
@@ -45,6 +45,9 @@ export interface GlassRowInjected {
   /** Set the ground-glow strength, 0-`GLOW_STRENGTH_MAX`% of the shipped look
    *  (issue #32; 100 = the 0.6.3 alphas). */
   setGlowStrength: (value: number) => void
+  /** Set the ground-glow SPREAD, 100-250% of the shipped radii (issue #32
+   *  follow-up; 100 = unchanged). */
+  setGlowSize: (value: number) => void
   /** Restore every knob to the shipped defaults. */
   resetDefaults: () => void
   /** Close the settings surface so the user can look at the real main UI. The
@@ -179,9 +182,9 @@ const GAP_PRESETS: readonly { id: string; key: CatppuccinKey; gap: number }[] = 
  * @param props - composed slot props.
  * @returns the settings row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, setGlowStrength, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, setGlowStrength, setGlowSize, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, gap, glow, glowStrength, dark } = state
+  const { enabled, mode, blur, frost, brightness, gap, glow, glowStrength, glowSize, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -304,15 +307,31 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
                 look, so a user who only drags this one number still knows
                 where "unchanged" is. */}
             {glow && (
-              <Knob
-                label={t('glass.glowStrength')}
-                value={glowStrength}
-                min={0}
-                max={GLOW_STRENGTH_MAX}
-                step={5}
-                unit="%"
-                onChange={setGlowStrength}
-              />
+              <>
+                <Knob
+                  label={t('glass.glowStrength')}
+                  value={glowStrength}
+                  min={0}
+                  max={GLOW_STRENGTH_MAX}
+                  step={5}
+                  unit="%"
+                  onChange={setGlowStrength}
+                />
+                {/* Issue #32 follow-up: how far they SPREAD. Same conditional:
+                    a spread knob over switched-off glows is a dead control. The
+                    axis starts at 100% (= the shipped geometry) on purpose —
+                    the whole point is that the light stops piling up in one
+                    corner, so "smaller than shipped" is not a useful end. */}
+                <Knob
+                  label={t('glass.glowSize')}
+                  value={glowSize}
+                  min={GLOW_SIZE_MIN}
+                  max={GLOW_SIZE_MAX}
+                  step={5}
+                  unit="%"
+                  onChange={setGlowSize}
+                />
+              </>
             )}
             {/* Ground sample: brightness and the glow switch move the PAGE
                 ground, which this dialog covers with its own bluish fill — so

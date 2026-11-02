@@ -480,6 +480,34 @@ describe('ground ambience (issue #25, revised by #26)', () => {
     ).not.toContain('--dsh-glass-glow-strength')
   })
 
+  it('spreads both glows through the size knob, never moving their seats (issue #32 follow-up)', () => {
+    // The second half of issue #32: the reporter's complaint was that at high
+    // strength the light PILES UP in one corner ("太集中"), so the fix is
+    // geometry, not more alpha. Two invariants: the multiplier rides the RADIUS
+    // of both ellipses (a scaled alpha would just re-create the complaint), and
+    // the `at x y` seats stay LITERALS — "where the light is" is the axis issue
+    // #26 got burned on and stays unexposed.
+    const radials = (ground!.decls.match(/radial-gradient\([^;]*?(?=,\s*(?:radial|linear)-gradient|$)/g) ?? [])
+      .map((part) => part.trim())
+    expect(radials.length, 'expected exactly the two glow layers').toBe(2)
+    const seats = ['at 18% 6%', 'at 86% 14%']
+    for (const [index, radial] of radials.entries()) {
+      const seat = seats[index]!
+      expect(radial, `glow ${index + 1} lost its fixed seat`).toContain(seat)
+      // Split on the seat (never on commas: `var(--x, 1)` carries its own).
+      const [geometry, stops] = radial.split(seat)
+      expect(geometry, `glow ${index + 1} ignores the size knob`).toContain('var(--dsh-glass-glow-size')
+      // Size must not be smuggled into the colour stops either: alpha is the
+      // strength knob's job, and mixing them makes "100% = the 0.6.3 look"
+      // untrue.
+      expect(stops, `glow ${index + 1} scales its alpha with the size knob`).not.toContain(
+        '--dsh-glass-glow-size',
+      )
+    }
+    const wash = /linear-gradient\(([^;]*)\)\s*;/.exec(ground!.decls)?.[1] ?? ''
+    expect(wash, 'the wash picked up the glow size').not.toContain('--dsh-glass-glow-size')
+  })
+
   it('ships the glow switch OFF — the reported look is wash-only', () => {
     // The default IS the fix: a user who changes nothing gets the wash-only
     // ground. Reading the same constant the layer writes into
