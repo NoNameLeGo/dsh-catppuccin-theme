@@ -1380,8 +1380,22 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    is clipped by the panel's `overflow:hidden`: right-aligned menus (the row
    "⋯") vanish entirely — the reporter's「三个点更多打不开」— while the others
    appear far from their trigger —「悬浮菜单会乱跑」. Same plane recipe as
-   issue #19 (fill AND blur move together; `isolation` is not a backdrop root). */
-[data-dsh-glass-float] [role='dialog'][aria-modal='true'] {
+   issue #19 (fill AND blur move together; `isolation` is not a backdrop root).
+
+   issue #34 (2026-11-02): the seat guard `[role='presentation'] >` is load-bearing.
+   A bare `[role='dialog'][aria-modal='true']` also matches DSH's IMAGE LIGHTBOX,
+   which portals ONE such element straight into `document.body` and relies on its own
+   `position: fixed; inset: 0` to BE the full-screen layer (`dsh-client-ui-attachment`'s
+   composer thumbnail -> primitives' `ImageLightbox`). `position: relative` here then
+   demoted that layer to an in-flow block at the end of `body`: every child inside it is
+   absolutely positioned, so it collapsed to 0 height, image and mask vanished with it,
+   and its `top: 20px; right: 20px` close button floated outside the app frame (reported
+   in both themes on 0.6.6, gone again on 0.6.5). Host markup, both surfaces: the
+   settings shell (`dsh-client-ui-settings-general`: `.overlay[role=presentation] >
+   .panel`) and the primitives `Modal` (`.root[role=presentation] > .dialog`) both seat
+   the panel this way — the lightbox does not. Scoping to the seat keeps issue #33's fix
+   where it belongs and leaves body-level full-screen overlays to the host. */
+[data-dsh-glass-float] [role='presentation'] > [role='dialog'][aria-modal='true'] {
   /* Zero paint on the panel: it is the excluded containing block. */
   position: relative;
   isolation: isolate;
@@ -1406,7 +1420,7 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 /* The panel's material plane (issue #33). `inset: 0` = padding box, i.e. 1px
    less coverage than the element background it replaces; the rim is the
    translucent `--dsh-glass-rim`, so that 1px is not observable. */
-[data-dsh-glass-float] [role='dialog'][aria-modal='true']::before {
+[data-dsh-glass-float] [role='presentation'] > [role='dialog'][aria-modal='true']::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1724,8 +1738,11 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    radius stays whatever the host declares (no 20px step in compat).
    issue #33: same plane split as float — the panel hosts third-party
    `settings.section` content whose menus are `position:fixed` in viewport
-   coordinates, so it must not be a containing block. */
-[data-dsh-glass-compat] [role='dialog'][aria-modal='true'] {
+   coordinates, so it must not be a containing block.
+   issue #34: same seat guard as float — only the `[role='presentation'] >` modal panel
+   is ours; body-level full-screen dialogs (the image lightbox) keep the host's own
+   `position`. */
+[data-dsh-glass-compat] [role='presentation'] > [role='dialog'][aria-modal='true'] {
   position: relative;
   isolation: isolate;
   background: none;
@@ -1734,7 +1751,7 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
   box-shadow: var(--dsh-glass-edge), var(--dsh-glass-drop);
 }
 
-[data-dsh-glass-compat] [role='dialog'][aria-modal='true']::before {
+[data-dsh-glass-compat] [role='presentation'] > [role='dialog'][aria-modal='true']::before {
   content: '';
   position: absolute;
   inset: 0;
