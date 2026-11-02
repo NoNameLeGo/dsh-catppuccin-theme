@@ -343,10 +343,15 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.6`**（2026-11-01；tag `v0.6.6` → Publish run `41320146274` success、
-> CI `41320142979` 双绿、registry `dist-tags.latest` 已翻到 `0.6.6`、`versions['0.6.6'].dist.attestations`
-> 为 true、制品实测含 `--dsh-glass-glow-strength` 与 `--dsh-glass-gap`）=
-> `0.6.6-beta.1` **转正** + 两条上游建议同批：**issue #33**（设置面板里第三方 `position:fixed`
+> ⚠️ **发版版本号**：`latest` = **`0.6.7`**（2026-11-03；tag `v0.6.7` → Publish run `41484214188` success、
+> CI `41484208914` 双绿、registry `dist-tags.latest` 已翻到 `0.6.7`、`versions['0.6.7'].dist.attestations`
+> 为 true、制品实测含 4 条座位守卫规则 / 0 条裸 `[role=dialog][aria-modal]` / 6 处 `--dsh-glass-glow-size`）=
+> **issue #34**（座位守卫：图片预览层还给宿主，PR #35 by `aurasuisui`，squash `e117509`）+
+> **issue #32 第二轮**（地面光斑范围旋钮 100–250%，默认 100%）。**测试 403 全绿**（22 文件）。
+> ⚠️ **发布首次核对推迟约 10 分钟**：npm 打完 `+ @nonamelego/dsh-catppuccin@0.6.7` 后登记处仍报
+> `latest: 0.6.6`、制品 tarball 404，且 npmmirror 与 read API 一致为旧值——**「秒翻」不是常态，别据此重发**。
+> 上一版 `latest` = `0.6.6`（2026-11-01；Publish run `41320146274`）= `0.6.6-beta.1` **转正** +
+> 两条上游建议同批：**issue #33**（设置面板里第三方 `position:fixed`
 > 弹层不再被面板的 `backdrop-filter` 重新锚定 / 弹层过透 / 吸顶条圆角）、**issue #31（上游新号）**
 > （云母模式卡片间距滑条 4–24px，默认 12）、**issue #32**（地面光斑强度 0–200%，100% = 默认）。
 > **测试 398 全绿**（22 文件）。**三条 issue 均已回帖**（#33 `6559838520` / #31 `6559838906` /
