@@ -8,6 +8,20 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **宿主的图片预览不再被压成流内元素（issue #34，2026-11-02）**。0.6.6 的 #33 修复给
+  `[role='dialog'][aria-modal='true']` 补了 `position: relative`，而宿主的图片预览
+  （`dsh-client-ui-attachment` 的输入框缩略图 → primitives 的 `ImageLightbox`）正是**把整个
+  全屏层做成一个**这样的元素、portal 到 `document.body`，靠它自己的 `position: fixed; inset: 0`
+  当浮层。特异性 (0,3,0) 压过宿主的 (0,1,0) 之后，预览层变成 `#root` 之后的流内块：子元素全是
+  `absolute` ⇒ 高度塌成 0，图片与遮罩一起消失，`top/right: 20px` 的关闭按钮孤零零飘在应用框外
+  （深浅主题表现相同，0.6.5 无此规则故正常）。
+  **修法 = 座位守卫**：两条规则收窄为 `[role='presentation'] > [role='dialog'][aria-modal='true']` ——
+  设置壳（`dsh-client-ui-settings-general`：`.overlay[role=presentation] > .panel`）与 primitives
+  `Modal`（`.root[role=presentation] > .dialog`）都是这个座位，图片预览不是。
+  护栏 = `tests/glass-css.spec.ts` 的 `dialog seat guard` 组（变异验证：去掉守卫 → 4 条规则被点名，实测会红）。
+
 ## [0.6.6] - 2026-11-01
 
 > 本版 = **`0.6.6-beta.1`** 转正（预发布按仓库惯例不单独落版本节）+ 两条上游建议同批落地。
