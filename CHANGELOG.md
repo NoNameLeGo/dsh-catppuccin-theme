@@ -8,6 +8,25 @@
 
 ## [Unreleased]
 
+### 变更
+
+- **声明兼容 DSH `0.2.1-rc.5`（2026-11-03）**。`dshReleases` / `dshOperations` 各加一条
+  `0.2.1-rc.5`（install / start = `passed`，依据官方桌面壳 `0.2.1-rc.5` 真机实测：启动正常、
+  token 逐项生效、顶栏 / 输入卡 / dock / 菜单 / 设置壳逐面玻璃配方完整）。
+  动机不是「新版本有变化」，而是**商铺兼容窗口掉出了**：上游 `0.2.2-alpha.2` 进了 `alpha`
+  通道后，窗口锚点被抬到 `0.2.2-alpha.2`，三版窗口 = `rc.4 / rc.5 / 0.2.2-alpha.2`，
+  我们原先最高只声明 `rc.3` ⇒ 命中 0。复算脚本 `.debug/dsh-store/verify-manifest.mjs`。
+  本次**零适配**：`--dsw-*` 全表、前端构建产物、`--dsh-*` 变量、`data-*` 钩子、依赖的 class
+  后缀逐项不变（见 `docs/issue-0.2.1-rc.5-adaptation-audit.md`）。
+
+### 修复
+
+- **旧状态迁移成功时不再往 stdout 打日志（2026-11-03）**。`scheduleLegacyMigration` 原本在迁移成功后
+  `console.info` 一行；`console.info` 走 **stdout**，而 stdout 是 ACP 的传输通道（`dsh --profile acp`
+  在其上跑 JSON-RPC）。上游 `0.2.1-rc.4` 修的就是同类问题（诊断混入 stdout）。本插件只声明
+  `profiles: ["web","desktop"]`，默认进不了 acp profile，所以这是**消除潜在风险**而非修复线上故障；
+  迁移结果本来就能从 settings 文档里看到，删掉不损失诊断信息。失败路径仍走 `console.warn`（stderr）。
+
 ## [0.6.7] - 2026-11-03
 
 > 本版 = **issue #34**（座位守卫，图片预览层还给宿主）+ **issue #32 第二轮**（地面光斑范围旋钮）。

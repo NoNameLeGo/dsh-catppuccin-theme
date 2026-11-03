@@ -340,11 +340,14 @@ console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColo
 | DSH | `>=0.1.7-rc.1`（设置页消费官方 `dsh-client-ui-primitives` 的 `SegmentedControl`，该导出自 `0.1.7-alpha.1` 起才有；旧的 `settingsScope` 通道代码保留，但 0.1.5 / 0.1.6 宿主不再声明支持） |
 | Node.js | `>=20` |
 | Profile | `web`（Web GUI 与两个桌面壳都启动 web 界面，共用本插件）；桌面端默认 profile 名为 `desktop`（已声明） |
-| 已验证的具体版本 | `0.2.1-rc.2`：官方桌面壳真机验收——插件正常启动、token 逐项生效、玻璃配方完整，**改设置真写回 `cordis.patch.yml`（修复前不写）**、重启后从文档采纳回来（[审计](docs/desktop-0.2.1-adaptation-audit.md)）；`0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e（**历史记录**，已低于当前兼容下限） |
+| 已验证的具体版本 | `0.2.1-rc.5`：官方桌面壳真机验收——启动正常、token 逐项生效、玻璃配方完整（顶栏 / 输入卡 / dock / 菜单 / 设置壳逐面实测），`--dsw-*` 全表与前端构建产物**逐字节不变**（[审计](docs/issue-0.2.1-rc.5-adaptation-audit.md)）；`0.2.1-rc.3`：三个新 More 菜单自动继承玻璃、视图标签行与 `-95/107` 滚动补偿不冲突（[审计](docs/issue-0.2.1-rc.3-adaptation-audit.md)）；`0.2.1-rc.2`：官方桌面壳真机验收——插件正常启动、token 逐项生效、玻璃配方完整，**改设置真写回 `cordis.patch.yml`（修复前不写）**、重启后从文档采纳回来（[审计](docs/desktop-0.2.1-adaptation-audit.md)）；`0.2.0-rc.2`：官方桌面壳自带运行时的启动级 e2e（19/19）、真机桌面窗口像素与标题栏取色链路、`configForms` 落盘（[审计](docs/desktop-0.2.0-adaptation-audit.md)）；`0.1.7-rc.1`：真实 profile 上完成安装、启动、改设置落盘与重启恢复（[证据](docs/issue-15-settings-seam-0.1.7.md)）；`0.1.7-rc.2`：启动级 e2e 与玻璃层的真页采样（issue #16 / #17）；`0.1.5-rc.1`：按 CI 口径复跑的启动级 e2e（**历史记录**，已低于当前兼容下限） |
 
-`package.json` 的 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）**只声明当前支持的三条**：
-`0.1.7-rc.1` / `0.2.0-rc.2` / `0.2.1-rc.2`（兼容下限 `>=0.1.7-rc.1`）；更早的 `0.1.5-rc.*`
-与 `0.1.7-alpha.*` 是**当时**的验证记录，不在声明内。
+`package.json` 的 `dsh.compatibility`（`dsh` / `dshReleases` / `dshOperations`）声明清单以文件为准，
+当前是 `0.1.7-rc.1` / `0.2.0-rc.2` / `0.2.1-rc.2` / `0.2.1-rc.3` / `0.2.1-rc.5`（兼容下限 `>=0.1.7-rc.1`）；
+更早的 `0.1.5-rc.*` 与 `0.1.7-alpha.*` 是**当时**的验证记录，不在声明内。
+⚠️ 商铺按「上游最新三版」窗口判定（`latest` / `next` / `alpha` 里版本号最高的那个往下数三版），
+**窗口内至少命中一条**才不会显示「兼容未声明」——所以上游每发一版都要跟，见
+`docs/issue-0.2.1-rc.5-adaptation-audit.md` §6.1。
 
 色彩覆盖以 `dsh-v0.2.0-rc.2` 的 `design-platform.css` 为基线：每方案 190 个 `--dsw-*` token（static 77 /
 alias 101 / specific 11 / 非三族 1）全覆盖，含 0.2.0 新增的 17 个 alias。

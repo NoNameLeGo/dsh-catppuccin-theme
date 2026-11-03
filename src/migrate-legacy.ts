@@ -136,10 +136,12 @@ export function scheduleLegacyMigration(
           claimed = false
           return
         }
+        // No success log on purpose: `console.info` writes to stdout, and stdout
+        // is the ACP transport (`dsh --profile acp` speaks JSON-RPC over it).
+        // Upstream fixed the same class of bug in 0.2.1-rc.4 (a diagnostic
+        // `console.info` leaking into stdout). The migration is observable from
+        // the settings document itself, so silence costs no diagnostics.
         settled = true
-        if (outcome === 'migrated') {
-          console.info(`[dsh-catppuccin] migrated the legacy state file into "${ns}"`)
-        }
       })
       .catch((error: unknown) => {
         settled = true
