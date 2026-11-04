@@ -8,6 +8,33 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-04
+
+> 本版 = **issue #36**（跟随系统深/浅色）+ 前述两条未发条目（DSH `0.2.1-rc.5` 兼容声明、迁移成功不再写 stdout）。
+> 特性按 `AGENTS.md` 走 `0.7.0`（未挤进 `0.6.x`）。
+
+### 新增
+
+- **跟随系统深色/浅色（issue #36，2026-11-04）**。以前选了风味就把 `ui-theme` 的偏好钉成风味 id，
+  于是 Windows 切深浅色界面不动；风味行里那个「跟随系统」其实是**回退官方主题**，不是「用 Catppuccin 跟着系统走」。
+  现在多了一个独立开关：浅色端固定 **Latte**（四风味里唯一浅色），深色端在 Frappé / Macchiato / Mocha 里选
+  （默认 Mocha），随 OS 自动切换。
+  - **为什么不是「监听 `prefers-color-scheme` 再 setTheme」**：`ui-theme` 的媒体监听器首行就
+    `if (preference !== 'system') return`，而 `ThemePresenter` 把 `data-ds-theme-source` 写成
+    `system` 或解析后的 scheme、壳 preload 再镜像成 `nativeTheme.themeSource` —— 一旦切风味 id，
+    渲染进程的 `prefers-color-scheme` 就被钉死，监听器再也不会触发。**注册主题也表达不了双端**：
+    `ThemeDefinition.colorScheme` 是单值。
+  - **做法**：偏好留在 `system`（OS 监听、原生标题栏、窗口按钮全部继续跟随），用
+    `theme.overrideTokens(source, { token: { light, dark } })` 叠一层两套色板；`composeActive()` 按
+    `active.colorScheme` 取对应一半，Presenter 内联写到 `body`。宿主没有 `overrideTokens` 时**不渲染**
+    这个开关（而不是渲染了点了没反应）。
+  - **语义改名**：原来的「跟随系统」改为 **「关闭（官方主题）」**，与新开关彻底分开。
+  - 新持久化字段 `followSystem` / `followDark`（不改 `flavor` 的值域）；`off` 恒等于「不跟随」；
+    跟随期间既不改写你原来的官方浅/深色偏好，也不把 `system` 记成你的偏好。
+  - 首帧预涂同步跟上：跟随模式注入的 `<style>` 由两段 `@media (prefers-color-scheme)` 组成，
+    body 脚本改用 `matchMedia`，不闪官方深色。
+  - 方案与取证：`docs/issue-36-follow-system.md`。
+
 ### 变更
 
 - **声明兼容 DSH `0.2.1-rc.5`（2026-11-03）**。`dshReleases` / `dshOperations` 各加一条
@@ -1527,7 +1554,9 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.7...v0.7.0
+[0.6.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3...v0.6.4
