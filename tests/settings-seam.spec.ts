@@ -117,7 +117,7 @@ function leaves(json: SchemaJson): { volatile: string[]; plain: string[] } {
   return { volatile: volatilePaths, plain: plainPaths }
 }
 
-const CONFIG_FIELDS = ['flavor', 'autoCheck', 'updateChannel', 'overrides', 'shikiStyle']
+const CONFIG_FIELDS = ['flavor', 'followSystem', 'followDark', 'autoCheck', 'updateChannel', 'overrides', 'shikiStyle']
 const GLASS_FIELDS = ['enabled', 'mode', 'blur', 'frost', 'brightness', 'gap', 'glowStrength', 'glowSize', 'glow']
 
 describe('maybeVolatile feature detection', () => {

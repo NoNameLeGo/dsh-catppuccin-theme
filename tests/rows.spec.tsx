@@ -24,7 +24,7 @@ import { ISSUES_URL, LinksRow, REPO_URL, type LinksRowProps } from '../src/clien
 import { UPDATE_RETRY_AFTER_MS, UpdateRow, type UpdateRowProps } from '../src/client/UpdateRow.tsx'
 import type { UpdateChannel } from '../src/update-check.ts'
 import { zh, type CatppuccinKey } from '../src/client/locales.ts'
-import { GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type ShikiStyle } from '../src/state.ts'
+import { GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type FollowDarkFlavor, type ShikiStyle } from '../src/state.ts'
 
 afterEach(cleanup)
 
@@ -43,7 +43,10 @@ const t = (key: CatppuccinKey): string => zh[key]
 const THEMES = [{ id: 'catppuccin-mocha', label: 'Mocha', accent: '#cba6f7' }]
 
 /** Row props with a fake injected face; returns the spies the assertions read. */
-function makeRow(overrides: Record<string, string> = {}) {
+function makeRow(
+  overrides: Record<string, string> = {},
+  opts: { followAvailable?: boolean; followSystem?: boolean } = {},
+) {
   let map = { ...overrides }
   const listeners = new Set<() => void>()
   const notify = (): void => { for (const listener of listeners) listener() }
@@ -51,12 +54,21 @@ function makeRow(overrides: Record<string, string> = {}) {
     map = next
     notify()
   })
+  const setFollowSystem = vi.fn()
+  const setFollowDark = vi.fn()
   const props = {
     t,
     themes: THEMES,
     current: () => 'catppuccin-mocha',
     subscribe: () => () => {},
     select: vi.fn(),
+    // Issue #36: follow mode. Available by default so the block renders; a test
+    // that cares passes `followAvailable: false` to model an older host.
+    followAvailable: opts.followAvailable ?? true,
+    followSystem: () => opts.followSystem ?? false,
+    setFollowSystem,
+    followDark: (): FollowDarkFlavor => 'catppuccin-mocha',
+    setFollowDark,
     overrides: () => map,
     setOverrides,
     shikiStyle: (): ShikiStyle => 'default',
@@ -66,7 +78,7 @@ function makeRow(overrides: Record<string, string> = {}) {
       return () => { listeners.delete(listener) }
     },
   } as unknown as CatppuccinRowProps
-  return { props, setOverrides }
+  return { props, setOverrides, setFollowSystem, setFollowDark }
 }
 
 /** Open the collapsible override editor and hand back its row handles. */
@@ -786,5 +798,52 @@ describe('settings page (issue #27)', () => {
     render(<CatppuccinSettingsPage {...makePageProps()} close={close} />)
     fireEvent.click(screen.getByRole('button', { name: t('glass.previewMode') }))
     expect(close).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('CatppuccinRow follow mode (issue #36)', () => {
+  it('renders the switch only when the host serves overrideTokens', () => {
+    const available = makeRow()
+    const first = render(<CatppuccinRow {...available.props} />)
+    expect(screen.getByRole('switch', { name: t('row.follow') })).toBeTruthy()
+    first.unmount()
+
+    // Older hosts have no token-override API, so the feature cannot work at
+    // all — a dead switch would be worse than no switch.
+    const unavailable = makeRow({}, { followAvailable: false })
+    render(<CatppuccinRow {...unavailable.props} />)
+    expect(screen.queryByRole('switch', { name: t('row.follow') })).toBeNull()
+  })
+
+  it('reports the toggle to the injected face', () => {
+    const { props, setFollowSystem } = makeRow()
+    render(<CatppuccinRow {...props} />)
+    fireEvent.click(screen.getByRole('switch', { name: t('row.follow') }))
+    expect(setFollowSystem).toHaveBeenCalledWith(true)
+  })
+
+  it('offers the dark half only while following, and never Latte', () => {
+    const idle = makeRow()
+    const first = render(<CatppuccinRow {...idle.props} />)
+    expect(screen.queryByRole('tablist', { name: t('row.followDark') })).toBeNull()
+    first.unmount()
+
+    const base = makeRow({}, { followSystem: true })
+    const props = {
+      ...base.props,
+      themes: [
+        { id: 'catppuccin-latte', label: 'Latte', accent: '#eff1f5' },
+        { id: 'catppuccin-mocha', label: 'Mocha', accent: '#cba6f7' },
+        { id: 'catppuccin-macchiato', label: 'Macchiato', accent: '#cad3f5' },
+      ],
+    } as unknown as CatppuccinRowProps
+    render(<CatppuccinRow {...props} />)
+
+    const list = screen.getByRole('tablist', { name: t('row.followDark') })
+    const names = [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
+    expect(names).toEqual(['Mocha', 'Macchiato'])
+    // Mocha is already selected, so the change has to come from the other one.
+    fireEvent.click(screen.getByRole('tab', { name: 'Macchiato' }))
+    expect(base.setFollowDark).toHaveBeenCalledWith('catppuccin-macchiato')
   })
 })

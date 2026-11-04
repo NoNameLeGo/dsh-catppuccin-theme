@@ -38,6 +38,7 @@
  *    get no rows at all (`bootPaletteRows` returns `[]`).
  */
 import { CATPPUCCIN_FLAVORS, type CatppuccinFlavorInfo } from './client/palettes.ts'
+import { FOLLOW_LIGHT_FLAVOR } from './state.ts'
 
 /** Attribute marking the injected `<style>` so the Client can find it. */
 export const BOOT_PALETTE_ATTR = 'data-dsh-catppuccin-boot'
@@ -56,6 +57,11 @@ export type BootPaletteRow =
 export interface BootPaletteConfig {
   flavor?: { get(): unknown } | unknown
   overrides?: { get(): unknown } | unknown
+  /** Issue #36: follow the OS scheme — the pre-paint sheet then carries BOTH
+   *  halves behind a `prefers-color-scheme` query. */
+  followSystem?: { get(): unknown } | unknown
+  /** Issue #36: the dark half of follow mode. */
+  followDark?: { get(): unknown } | unknown
 }
 
 /** Read a volatile config ref; `undefined` when the field is NOT a ref.
@@ -142,9 +148,58 @@ export function bootPaletteScript(flavor: CatppuccinFlavorInfo): string {
 }
 
 /**
+ * The pre-paint sheet for FOLLOW mode (issue #36): the light half (Latte) is
+ * the default block and the dark half sits behind `prefers-color-scheme`.
+ *
+ * Why a media query works here and NOT in the Client: this sheet is plain CSS
+ * evaluated by the renderer before any script decides a preference, so it
+ * tracks the OS by itself. The Client cannot do the same (see
+ * `docs/issue-36-follow-system.md` §2) — which is exactly why follow mode keeps
+ * the runtime preference on `system` and stacks a token layer.
+ *
+ * The dark block is emitted AFTER the light one so it wins on equal
+ * specificity, and it also matches `[data-ds-dark-theme]` so a stale official
+ * body script cannot leave the light table in force on a dark OS.
+ * @param light - the light flavour (Latte).
+ * @param dark - the persisted follow-mode dark flavour.
+ * @param overrides - already filtered by {@link cssSafeOverrides}; applied to
+ *  BOTH halves (a user override is scheme-agnostic by contract).
+ * @returns a complete `<style>…</style>` fragment for a `kind: 'html'` row.
+ */
+export function followPaletteStyle(
+  light: CatppuccinFlavorInfo,
+  dark: CatppuccinFlavorInfo,
+  overrides: Record<string, string> = {},
+): string {
+  const lightBlock = declarationBlock(light, overrides)
+  const darkBlock = declarationBlock(dark, overrides)
+  return `<style ${BOOT_PALETTE_ATTR}>`
+    // `light dark` lets the UA resolve scrollbars/form controls per media too.
+    + ':root{color-scheme:light dark}'
+    + `html body,html body:not([data-ds-dark-theme]){${lightBlock}}`
+    + `@media (prefers-color-scheme: dark){html body,html body[data-ds-dark-theme]{${darkBlock}}}`
+    + '</style>'
+}
+
+/**
+ * The body script for follow mode: align `data-ds-dark-theme` with the OS
+ * instead of a fixed flavour scheme, so the attribute-keyed rules (ours and
+ * the host's) are right on the first frame.
+ * @returns the script text for a `kind: 'script'` row.
+ */
+export function followPaletteScript(): string {
+  return "(()=>{document.body.toggleAttribute('data-ds-dark-theme',matchMedia('(prefers-color-scheme: dark)').matches)})()"
+}
+
+/**
  * The boot rows for the current Host state: empty when no flavour is persisted
  * (`off`), when the config carries no volatile ref (legacy seam — see the
  * module header), or when the value names no known flavour.
+ *
+ * Follow mode (issue #36) replaces the fixed-flavour rows with the two-half
+ * sheet; it still requires a persisted flavour, because follow mode is a
+ * modifier on a Catppuccin choice, never a way to paint Catppuccin while the
+ * document says `off`.
  * @param config - the plugin config the Loader hands `apply`.
  * @returns rows to `push` into the `webserver/index-inject` table.
  */
@@ -154,6 +209,22 @@ export function bootPaletteRows(config: BootPaletteConfig | undefined): BootPale
   const flavor = CATPPUCCIN_FLAVORS.find((candidate) => candidate.themeId === flavorId)
   if (flavor === undefined) return []
   const overrides = cssSafeOverrides(readVolatile(config?.overrides))
+  if (readVolatile(config?.followSystem) === true) {
+    const light = CATPPUCCIN_FLAVORS.find((candidate) => candidate.themeId === FOLLOW_LIGHT_FLAVOR)
+    const darkId = readVolatile(config?.followDark)
+    const dark = CATPPUCCIN_FLAVORS.find((candidate) => (
+      candidate.themeId === darkId && candidate.colorScheme === 'dark'
+    ))
+    // A malformed dark half falls back to the fixed-flavour sheet rather than
+    // painting half a palette: follow mode is an enhancement, never a reason
+    // to ship a broken first frame.
+    if (light !== undefined && dark !== undefined) {
+      return [
+        { kind: 'html', placement: 'head', html: followPaletteStyle(light, dark, overrides) },
+        { kind: 'script', placement: 'body', text: followPaletteScript() },
+      ]
+    }
+  }
   return [
     { kind: 'html', placement: 'head', html: bootPaletteStyle(flavor, overrides) },
     { kind: 'script', placement: 'body', text: bootPaletteScript(flavor) },

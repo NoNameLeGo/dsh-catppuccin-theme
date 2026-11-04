@@ -107,6 +107,20 @@
    `docs/issue-gh-31-card-gap.md`。**新增 issue 文档前先看上游有没有同号**，撞了就加 `gh-` 前缀，
    别再造第二份 `issue-31-*.md`。
 
+7. **「跟随系统深浅色」只能叠 token 层，不能切主题（issue #36，2026-11-04）。** `ui-theme` 的媒体监听器
+   首行就是 `if (preference !== 'system') return`，而 `ui-layout` 的 ThemePresenter 把
+   `data-ds-theme-source` 写成 `system` 或解析后的 scheme、壳 preload 再镜像成
+   `nativeTheme.themeSource` ⇒ **一旦 `setTheme(风味 id)`，渲染进程的 `prefers-color-scheme` 就被钉死**，
+   监听器再也不触发。`ThemeDefinition.colorScheme` 又是单值，注册主题表达不了「双端」。
+   ⇒ 跟随模式的做法是：偏好留在 `system`，用 `theme.overrideTokens(source, { token: { light, dark } })`
+   叠一层（`composeActive()` 按 `active.colorScheme` 取半，Presenter 内联写 body），
+   所以原生标题栏、窗口按钮、Platform 登录页全部继续跟随。三条硬约束：
+   ① 层的重建/销毁**必须离开 `theme/change` dispatch**（`overrideTokens` 会 publish，同 #10 的陷阱）；
+   ② 跟随期间**不要** `rememberBuiltinPreference()`（会把 `system` 记成用户的官方偏好，「关闭」时还原错）；
+   ③ `reapplyThemePrefs()` 在跟随下必须改走层的重建（那时没有 active 风味，原路径会早退）。
+   护栏 = `tests/follow-system.spec.ts`；真机取证（`themeSource` 恒为 `system`、两半分别解析成
+   Latte `#eff1f5` / Mocha `#cdd6f4`）见 `docs/issue-36-follow-system.md` §8.2。
+
 ### 用这条准绳做过的判定（可引用的先例）
 
 - 2026-09-15 **驳回** MM（暗色主 accent 提亮）：驳回理由**不是「官方色不许动」**，而是它拿不出「官方取值在 DSH 下不成立」的证据（`#89b4fa` / `#8caaee` 在 `crust` 上远高于 AA，属审美偏好而非缺陷），且 `brand-primary` 已被 `tests/palettes.spec.ts` 的断言锁成契约（不再写行号——行号会随文件漂）。想要更亮的主操作色走 **K（token 覆盖）**，不走 palette。

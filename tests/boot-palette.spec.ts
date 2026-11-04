@@ -79,6 +79,57 @@ describe('bootPaletteRows (issue #30 補充)', () => {
       expect(bootPaletteScript(flavor).toLowerCase()).not.toContain('</script')
     }
   })
+
+  // Issue #36: follow mode paints BOTH halves behind a media query, because the
+  // pre-paint sheet is the only place where `prefers-color-scheme` still tells
+  // the truth (the Client's own listener dies once a flavour id pins
+  // `nativeTheme.themeSource`). See docs/issue-36-follow-system.md §2.
+  it('paints both halves for follow mode, the dark one behind a media query', () => {
+    const light = CATPPUCCIN_FLAVORS.find((flavor) => flavor.themeId === 'catppuccin-latte')
+    const dark = CATPPUCCIN_FLAVORS.find((flavor) => flavor.themeId === 'catppuccin-mocha')
+    if (light === undefined || dark === undefined) throw new Error('palette fixtures missing')
+
+    const rows = bootPaletteRows({
+      flavor: ref('catppuccin-latte'),
+      followSystem: ref(true),
+      followDark: ref('catppuccin-mocha'),
+    })
+    expect(rows).toHaveLength(2)
+    const html = (rows[0] as { html: string }).html
+    expect(html).toContain('color-scheme:light dark')
+    expect(html).toContain(`html body,html body:not([data-ds-dark-theme]){`)
+    expect(html).toContain('@media (prefers-color-scheme: dark){')
+    // Both tables ride along — a single-half sheet would flash the wrong palette
+    // on exactly the machines this feature exists for.
+    for (const name of Object.keys(light.tokens)) expect(html).toContain(`${name}:${light.tokens[name]}`)
+    for (const name of Object.keys(dark.tokens)) expect(html).toContain(`${name}:${dark.tokens[name]}`)
+    // The dark block must come AFTER the light one (equal specificity).
+    expect(html.indexOf('@media (prefers-color-scheme: dark)')).toBeGreaterThan(html.indexOf('html body,html body:not('))
+
+    const script = (rows[1] as { text: string }).text
+    expect(script).toContain("matchMedia('(prefers-color-scheme: dark)').matches")
+    expect(script).not.toContain('true)')
+  })
+
+  it('falls back to the fixed flavour when follow mode has no usable dark half', () => {
+    const rows = bootPaletteRows({
+      flavor: ref('catppuccin-latte'),
+      followSystem: ref(true),
+      // Latte is a LIGHT flavour — not a legal dark end.
+      followDark: ref('catppuccin-latte'),
+    })
+    const html = (rows[0] as { html: string }).html
+    expect(html).not.toContain('@media (prefers-color-scheme')
+    expect(html).toContain(':root{color-scheme:light}')
+  })
+
+  it('ignores follow mode without a persisted flavour (off must never paint)', () => {
+    expect(bootPaletteRows({
+      flavor: ref('off'),
+      followSystem: ref(true),
+      followDark: ref('catppuccin-mocha'),
+    })).toEqual([])
+  })
 })
 
 describe('cssSafeOverrides', () => {

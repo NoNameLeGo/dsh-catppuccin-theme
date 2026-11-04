@@ -293,6 +293,11 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
   const section = settingsSectionFromState(state)
   return [
     { op: 'set', path: ['flavor'], value: section.flavor },
+    // Issue #36: the follow-mode pair. Missing here is silent in the same way
+    // as the knobs below — the document keeps its schema default and the next
+    // adoption switches follow back off a beat after the toggle.
+    { op: 'set', path: ['followSystem'], value: section.followSystem },
+    { op: 'set', path: ['followDark'], value: section.followDark },
     { op: 'set', path: ['glass', 'enabled'], value: section.glass.enabled },
     { op: 'set', path: ['glass', 'mode'], value: section.glass.mode },
     { op: 'set', path: ['glass', 'blur'], value: section.glass.blur },

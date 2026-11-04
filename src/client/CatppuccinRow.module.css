@@ -78,6 +78,27 @@
   gap: 10px;
 }
 
+/* Follow-the-OS block (issue #36): one switch plus, while it is on, the dark
+   half pick. Kept visually below the cubes so the "pick a flavour" gesture
+   stays the first thing the row offers. */
+.followRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.followHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.followLabel {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 .shikiLabel {
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;

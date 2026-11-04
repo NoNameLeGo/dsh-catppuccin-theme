@@ -1,8 +1,10 @@
 /**
  * Catppuccin flavour row — the first row of the plugin's own settings page
- * (issue #27) and of the plugin detail card. It lists the four flavour themes
- * plus a "follow system" (off) choice. Selecting a flavour calls the injected
- * `select`, which switches the official ThemeRuntime and persists the choice.
+ * (issue #27) and of the plugin detail card. It lists the four flavour themes,
+ * a "follow the OS light/dark scheme" switch (issue #36 — NOT the same thing as
+ * the "off" cube, which hands the UI back to the official theme) and the
+ * "off" cube itself. Selecting a flavour calls the injected `select`, which
+ * switches the official ThemeRuntime and persists the choice.
  * The row subscribes to `theme/change` so the highlighted flavour tracks the
  * live preference.
  *
@@ -21,10 +23,10 @@
  * the official Models page uses as a plain mode picker.
  */
 import { useRef, useState, useSyncExternalStore } from 'react'
-import { Button, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, SegmentedControl, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FlavorChoice } from './index.ts'
-import type { ShikiStyle } from '../state.ts'
+import type { FollowDarkFlavor, ShikiStyle } from '../state.ts'
 import type { CatppuccinKey } from './locales.ts'
 import { HelpBadge } from './HelpBadge.tsx'
 import css from './CatppuccinRow.module.css'
@@ -50,6 +52,20 @@ export interface CatppuccinRowInjected {
   subscribe: (listener: () => void) => () => void
   /** Switch the theme and persist the choice (`off` reverts to system). */
   select: (choice: FlavorChoice) => void | Promise<void>
+  /**
+   * Whether this host serves `theme.overrideTokens` (issue #36). Follow mode
+   * IS a token layer, so a host without that API cannot do it at all — the
+   * control is hidden rather than offered as a dead switch.
+   */
+  followAvailable: boolean
+  /** Whether follow-the-OS mode is on (issue #36). */
+  followSystem: () => boolean
+  /** Turn follow-the-OS mode on or off (issue #36). */
+  setFollowSystem: (enabled: boolean) => void
+  /** The dark half of follow mode (issue #36). */
+  followDark: () => FollowDarkFlavor
+  /** Set the dark half of follow mode (issue #36). */
+  setFollowDark: (dark: FollowDarkFlavor) => void
   /** Current user token overrides (item K). */
   overrides: () => Record<string, string>
   /** Replace the whole override map (persists + re-registers the theme). */
@@ -89,6 +105,11 @@ export function CatppuccinRow({
   current,
   subscribe,
   select,
+  followAvailable,
+  followSystem,
+  setFollowSystem,
+  followDark,
+  setFollowDark,
   overrides,
   setOverrides,
   shikiStyle,
@@ -96,6 +117,8 @@ export function CatppuccinRow({
   subscribePrefs,
 }: CatppuccinRowProps): React.JSX.Element {
   const choice = useSyncExternalStore(subscribe, current)
+  const following = useSyncExternalStore(subscribePrefs, followSystem)
+  const darkEnd = useSyncExternalStore(subscribePrefs, followDark)
   const overrideMap = useSyncExternalStore(subscribePrefs, overrides)
   const style = useSyncExternalStore(subscribePrefs, shikiStyle)
   const [overridesOpen, setOverridesOpen] = useState(false)
@@ -222,6 +245,37 @@ export function CatppuccinRow({
           <span className={css.cubeHead}>{t('row.off')}</span>
         </button>
       </div>
+
+      {/* Follow the OS scheme (issue #36): Latte on light, the chosen dark
+          flavour on dark. It is NOT the same thing as the "off" cube below —
+          that one hands the UI back to the official theme. */}
+      {followAvailable && (
+        <div className={css.followRow} data-catppuccin-follow="">
+          <div className={css.followHead}>
+            <Switch
+              checked={following}
+              onChange={(next) => { setFollowSystem(next) }}
+              label={t('row.follow')}
+            />
+            <span className={css.followLabel}>{t('row.follow')}</span>
+          </div>
+          <div className={css.hint}>{t('row.followHint')}</div>
+          {following && (
+            <div className={css.shikiRow}>
+              <span className={css.shikiLabel}>{t('row.followDark')}</span>
+              <SegmentedControl
+                id="catppuccin-follow-dark"
+                label={t('row.followDark')}
+                value={darkEnd}
+                options={themes
+                  .filter((flavor) => flavor.id !== 'catppuccin-latte')
+                  .map((flavor) => ({ value: flavor.id as FollowDarkFlavor, label: flavor.label }))}
+                onChange={(next) => { setFollowDark(next as FollowDarkFlavor) }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Shiki style pick (item M). */}
       <div className={css.shikiRow}>

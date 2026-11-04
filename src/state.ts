@@ -98,6 +98,30 @@ export const CATPPUCCIN_THEME_IDS = [
  *  the official theme). */
 export type FlavorValue = (typeof CATPPUCCIN_THEME_IDS)[number] | 'off'
 
+/**
+ * The LIGHT end of "follow the OS" (issue #36). Latte is the only light
+ * flavour Catppuccin ships, so the light half is a constant instead of a
+ * setting — a picker here would offer exactly one real option.
+ */
+export const FOLLOW_LIGHT_FLAVOR = 'catppuccin-latte' as const
+
+/** The flavours the follow mode may use for its DARK end. Only the three dark
+ *  flavours: Latte here would paint a light palette into the dark half. */
+export const FOLLOW_DARK_FLAVORS = [
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha',
+] as const
+
+/** The dark end of follow mode (one of {@link FOLLOW_DARK_FLAVORS}). */
+export type FollowDarkFlavor = (typeof FOLLOW_DARK_FLAVORS)[number]
+
+/** Shipped follow-mode dark end: Mocha, Catppuccin's most common dark pick. */
+export const DEFAULT_FOLLOW_DARK: FollowDarkFlavor = 'catppuccin-mocha'
+
+/** Shipped follow-mode flag: off, i.e. 0.6.x behaviour exactly. */
+export const DEFAULT_FOLLOW_SYSTEM = false
+
 /** Durable glass-layer settings (no derived `dark` field — that resolves at
  *  runtime from the active theme). */
 export interface GlassState {
@@ -189,6 +213,25 @@ export interface CatppuccinState {
   version: typeof STATE_VERSION
   /** Selected flavour (theme id or `off`). */
   flavor: FlavorValue
+  /**
+   * Follow the OS light/dark scheme (issue #36): Latte for the light half,
+   * {@link followDark} for the dark half.
+   *
+   * This is a SEPARATE axis from {@link flavor} on purpose. A registered theme
+   * carries ONE `colorScheme`, so "light and dark at once" cannot be expressed
+   * as a theme id; the runtime keeps the official preference on `system` and
+   * stacks a `{ light, dark }` token layer instead (see `applyFollowLayer` in
+   * `src/client/index.ts`). A follow value inside `FlavorValue` would also
+   * break the "the persisted value IS the theme id" invariant that
+   * `readFlavor` / `bootPaletteRows` / `CATPPUCCIN_FLAVOR_VALUES` all rely on.
+   *
+   * Invariant (enforced by `sanitizeState`): `followSystem` is never true
+   * while `flavor` is `off` — turning the plugin off must not leave a layer
+   * painting the UI.
+   */
+  followSystem: boolean
+  /** The dark half of follow mode ({@link FOLLOW_DARK_FLAVORS}). */
+  followDark: FollowDarkFlavor
   /** Glass-layer settings (enable flag + knobs). */
   glass: GlassState
   /** Automatically re-check for updates (boot + periodic, while on). */
@@ -207,6 +250,10 @@ export interface CatppuccinState {
 export interface CatppuccinSettingsSection {
   /** Selected flavour (theme id or `off`). */
   flavor: FlavorValue
+  /** Follow the OS light/dark scheme (issue #36). */
+  followSystem: boolean
+  /** The dark half of follow mode. */
+  followDark: FollowDarkFlavor
   /** Glass-layer settings (enable flag + knobs). */
   glass: GlassState
   /** Automatically re-check for updates (boot + periodic, while on). */
@@ -287,6 +334,8 @@ export function defaultState(): CatppuccinState {
   return {
     version: STATE_VERSION,
     flavor: 'off',
+    followSystem: DEFAULT_FOLLOW_SYSTEM,
+    followDark: DEFAULT_FOLLOW_DARK,
     glass: { ...DEFAULT_GLASS },
     autoCheck: DEFAULT_AUTO_CHECK,
     updateChannel: DEFAULT_UPDATE_CHANNEL,
@@ -351,6 +400,20 @@ export function sanitizeState(input: unknown): CatppuccinState {
     state.flavor = 'off'
   }
 
+  // Issue #36: the follow-mode pair. Absent fields keep their shipped
+  // defaults, so a document written by 0.6.x rolls forward untouched.
+  // `followDark` is restricted to the three DARK flavours — Latte would paint
+  // a light palette into the dark half of the layer.
+  const followDark = raw.followDark
+  state.followDark = typeof followDark === 'string' && (FOLLOW_DARK_FLAVORS as readonly string[]).includes(followDark)
+    ? followDark as FollowDarkFlavor
+    : DEFAULT_FOLLOW_DARK
+  state.followSystem = raw.followSystem === true
+  // Invariant: "off" wins over follow. Turning the plugin off must retire the
+  // layer, or a document could keep `followSystem: true` while the user asked
+  // for the official theme — the layer would keep painting Catppuccin tokens.
+  if (state.flavor === 'off') state.followSystem = false
+
   const glass = typeof raw.glass === 'object' && raw.glass !== null
     ? raw.glass as Record<string, unknown>
     : {}
@@ -410,6 +473,8 @@ export function migrate(raw: unknown): CatppuccinState {
 export function isDefaultState(state: CatppuccinState): boolean {
   const expected = defaultState()
   return state.flavor === expected.flavor
+    && state.followSystem === expected.followSystem
+    && state.followDark === expected.followDark
     && state.glass.enabled === expected.glass.enabled
     && state.glass.mode === expected.glass.mode
     && state.glass.blur === expected.glass.blur
@@ -430,6 +495,8 @@ export function isDefaultState(state: CatppuccinState): boolean {
 export function defaultSettingsSection(): CatppuccinSettingsSection {
   return {
     flavor: 'off',
+    followSystem: DEFAULT_FOLLOW_SYSTEM,
+    followDark: DEFAULT_FOLLOW_DARK,
     glass: { ...DEFAULT_GLASS },
     autoCheck: DEFAULT_AUTO_CHECK,
     updateChannel: DEFAULT_UPDATE_CHANNEL,
@@ -442,6 +509,8 @@ export function defaultSettingsSection(): CatppuccinSettingsSection {
 export function settingsSectionFromState(state: CatppuccinState): CatppuccinSettingsSection {
   return {
     flavor: state.flavor,
+    followSystem: state.followSystem,
+    followDark: state.followDark,
     glass: { ...state.glass },
     autoCheck: state.autoCheck,
     updateChannel: state.updateChannel,
@@ -468,6 +537,8 @@ export function sameOverrides(a: Record<string, string>, b: Record<string, strin
  *  redundant mirror writes and to recognize the Host echoing our own write). */
 export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: CatppuccinSettingsSection): boolean {
   return a.flavor === b.flavor
+    && a.followSystem === b.followSystem
+    && a.followDark === b.followDark
     && a.glass.enabled === b.glass.enabled
     && a.glass.mode === b.glass.mode
     && a.glass.blur === b.glass.blur
@@ -529,7 +600,7 @@ export function replayLocalChanges(
   // never mutated in place.
   const merged = settingsSectionFromState(document)
   let changed = false
-  const carry = <K extends 'flavor' | 'autoCheck' | 'updateChannel' | 'shikiStyle'>(key: K): void => {
+  const carry = <K extends 'flavor' | 'followSystem' | 'followDark' | 'autoCheck' | 'updateChannel' | 'shikiStyle'>(key: K): void => {
     if (local[key] !== baseline[key]) {
       merged[key] = local[key]
       changed = true
@@ -542,6 +613,10 @@ export function replayLocalChanges(
     }
   }
   carry('flavor')
+  // Issue #36: the follow pair rides the same replay as every other top-level
+  // field — a boot-window toggle of it must survive the first snapshot.
+  carry('followSystem')
+  carry('followDark')
   carryGlass('enabled')
   carryGlass('mode')
   carryGlass('blur')

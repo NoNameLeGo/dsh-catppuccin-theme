@@ -39,9 +39,12 @@ import Schema from '@deepseek-ai/schemastery'
 import {
   CATPPUCCIN_THEME_IDS,
   DEFAULT_AUTO_CHECK,
+  DEFAULT_FOLLOW_DARK,
+  DEFAULT_FOLLOW_SYSTEM,
   DEFAULT_GLASS,
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
+  FOLLOW_DARK_FLAVORS,
   GLASS_GAP_MAX,
   GLASS_GAP_MIN,
   GLOW_SIZE_MAX,
@@ -84,6 +87,13 @@ export function maybeVolatile<T extends object>(node: T): T {
 export function catppuccinSchemaFields(): Record<string, Schema> {
   return {
     flavor: Schema.union([...CATPPUCCIN_THEME_IDS, 'off']).default('off'),
+    // Issue #36 — the follow-mode pair. `followSystem` defaults to false, so a
+    // profile that never touches it resolves to the shipped section and the
+    // client treats the document as "no user choice yet" (same rule as every
+    // other field here). `followDark` is restricted to the DARK flavours: the
+    // light half is the Latte constant, not a setting.
+    followSystem: Schema.boolean().default(DEFAULT_FOLLOW_SYSTEM),
+    followDark: Schema.union([...FOLLOW_DARK_FLAVORS]).default(DEFAULT_FOLLOW_DARK),
     glass: Schema.object({
       enabled: Schema.boolean().default(DEFAULT_GLASS.enabled),
       mode: Schema.union(['mica', 'compat']).default(DEFAULT_GLASS.mode),
@@ -127,6 +137,11 @@ function volatileFields(): Record<string, Schema> {
   const glassFields = (fields.glass as Schema & { dict?: Record<string, Schema> }).dict ?? {}
   return {
     flavor: maybeVolatile(fields.flavor),
+    // Issue #36: both halves of the follow pair are volatile for the same
+    // reason as `flavor` — the boot palette (Host side) reads them through
+    // `.get()` to paint the right first frame.
+    followSystem: maybeVolatile(fields.followSystem),
+    followDark: maybeVolatile(fields.followDark),
     glass: Schema.object(Object.fromEntries(
       Object.entries(glassFields).map(([key, node]) => [key, maybeVolatile(node)]),
     )),
@@ -165,6 +180,10 @@ export const Config = Schema.object(volatileFields())
  */
 export interface CatppuccinConfig {
   flavor: { get(): CatppuccinSettingsSection['flavor'] }
+  /** Issue #36: follow the OS light/dark scheme. */
+  followSystem: { get(): boolean }
+  /** Issue #36: the dark half of follow mode. */
+  followDark: { get(): CatppuccinSettingsSection['followDark'] }
   glass: {
     enabled: { get(): boolean }
     mode: { get(): CatppuccinSettingsSection['glass']['mode'] }

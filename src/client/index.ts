@@ -34,7 +34,7 @@
  * state, and tells the update row "另一窗口已更新，本地改动未保存".
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { ThemeRuntime, ThemeTokenOverrides, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer's Context merge (ctx.slots) — since DSH
@@ -60,8 +60,11 @@ import { tolerantRegistration } from '../registration-tolerance.ts'
 import {
   CATPPUCCIN_ENTRY_ID,
   DEFAULT_AUTO_CHECK,
+  DEFAULT_FOLLOW_DARK,
   DEFAULT_SHIKI_STYLE,
   DEFAULT_UPDATE_CHANNEL,
+  FOLLOW_DARK_FLAVORS,
+  FOLLOW_LIGHT_FLAVOR,
   hasUnpersistableOverrides,
   isDefaultState,
   replayLocalChanges,
@@ -72,6 +75,7 @@ import {
   type CatppuccinSettingsSection,
   type CatppuccinState,
   type FlavorValue,
+  type FollowDarkFlavor,
   type ShikiStyle,
   type UpdateChannel,
 } from '../state.ts'
@@ -116,6 +120,12 @@ export const OVERRIDES_KEY = 'dsh.catppuccin.overrides'
 
 /** localStorage key carrying the shiki style preference (item M). */
 export const SHIKI_STYLE_KEY = 'dsh.catppuccin.shikiStyle'
+
+/** localStorage key carrying the follow-the-OS flag (issue #36). */
+export const FOLLOW_SYSTEM_KEY = 'dsh.catppuccin.followSystem'
+
+/** localStorage key carrying the follow-mode dark half (issue #36). */
+export const FOLLOW_DARK_KEY = 'dsh.catppuccin.followDark'
 
 /** Accepted flavour values — the four registered theme ids plus `off`. These
  *  MUST stay in sync with the registered themes (guarded by
@@ -294,6 +304,45 @@ export function readShikiStyle(): ShikiStyle {
 export function writeShikiStyle(value: ShikiStyle): void {
   try {
     localStorage.setItem(SHIKI_STYLE_KEY, value)
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+/** Read the persisted follow-the-OS flag (issue #36; absent means off). */
+export function readFollowSystem(): boolean {
+  try {
+    return localStorage.getItem(FOLLOW_SYSTEM_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+/** Persist the follow-the-OS flag. */
+export function writeFollowSystem(value: boolean): void {
+  try {
+    localStorage.setItem(FOLLOW_SYSTEM_KEY, String(value))
+  } catch {
+    /* in-memory state still applies */
+  }
+}
+
+/** Read the follow-mode dark half (only the three dark flavours are legal). */
+export function readFollowDark(): FollowDarkFlavor {
+  try {
+    const raw = localStorage.getItem(FOLLOW_DARK_KEY)
+    return raw !== null && (FOLLOW_DARK_FLAVORS as readonly string[]).includes(raw)
+      ? raw as FollowDarkFlavor
+      : DEFAULT_FOLLOW_DARK
+  } catch {
+    return DEFAULT_FOLLOW_DARK
+  }
+}
+
+/** Persist the follow-mode dark half. */
+export function writeFollowDark(value: FollowDarkFlavor): void {
+  try {
+    localStorage.setItem(FOLLOW_DARK_KEY, value)
   } catch {
     /* in-memory state still applies */
   }
@@ -486,6 +535,10 @@ export function apply(ctx: ClientContext): void {
     // the runtime value is always one of the four theme ids or `off` — the
     // same set as `FlavorValue`, guarded by tests/state.spec.ts.
     flavor: readFlavor() as FlavorValue,
+    // Issue #36 — re-sanitized on the way out so the two stores can never
+    // disagree about the "follow ⇒ flavor !== off" invariant.
+    followSystem: readFollowSystem() && readFlavor() !== 'off',
+    followDark: readFollowDark(),
     glass: glass.getRemoteState(),
     autoCheck: readAutoCheck(),
     updateChannel: readUpdateChannel(),
@@ -508,6 +561,116 @@ export function apply(ctx: ClientContext): void {
     for (const listener of conflictListeners) listener()
   }
 
+  // ── Follow the OS scheme (issue #36) ──────────────────────────────────────
+  //
+  // A registered theme carries ONE `colorScheme`, so "Latte on light, Mocha on
+  // dark" cannot be expressed as a theme id. What CAN express it is a token
+  // override layer: `theme.overrideTokens(source, { token: { light, dark } })`
+  // is folded by `composeActive()` against the ACTIVE (OS-resolved) scheme, so
+  // as long as the preference stays `system` the media listener keeps firing,
+  // `data-ds-theme-source` keeps publishing `system`, and the shell mirrors
+  // that into `nativeTheme.themeSource` — native chrome follows too.
+  //
+  // The whole mechanism therefore has one hard precondition: while follow mode
+  // is on, the runtime preference MUST be `system` and NO flavour theme is
+  // active (see `applyDesired`'s follow branch and `docs/issue-36-follow-system.md`).
+  const FOLLOW_LAYER_SOURCE = PACKAGE_NAME
+  /** Disposer of the currently stacked follow layer (`undefined` = no layer). */
+  let followLayerDispose: (() => void) | undefined
+  /** Content signature of the stacked layer, so a no-op refresh does not
+   *  republish (every `overrideTokens` call emits `theme/change`). */
+  let followLayerSignature: string | undefined
+
+  /** Theme-id → shiki/flavour key ("catppuccin-latte" → "latte"). */
+  const flavorKey = (flavor: CatppuccinFlavorInfo): CatppuccinFlavorId =>
+    flavor.themeId.replace('catppuccin-', '') as CatppuccinFlavorId
+
+  /** Whether this host serves `overrideTokens` at all. Hosts before that API
+   *  cannot follow the OS; the row hides the control instead of offering a
+   *  switch that would do nothing. */
+  const followSupported = (): boolean =>
+    typeof (theme as unknown as { overrideTokens?: unknown }).overrideTokens === 'function'
+
+  /** Follow mode is wanted AND possible. `off` always wins: turning the plugin
+   *  off must not leave a layer painting Catppuccin tokens. */
+  const followWanted = (): boolean =>
+    followSupported() && readFollowSystem() && readFlavor() !== 'off'
+
+  /**
+   * The two halves of the follow layer.
+   *
+   * Precedence per token mirrors `registerThemeFor`: flavour tokens < shiki <
+   * host-shape menu patch < user overrides (later wins). A user override is
+   * scheme-agnostic by contract, so the SAME value goes into both halves.
+   * A token present in only one flavour falls back to the other half's value so
+   * every entry stays a well-formed `{ light, dark }` pair (`overrideTokens`
+   * throws on a bare string).
+   * @returns the layer, or null when a flavour table is missing.
+   */
+  const followLayerTokens = (): ThemeTokenOverrides | null => {
+    const light = flavorInfo(FOLLOW_LIGHT_FLAVOR)
+    const dark = flavorInfo(readFollowDark())
+    if (light === undefined || dark === undefined) return null
+    const shiki = readShikiStyle()
+    const lightShiki = SHIKI_TOKENS[flavorKey(light)][shiki] as Record<string, string>
+    const darkShiki = SHIKI_TOKENS[flavorKey(dark)][shiki] as Record<string, string>
+    const menu = menuSurfaceFor(hostHasMenuBlur())
+    const overrides = readOverrides()
+    const names = new Set([
+      ...Object.keys(light.tokens),
+      ...Object.keys(dark.tokens),
+      ...Object.keys(lightShiki),
+      ...Object.keys(darkShiki),
+      ...Object.keys(menu),
+      ...Object.keys(overrides),
+    ])
+    const pairs: ThemeTokenOverrides = {}
+    for (const name of names) {
+      const lightValue = overrides[name] ?? menu[name] ?? lightShiki[name] ?? light.tokens[name]
+      const darkValue = overrides[name] ?? menu[name] ?? darkShiki[name] ?? dark.tokens[name]
+      if (lightValue === undefined && darkValue === undefined) continue
+      pairs[name] = { light: lightValue ?? darkValue as string, dark: darkValue ?? lightValue as string }
+    }
+    return pairs
+  }
+
+  /** Remove the follow layer (idempotent). */
+  const disposeFollowLayer = (): void => {
+    if (followLayerDispose === undefined) return
+    followLayerDispose()
+    followLayerDispose = undefined
+    followLayerSignature = undefined
+  }
+
+  /**
+   * Stack (or refresh, or retire) the follow layer.
+   *
+   * MUST be called outside a `theme/change` dispatch: `overrideTokens`
+   * publishes, and a synchronous publish from inside a dispatch lets the
+   * presenter apply the OUTER (stale) snapshot last — the issue #10 trap, same
+   * reason `scheduleRestore` defers.
+   */
+  const syncFollowLayer = (): void => {
+    if (!followWanted()) {
+      disposeFollowLayer()
+      return
+    }
+    const tokens = followLayerTokens()
+    if (tokens === null) {
+      disposeFollowLayer()
+      return
+    }
+    const signature = JSON.stringify(tokens)
+    if (followLayerDispose !== undefined && signature === followLayerSignature) return
+    const dispose = theme.overrideTokens(FOLLOW_LAYER_SOURCE, tokens)
+    // The old disposer is a documented no-op once the same source has been
+    // re-overridden; calling it keeps the bookkeeping honest for hosts that
+    // hand out fresh sources.
+    followLayerDispose?.()
+    followLayerDispose = dispose
+    followLayerSignature = signature
+  }
+
   // Re-register the active flavour after an override/shiki-style change so
   // the new token mix applies (the disposed registration is replaced by one
   // carrying the merged overrides).
@@ -522,6 +685,15 @@ export function apply(ctx: ClientContext): void {
   // flavour is recycled, and the preference is put back in the SAME synchronous
   // block, so no observer can read the intermediate `system`.
   const reapplyThemePrefs = (): void => {
+    // Issue #36: in follow mode the runtime preference is `system` and no
+    // flavour theme is registered-active, so the recycle below would early
+    // return and a shiki/override change would never reach the screen. The
+    // layer is what carries the tokens there — re-stack it instead.
+    if (followWanted()) {
+      syncFollowLayer()
+      return
+    }
+    disposeFollowLayer()
     const active = theme.getTheme().preference
     const flavor = flavorInfo(active)
     if (flavor === undefined) return
@@ -748,6 +920,46 @@ export function apply(ctx: ClientContext): void {
     // un-recording entry point.
     applyRestoredPreference = (id: string) => { commitTheme(id, false) }
 
+    // Issue #36: the deferred follow-mode half of `applyDesired`, deferred for
+    // the same two reasons `scheduleRestore` is: (a) switching the preference
+    // must not publish from inside a `theme/change` dispatch (issue #10 — the
+    // presenter would apply the OUTER, stale snapshot last), and (b) stacking
+    // the layer publishes as well (`overrideTokens` emits), so it needs the
+    // same protection.
+    let followSyncPending = false
+    const scheduleFollowSync = (): void => {
+      if (followSyncPending) return
+      followSyncPending = true
+      queueMicrotask(() => {
+        followSyncPending = false
+        // Re-read at run time: a newer intent (follow turned off, another
+        // window's pick) may have landed while this sat in the queue.
+        if (!followWanted()) {
+          disposeFollowLayer()
+          return
+        }
+        syncFollowLayer()
+        const preference = theme.getTheme().preference
+        if (preference === 'system') {
+          // The layer now paints the palette; the pre-paint sheet (#30 补充)
+          // must retire or it keeps pinning every token through `html body`.
+          clearBootPalette()
+          return
+        }
+        // An explicit Appearance pick THIS session still wins — the same rule
+        // the flavour restore follows (`builtinPickWins`). Follow mode stays
+        // persisted and re-asserts on the next boot/reload instead of fighting
+        // the click: writing a durable field from a `theme/change` listener is
+        // exactly the issue #31 echo shape.
+        if (builtinPickWins(preference, liveBuiltinPick)) return
+        try {
+          commitTheme('system', false)
+        } catch {
+          /* keep the current theme; the next event retries */
+        }
+      })
+    }
+
     // Issue #10: a synchronous setTheme inside a theme/change dispatch
     // re-enters publish() — the ThemePresenter (registered after us) then
     // applies the STALE snapshot carried by the OUTER dispatch last, so the
@@ -801,8 +1013,26 @@ export function apply(ctx: ClientContext): void {
       // Record the built-in preference on every non-flavour observation (boot,
       // adopt() reloads, explicit Appearance changes) BEFORE any re-assert, so
       // 'off' below can hand the user back exactly what they had.
-      rememberBuiltinPreference(theme.getTheme().preference)
+      //
+      // Issue #36: NOT while follow mode owns the runtime. The preference is
+      // `system` there by our own doing, and recording it would clobber the
+      // user's real light/dark — which is precisely what "off" has to restore.
+      const follow = followWanted()
+      if (!follow) rememberBuiltinPreference(theme.getTheme().preference)
       const desired = readFlavor()
+      if (follow) {
+        // The layer carries the palette and the preference must stay `system`;
+        // every branch below is about a FLAVOUR preference that must not exist
+        // right now, so none of them applies.
+        scheduleFollowSync()
+        return
+      }
+      if (followLayerDispose !== undefined) {
+        // Follow mode just ended (this row, another window, or the settings
+        // document). Retire the layer on the deferred path — disposing
+        // publishes too.
+        scheduleFollowSync()
+      }
       if (desired === 'off') {
         // The persisted choice is off — but this session may still be rendering
         // a Catppuccin flavour (another window or the settings document turned
@@ -841,7 +1071,23 @@ export function apply(ctx: ClientContext): void {
     applyDesired()
     const disposer = ctx.on('theme/change', applyDesired)
     const onStorage = (event: StorageEvent): void => {
+      // Issue #36: another window toggled follow mode or its dark half. The
+      // layer has to be rebuilt here — the flavour path below would call
+      // setTheme and kill the `system` preference follow depends on.
+      if (event.key === FOLLOW_SYSTEM_KEY || event.key === FOLLOW_DARK_KEY) {
+        emitPrefs()
+        applyDesired()
+        return
+      }
       if (event.key !== FLAVOR_STORAGE_KEY) return
+      // Issue #36: while follow mode is on, a flavour change from another
+      // window only alters the LAYER's dark half; the preference must stay
+      // `system` or the OS listener dies.
+      if (followWanted()) {
+        emitPrefs()
+        applyDesired()
+        return
+      }
       const next = readFlavor()
       if (next !== 'off') {
         ensureThemeRegistered(next)
@@ -1065,11 +1311,70 @@ export function apply(ctx: ClientContext): void {
       accent: flavor.accent,
     })),
     current: () => {
+      // Issue #36: in follow mode the runtime preference is `system` (no
+      // flavour is active), so the highlighted cube has to come from the
+      // persisted choice — it is exactly what the UI would fall back to if
+      // follow were switched off.
+      if (readFollowSystem() && readFlavor() !== 'off') return readFlavor()
       const pref = theme.getTheme().preference
       return flavorFromThemeId(pref)
     },
     subscribe: (listener) => ctx.on('theme/change', listener),
+    followAvailable: followSupported(),
+    followSystem: () => readFollowSystem(),
+    setFollowSystem: (enabled: boolean) => {
+      if (!followSupported()) return
+      if (enabled) {
+        // Follow mode is a MODIFIER on a Catppuccin choice, never a way to
+        // paint Catppuccin over `off` — adopt the dark half when nothing is
+        // selected yet.
+        if (readFlavor() === 'off') writeFlavor(readFollowDark())
+        writeFollowSystem(true)
+        // Layer first, preference second, one synchronous block: the composed
+        // tokens must already be in place when the `system` switch publishes,
+        // or the presenter paints the official palette for one frame.
+        syncFollowLayer()
+        try {
+          if (applyRestoredPreference !== undefined) applyRestoredPreference('system')
+          else theme.setTheme('system')
+        } catch {
+          /* keep the current theme rather than dropping the user into nothing */
+        }
+      } else {
+        writeFollowSystem(false)
+        disposeFollowLayer()
+        const target = readFlavor()
+        if (target !== 'off') {
+          try {
+            if (applyRestoredPreference !== undefined) applyRestoredPreference(target)
+            else theme.setTheme(target)
+          } catch {
+            /* keep the current theme; the restore guard retries on next event */
+          }
+        }
+      }
+      emitPrefs()
+      queuePersist()
+    },
+    followDark: () => readFollowDark(),
+    setFollowDark: (dark: FollowDarkFlavor) => {
+      if (!(FOLLOW_DARK_FLAVORS as readonly string[]).includes(dark)) return
+      writeFollowDark(dark)
+      // Outside a dispatch (a row click), so the re-stack may publish directly.
+      if (followWanted()) syncFollowLayer()
+      emitPrefs()
+      queuePersist()
+    },
     select: (choice: FlavorChoice) => {
+      // Issue #36: picking a flavour (or turning the plugin off) is an explicit
+      // statement about the FIXED flavour, so it ends follow mode. Persist that
+      // BEFORE any setTheme: the restore guard and `applyDesired` read the
+      // settled state, and a stale `followSystem: true` would drag the runtime
+      // back to `system` a microtask later.
+      if (readFollowSystem()) {
+        writeFollowSystem(false)
+        disposeFollowLayer()
+      }
       if (choice === 'off') {
         // Restore the built-in preference the user had before the flavour
         // ('system' when nothing was recorded). Persist the abandoned choice

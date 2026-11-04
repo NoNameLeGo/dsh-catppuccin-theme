@@ -36,6 +36,9 @@ describe('durable state defaults', () => {
     expect(defaultState()).toEqual({
       version: STATE_VERSION,
       flavor: 'off',
+      // Issue #36: follow mode ships OFF and its dark end defaults to Mocha.
+      followSystem: false,
+      followDark: 'catppuccin-mocha',
       glass: {
         enabled: false,
         mode: 'mica',
@@ -197,6 +200,8 @@ describe('settings-document section helpers (0.5.0)', () => {
     const { version, ...withoutVersion } = { ...defaultState(), version: undefined as never }
     expect(defaultSettingsSection()).toEqual({
       flavor: 'off',
+      followSystem: false,
+      followDark: 'catppuccin-mocha',
       glass: { ...DEFAULT_GLASS },
       autoCheck: true,
       updateChannel: 'latest',
@@ -216,6 +221,8 @@ describe('settings-document section helpers (0.5.0)', () => {
     const section = settingsSectionFromState(state)
     expect(section).toEqual({
       flavor: 'catppuccin-frappe',
+      followSystem: false,
+      followDark: 'catppuccin-mocha',
       glass: state.glass,
       autoCheck: true,
       updateChannel: 'beta',
@@ -293,6 +300,8 @@ describe('replayLocalChanges (issue #30)', () => {
   // shipped defaults ⇒ the document became `flavor: off` / glass off / mica.
   const documentSection: CatppuccinSettingsSection = {
     flavor: 'catppuccin-frappe',
+    followSystem: true,
+    followDark: 'catppuccin-macchiato',
     glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glowStrength: 150, glowSize: 180, glow: true },
     autoCheck: false,
     updateChannel: 'beta',
@@ -357,6 +366,11 @@ describe('replayLocalChanges (issue #30)', () => {
     const baseline = defaultSettingsSection()
     const mutants: Record<string, (section: CatppuccinSettingsSection) => CatppuccinSettingsSection> = {
       flavor: (s) => ({ ...s, flavor: 'catppuccin-mocha' }),
+      // Issue #36: follow mode. The flag is mutated TOGETHER with the flavour,
+      // because `sanitizeState` drops it while `flavor` is `off` (the "off wins
+      // over follow" invariant) — the pair is what actually moves.
+      followSystem: (s) => ({ ...s, flavor: 'catppuccin-mocha', followSystem: true }),
+      followDark: (s) => ({ ...s, followDark: 'catppuccin-frappe' }),
       'glass.enabled': (s) => ({ ...s, glass: { ...s.glass, enabled: true } }),
       'glass.mode': (s) => ({ ...s, glass: { ...s.glass, mode: 'compat' } }),
       'glass.blur': (s) => ({ ...s, glass: { ...s.glass, blur: 40 } }),

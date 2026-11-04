@@ -224,8 +224,13 @@ installing, launch `dsh --profile dsh-tui` and pick the theme with `/theme` —
 2. Open **Settings** and pick **Catppuccin** in the left nav (its own section, after the official ones).
 3. Under **Theme**, pick a flavour:
    **Latte** (light), **Frappé**, **Macchiato** or **Mocha** (dark).
-4. Choosing **Follow system** reverts to the official theme — it restores the preference
+4. Turn on **Follow system light/dark**: Latte on light, your chosen flavour (Mocha by default)
+   on dark, switching with the Windows light/dark setting — the native title bar and window
+   buttons follow too. The dark end is picked separately (Frappé / Macchiato / Mocha).
+5. Choosing **Turn off (official theme)** reverts to the official theme — it restores the preference
    you had before enabling Catppuccin (light / dark / follow system) instead of forcing a reset.
+
+> "Follow system" used to name step 5; since 0.7.0 the two are separate controls, as above.
 
 > **Second entrance**: open this plugin's own card on the **Plugins** page and the middle of
 > its detail page shows the **same settings** (Catppuccin theme / Glass / Check for updates /
