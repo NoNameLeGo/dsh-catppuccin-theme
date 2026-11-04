@@ -357,13 +357,19 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
-> ⚠️ **发版版本号**：`latest` = **`0.6.7`**（2026-11-03；tag `v0.6.7` → Publish run `41484214188` success、
-> CI `41484208914` 双绿、registry `dist-tags.latest` 已翻到 `0.6.7`、`versions['0.6.7'].dist.attestations`
-> 为 true、制品实测含 4 条座位守卫规则 / 0 条裸 `[role=dialog][aria-modal]` / 6 处 `--dsh-glass-glow-size`）=
-> **issue #34**（座位守卫：图片预览层还给宿主，PR #35 by `aurasuisui`，squash `e117509`）+
-> **issue #32 第二轮**（地面光斑范围旋钮 100–250%，默认 100%）。**测试 403 全绿**（22 文件）。
-> ⚠️ **发布首次核对推迟约 10 分钟**：npm 打完 `+ @nonamelego/dsh-catppuccin@0.6.7` 后登记处仍报
-> `latest: 0.6.6`、制品 tarball 404，且 npmmirror 与 read API 一致为旧值——**「秒翻」不是常态，别据此重发**。
+> ⚠️ **发版版本号**：`latest` = **`0.7.0`**（2026-11-04；tag `v0.7.0` → Publish run `41806989074` success、
+> CI `41806988970` check + boot-e2e 双绿、registry `dist-tags.latest` 已翻到 `0.7.0`、
+> `versions['0.7.0'].dist.attestations` 为 true、制品实测 `lib/client.js` 含 15 处 `followSystem`、
+> `lib/index.js` 含 3 处 `prefers-color-scheme`）= **issue #36**（跟随系统深/浅色：偏好留 `system` +
+> `overrideTokens` 两半层；「跟随系统」更名「关闭（官方主题）」）+ 前两条未发条目（rc.5 兼容声明、
+> 迁移成功不再写 stdout）。**测试 422 全绿**（23 文件）。**已回帖**（`6627374860`，含真机
+> `themeSource` 恒 `system` / Latte `#eff1f5` vs Mocha `#cdd6f4` 的读数与三步复验口径）。
+> ⚠️ 仍未做：设置面板开关的真机截图（本机打不开设置对话框，只有 jsdom 覆盖）、Linux/macOS 壳未验。
+> 上一版 `latest` = `0.6.7`（2026-11-03；Publish run `41484214188`）= **issue #34**（座位守卫：图片预览层
+> 还给宿主，PR #35 by `aurasuisui`，squash `e117509`）+ **issue #32 第二轮**（地面光斑范围旋钮
+> 100–250%，默认 100%）。**测试 403 全绿**（22 文件）。
+> ⚠️ **登记处会滞后**（不是发布失败）：0.6.7 那轮打完日志后仍报旧 `latest`、制品 tarball 404，约 10 分钟后才翻；
+> 0.7.0 这轮只用了约 2 分钟。**判断发布成功只看 run 日志里的 `+ …@<version>`**，别据 dist-tags 重发。
 > 上一版 `latest` = `0.6.6`（2026-11-01；Publish run `41320146274`）= `0.6.6-beta.1` **转正** +
 > 两条上游建议同批：**issue #33**（设置面板里第三方 `position:fixed`
 > 弹层不再被面板的 `backdrop-filter` 重新锚定 / 弹层过透 / 吸顶条圆角）、**issue #31（上游新号）**
