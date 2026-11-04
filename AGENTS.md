@@ -12,7 +12,7 @@
 >   发丝分割线，并做成设置里的开关（默认关 = A 的观感）。全量方案在
 >   `docs/issue-28-fused-composer-plan.md`（CSS 草案 / 8 处改点 / 测试与变异 / 风险 / 约 3–4 小时）。
 >
-> **硬规矩**：B 属于特性（`0.7.0`），**动手前必须让维护者明确回答「做 / 不做」**。没点头就只读方案，
+> **硬规矩**：B 属于特性（按 2026-11-04 的版本号规则 = `0.7.x`，不再是固定 `0.7.0`），**动手前必须让维护者明确回答「做 / 不做」**。没点头就只读方案，
 > 不要改代码、不要 commit、不要顺手「顺便把开关加上」。同样地，B 的文档更新不等于批准实施。
 >
 > ⚠️ **issue #28 已于 2026-10-19 由报告人 `TWFU-wcy` 自行关闭**（`stateReason=COMPLETED`，关闭前 0 条评论）
@@ -357,6 +357,13 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 - 预发布（**含** `-`）：`0.x.y-beta.n` → 发布后进 `beta` 标签
 - `publish.yml` 用 `require('./package.json').version.includes('-')` 自动判断 `latest`/`beta`，无需手动指定。
 
+> 📌 **版本号规则（维护者 2026-11-04 定，覆盖此前「特性必开新次版本」的做法）**
+>
+> - `0.7.0` 之后**依次走 `0.7.1`、`0.7.2` …… `0.7.9`**：**特性和修复都进 `0.7.x`**，
+>   不再因为「这是特性」就自动开 `0.8.0`。
+> - **走到 `0.7.9`、该往下一个号走的时候，先问维护者要不要用 `0.8.0`**——不要自行决定，也不要
+>   顺手写成 `0.8.0-beta.n`。没问就到 `0.7.9` 为止。
+
 > ⚠️ **发版版本号**：`latest` = **`0.7.0`**（2026-11-04；tag `v0.7.0` → Publish run `41806989074` success、
 > CI `41806988970` check + boot-e2e 双绿、registry `dist-tags.latest` 已翻到 `0.7.0`、
 > `versions['0.7.0'].dist.attestations` 为 true、制品实测 `lib/client.js` 含 15 处 `followSystem`、
@@ -543,7 +550,7 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > （`const customCss = scheme === "custom" ? snapshot.prefs.customCss : ""`），以 `data-dsh-custom-css` 注入，写在 profile patch 里该插件条目的
 > `config:` 下。当时我们在 issue 里据此断言「你们本地的 `customCss` 应该是自制的」是**错的**（已由报告人纠正）。
 > **`0.5.7` 在此之上加了 issue #16**：compat 模式不再给 DSH 原生右侧栏的**布局壳**加模糊——`[class*='panel']` 的子串匹配命中 `P3OORG_panel` / `P3OORG_panelBody`（透明布局壳：`absolute + pointer-events:none`、无 `background`，关闭右栏后仍留在 DOM，blur 于是继续绘制成右缘约 300×518 的磨砂残带）；改为排除该容器**整棵子树**（按 `data-sidebar-right-panel`）并用 `data-sidebar-right-open` 回填展开态 ⇒ 打开观感不变。真机 e2e 在 `0.1.7-rc.2` 上 **19/19**（含同页 A/B），影响面审计的差集正好是那两个容器、反向为 **0**。同批还修了 e2e harness 三处会产**假绿**的坑（向导步骤切换脱离 `role=dialog` 且残留 `_mask_*` 吃点击、mode 与总开关的点击静默不生效、浏览器 fallback 到系统 Chrome + `--no-proxy-server`）。
-> 上一版 `0.5.6`（2026-09-24 发布：**issue #15 —— DSH 0.1.7 的 settings seam 双通道适配**：客户端 `inject` 去掉 `settingsScope` 硬依赖、两个 seam 各一次软注入由 `DurableScope` 适配、Host 新增 volatile `Config` 并保留 `installSection` 分支、`.volatile()` 加 schemastery 3.18 能力守卫、迁移延迟重试；+23 断言 / 215 用例全绿。**已在本机真机验证通过**——维护者把 DSH Desktop 升到 DSH `0.1.7-rc.1` 后，用该运行时启动 `web` profile 逐项过关（无 pending / 四条设置行 / 点 Mocha 后 patch 落盘 / 重启后从文档 hydrate 回 Mocha），过程与结论见 `docs/issue-15-settings-seam-0.1.7.md` §0.1）；同批还修了两处只在这一批之后才暴露的缺陷——真机跑出来的 `scheduleLegacyMigration` 并发竞态（三次机会之间只挡了 `settled`，第二个尝试在第一个写提交前读到同一 revision，撞栅栏后被记成 `legacy state migration failed`，而迁移其实成功了）与 `web-platform.ts` 平台模块表的漂移，两者都有断言钉住（去掉守卫即变红）。`beta` = **`0.5.6-beta.2`**（0.5.6 的最后一个预发布，内容为其真子集）。上一版 beta.1（2026-09-23）是上游 0.1.7 适配复核（带 alpha 的静态色不再被抹成实心、菜单半透明只在宿主声明 `--dsw-menu-backdrop-filter` 时启用、新增的 `--dsw-alias-link` 暗色达到 AA、文档预览浅色标签不再糊在深底、右侧栏玻璃钩子改指 `data-sidebar-right-panel`；+15 条断言 / 191 用例，5 条经变异验证会红）。beta.0（2026-09-22）是审计 F1~F9 那批修复（跨窗口旋钮同步、读侧陈旧写保护补真、预设组键盘可达、跨窗口关闭风味落地、草稿行 key、重试通道、override 垃圾键收敛等），**它已在两个本地 profile 上装过（`web` 与 `desktop` 均为 `0.5.6-beta.0`**，desktop 用 `~/.dsh/profiles/node_modules/pnpm` 的 11.8.0 装，pnpm 会自动把该版本加进 `minimumReleaseAgeExclude`）；**beta.1 未实测**（beta.2 与 `0.5.6` 已在真机实测通过）。下次按常规 semver 判断：**修复走 `0.5.x`，新特性走 `0.6.0`**；预发布仍用 `-beta.n` 后缀。发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建；**预发布按仓库惯例留在 `[Unreleased]` 里，只把该链路的比较基线指到新 tag**）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
+> 上一版 `0.5.6`（2026-09-24 发布：**issue #15 —— DSH 0.1.7 的 settings seam 双通道适配**：客户端 `inject` 去掉 `settingsScope` 硬依赖、两个 seam 各一次软注入由 `DurableScope` 适配、Host 新增 volatile `Config` 并保留 `installSection` 分支、`.volatile()` 加 schemastery 3.18 能力守卫、迁移延迟重试；+23 断言 / 215 用例全绿。**已在本机真机验证通过**——维护者把 DSH Desktop 升到 DSH `0.1.7-rc.1` 后，用该运行时启动 `web` profile 逐项过关（无 pending / 四条设置行 / 点 Mocha 后 patch 落盘 / 重启后从文档 hydrate 回 Mocha），过程与结论见 `docs/issue-15-settings-seam-0.1.7.md` §0.1）；同批还修了两处只在这一批之后才暴露的缺陷——真机跑出来的 `scheduleLegacyMigration` 并发竞态（三次机会之间只挡了 `settled`，第二个尝试在第一个写提交前读到同一 revision，撞栅栏后被记成 `legacy state migration failed`，而迁移其实成功了）与 `web-platform.ts` 平台模块表的漂移，两者都有断言钉住（去掉守卫即变红）。`beta` = **`0.5.6-beta.2`**（0.5.6 的最后一个预发布，内容为其真子集）。上一版 beta.1（2026-09-23）是上游 0.1.7 适配复核（带 alpha 的静态色不再被抹成实心、菜单半透明只在宿主声明 `--dsw-menu-backdrop-filter` 时启用、新增的 `--dsw-alias-link` 暗色达到 AA、文档预览浅色标签不再糊在深底、右侧栏玻璃钩子改指 `data-sidebar-right-panel`；+15 条断言 / 191 用例，5 条经变异验证会红）。beta.0（2026-09-22）是审计 F1~F9 那批修复（跨窗口旋钮同步、读侧陈旧写保护补真、预设组键盘可达、跨窗口关闭风味落地、草稿行 key、重试通道、override 垃圾键收敛等），**它已在两个本地 profile 上装过（`web` 与 `desktop` 均为 `0.5.6-beta.0`**，desktop 用 `~/.dsh/profiles/node_modules/pnpm` 的 11.8.0 装，pnpm 会自动把该版本加进 `minimumReleaseAgeExclude`）；**beta.1 未实测**（beta.2 与 `0.5.6` 已在真机实测通过）。（当时的版本判断是「修复走 `0.5.x`，新特性走 `0.6.0`」——**已被 2026-11-04 的版本号规则取代**，见 §0；预发布仍用 `-beta.n` 后缀。）发版前先在 CHANGELOG.md 的 `## [Unreleased]` 节写好条目、发版时落成 `## [<version>] - <日期>`（publish.yml 校验正式版必须已有对应条目；该节缺失时 `pnpm changelog:gen -- --write` 会自动补建；**预发布按仓库惯例留在 `[Unreleased]` 里，只把该链路的比较基线指到新 tag**）。发布后顺手把这句话的版本号改掉——它已经落后过两次（还写着 0.5.1 时已经发到 0.5.2/0.5.3，写 0.5.3 时已经发到 0.5.4）。
 
 ### 1. 升版本 + 本地验证
 1. 编辑 `package.json` 的 `version`（连同本次要发布的代码改动）
@@ -631,7 +638,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
 - **「已实现」≠「接线正确」（2026-09-22 审计教训）**：那轮两个 P1——跨窗口旋钮不同步、读侧陈旧写保护恒不成立——都通过了类型检查与当时全部 158 条用例，因为缺陷恰好落在**没有事件穿过的分支**（`event.key in NUMERIC_KEYS` 判的是属性名）和**时序假设**（两次 `getSnapshot()` 在同一同步块）上，只读代码看不出来。改交互/持久化代码时补两类测试：**接线测试**（每个 `if`/`switch` 分支至少被一个真实事件穿过——例：`tests/glass-layer.spec.ts` 把 `storage` 处理器的每个分支各走一遍）与**时序测试**（用可注入的 revision 模拟「防抖窗口内先被外部改过」——例：`createBaseRevisionTracker` 的用例）。修 bug 时**默认用变异测试证明新断言会红**（改回旧写法跑一遍），完整清单见 `docs/code-audit-2026-09-22.md`。
 - 本机 `bash` 环境缺 coreutils（`ls`/`sed`/`grep`/`sleep` 都可能 not found），要跑脚本请走 PowerShell 工具或 `node -e`；`git` / `gh` 可用。**`rm` 也被 shim 拦**：删文件用 `node -e "require('node:fs').unlinkSync('x')"`。
 
-- **可选改动项要先问维护者**：`docs/issue-28-fused-composer-plan.md`（issue #28 的 **B 方案**——输入卡与 dock 合成一个圆角框 + 中间分割线 + 设置里的开关，默认关，特性 / `0.7.0`）**只是方案，未批准实施**。任何会话都不要自行开工、不要「顺手把开关加上」，先让维护者明确回答「做 / 不做」。同一 issue 的 **A 方案**（dock 补背板，修复 / `0.6.x`）已实施（`0ce81ff`）并随 `0.6.3-beta.3` 预发布带上。
+- **可选改动项要先问维护者**：`docs/issue-28-fused-composer-plan.md`（issue #28 的 **B 方案**——输入卡与 dock 合成一个圆角框 + 中间分割线 + 设置里的开关，默认关，特性 / `0.7.x`）**只是方案，未批准实施**。任何会话都不要自行开工、不要「顺手把开关加上」，先让维护者明确回答「做 / 不做」。同一 issue 的 **A 方案**（dock 补背板，修复 / `0.6.x`）已实施（`0ce81ff`）并随 `0.6.3-beta.3` 预发布带上。
 
 ## 与报告人协作（issue / 评论 / 关闭）
 
