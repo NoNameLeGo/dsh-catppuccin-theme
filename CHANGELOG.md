@@ -8,6 +8,20 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **兼容模式 + Windows 标题栏：内容列左上角透出氛围地面（issue #37，2026-11-06）**。
+  宿主在 `[data-windows-titlebar] .frame` 上画侧栏色、并让 `centerCol` 用
+  `--dsh-windows-content-radius`（16px）切掉左上角；本皮肤把 `frame` 抹成透明的规则没按模式收敛，
+  于是那 16px 缺口里透出的是 `body` 地面 + glow 1（Latte 下呈淡蓝）。mica 看不见（侧栏是内缩卡片，
+  角落在卡片内部）。现在 compat 下把宿主自己的 `--dsw-specific-sidebar-fill` 还给 `frame`，
+  缺口与左侧栏、原生标题栏同色——不改几何、不自造颜色。
+  - 没有采用报告人的「把半径归零」：`--dsh-windows-content-radius` 声明在 `frame` **元素自身**上，
+    写到 `html` 上传不下去（自定义属性不靠继承覆盖），而且那会让 compat 偏离「宿主原样」的承诺。
+  - 连带把 `native caption` 那组测试的过滤器从「出现过该 token」收紧为「**声明**该 token」——
+    新规则只是读它，语义上不是 caption 覆盖。
+  - 方案与边界：`docs/issue-37-compat-content-corner.md`。
+
 ## [0.7.0] - 2026-11-04
 
 > 本版 = **issue #36**（跟随系统深/浅色）+ 前述两条未发条目（DSH `0.2.1-rc.5` 兼容声明、迁移成功不再写 stdout）。

@@ -1502,6 +1502,60 @@ describe('center column: the desktop shell s last opaque pane (2026-10-16)', () 
   })
 })
 
+describe('compat keeps the host frame fill (issue #37, 2026-11-06)', () => {
+  // The reporter saw a pale-blue wedge at the top-left of the content column in
+  // compat mode. Two halves: upstream `[data-windows-titlebar] .frame` paints
+  // `--dsw-specific-sidebar-fill` and `centerCol` cuts a 16px
+  // `--dsh-windows-content-radius` corner into its own `--dsw-alias-bg-base`
+  // plate; and the frame release above is not mode-gated, so in compat that
+  // sliver showed the #25 wash + glow 1 instead of the sidebar colour. Mica is
+  // blind to it (sidebar is a 12px-inset card, the corner sits inside).
+  // The fix restores the host own token in exactly that state, so the corner
+  // matches the sidebar column and the Windows caption — no new colour (rule
+  // 4), no geometry change.
+  const corner = rules.filter(
+    (rule) =>
+      rule.selector.includes('[data-dsh-glass-compat]') &&
+      rule.selector.includes('[data-windows-titlebar]') &&
+      rule.selector.includes('[data-dsh-glass-frame]'),
+  )
+
+  it('paints the frame with the host own sidebar token — not a colour of ours', () => {
+    expect(corner.map((rule) => rule.selector), 'the compat content corner lost its fill').toHaveLength(1)
+    expect(declOf(corner[0]!.decls, 'background')).toBe('var(--dsw-specific-sidebar-fill)')
+  })
+
+  it('never reaches mica, the web shell or macOS — both gates are load-bearing', () => {
+    for (const rule of corner) {
+      expect(
+        rule.selector,
+        'compat only: an opaque frame in mica would cover the whole page ground',
+      ).not.toContain('[data-dsh-glass-float]')
+      // Anchored on <html> with BOTH attributes, because upstream declares the
+      // fill on `[data-windows-titlebar] .frame` (0,2,0) — the plugin tag must
+      // not depend on landing last.
+      expect(rule.selector).toContain('html[data-dsh-glass-compat][data-windows-titlebar]')
+    }
+    // The generic release survives: the web / macOS shells and mica still let
+    // the ground through the frame.
+    expect(
+      rules
+        .filter((rule) => rule.selector === '[data-dsh-glass] [data-dsh-glass-frame]')
+        .some((rule) => /background\s*:\s*transparent/.test(rule.decls)),
+    ).toBe(true)
+  })
+
+  it('fixes the colour, not the geometry (option A stays rejected)', () => {
+    expect(
+      rules.filter((rule) => rule.decls.includes('--dsh-windows-content-radius')).map((rule) => rule.selector),
+      'zeroing the host content radius would make compat deviate from the stock layout it promises',
+    ).toEqual([])
+    expect(corner[0]!.decls, 'the corner is supposed to exist — it just has to read as the sidebar').not.toContain(
+      'border-radius',
+    )
+  })
+})
+
 describe('native caption rides the mica sheet (option C, 2026-10-16)', () => {
   // The official desktop shell colours the Windows title bar from
   // `--dsw-specific-sidebar-fill`: `syncWindowsAppearance()` in the shell's
@@ -1513,8 +1567,13 @@ describe('native caption rides the mica sheet (option C, 2026-10-16)', () => {
   // the card below read the sheet over the ground: a 3-4/255 band on the
   // top-left seam. The override re-points the token at the card's own colour —
   // no new hue, and only while float/mica is on.
+  // Rules that WRITE the token (the mica override). A rule that merely READS it
+  // through `var()` is not a caption override — the issue #37 compat frame fill
+  // reads the same token on purpose, because compat keeps the official value.
   const caption = rules.filter(
-    (rule) => rule.decls.includes('--dsw-specific-sidebar-fill') && !rule.selector.includes('sidebarCol'),
+    (rule) =>
+      /(?:^|;)\s*--dsw-specific-sidebar-fill\s*:/.test(rule.decls) &&
+      !rule.selector.includes('sidebarCol'),
   )
 
   it('is built from the card s own ingredients, over the wash s top stop', () => {

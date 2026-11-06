@@ -211,6 +211,46 @@
   background: transparent;
 }
 
+/* ---------- Compat keeps the host's own frame fill (issue #37).
+   The release above is NOT mode-gated, which is correct for the web / macOS
+   shells and for mica (the frame is the last thing that would cover the
+   ground), but in compat it also erased a surface the host had painted for a
+   reason: `[data-windows-titlebar] .frame` carries
+   `background: var(--dsw-specific-sidebar-fill)` upstream, and `centerCol`
+   cuts a `--dsh-windows-content-radius` (16px) corner INTO its own
+   `--dsw-alias-bg-base` plate. With the frame transparent, the sliver behind
+   that rounded corner stopped showing the sidebar colour (Latte
+   `neutral-bluish-50` #e6e9ef) and started showing the page ground — i.e. the
+   #25 wash plus glow 1 (12% share at 18%/6%, scaled by the strength knob), a
+   pale-blue wedge at the top-left of the content column. Mica never shows it:
+   there the sidebar is a 12px-inset card and that corner sits inside it.
+   So this is not a new material, it is the missing half of the "compat keeps
+   the official opaque sidebar" decision documented on the centerCol release
+   below — an opaque sidebar beside a transparent frame was a mismatch the
+   skin itself created.
+   How it is written:
+   - It restates the HOST's token, not a colour of ours (rule 4): in compat we
+     never re-point `--dsw-specific-sidebar-fill` (that override is float-only,
+     see the native-caption block), so the frame, the sidebar column and the
+     Windows caption all resolve to the same value — the corner disappears by
+     matching its neighbours, exactly as in the stock shell.
+   - `html[...][...]` is load-bearing: upstream declares the fill on
+     `[data-windows-titlebar] .frame` (0,2,0), and the release above reaches
+     (0,2,0) as well, so this rule must out-specify BOTH rather than rely on
+     the plugin's `<style>` tag landing last.
+   - `-compat` + `[data-windows-titlebar]` are both hard gates: matching in
+     mica would paint an opaque slab over the whole page ground, and matching
+     on the web / macOS shells would hide the ground for no reason.
+   - No geometry is touched (the 16px radius stays exactly as upstream
+     declares it): the corner is supposed to exist, it just has to read as the
+     sidebar again. Zeroing the radius was the reporter's alternative (A) and
+     was rejected — it would make compat deviate from the stock layout, which
+     is the one thing the mode promises.
+   Evidence: docs/issue-37-compat-content-corner.md. */
+html[data-dsh-glass-compat][data-windows-titlebar] [data-dsh-glass-frame] {
+  background: var(--dsw-specific-sidebar-fill);
+}
+
 [data-dsh-glass] [data-phase],
 [data-dsh-glass] [data-dsh-glass-details] {
   background: transparent;

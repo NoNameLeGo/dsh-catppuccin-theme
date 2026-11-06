@@ -89,6 +89,17 @@
    `docs/issue-34-dialog-seat-not-role.md`。
    ⚠️ 探针教训：复刻宿主浮层**不能**用内联 `style="position:fixed"` 造节点（内联压过样式表 ⇒ 假阴性），
    必须照宿主的样子用**类名**声明定位。
+   **推论六（issue #37 实测，2026-11-06）：擦除器必须按模式收敛——宿主画的表面不是「多余的一层」。**
+   `[data-dsh-glass] [data-dsh-glass-frame]{background:transparent}` 对 web / macOS / mica 都对，
+   但 compat 也打中了：宿主在 `[data-windows-titlebar] .frame` 上垫了侧栏色，`centerCol` 又拿
+   `--dsh-windows-content-radius`（16px）切掉左上角，抹平之后那 16px 里透出的是地面 + 光斑（#25/#32），
+   成了 Latte 下的一块淡蓝缺口。**凡 `background:0 0` / `transparent` 擦除器，先问一句「compat 下这个面
+   背后还有没有别的东西」**；有，就带 `-compat` 守卫，或在 compat + 标题栏把**宿主自己的 token** 还回去
+   （读 `var(--dsw-specific-sidebar-fill)`，不要抄数值）。⚠️ 覆盖宿主 `--dsh-*` 变量时**必须打在声明它的
+   那个元素或其子树**上——赋值写在 `html` 上传不下去（自定义属性不靠继承覆盖），
+   `--dsh-windows-content-radius` 声明在 `frame` 元素自身上，报告人给的 html 片段就是这么失效的。
+   护栏 = `tests/glass-css.spec.ts` 的 `compat keeps the host frame fill (issue #37)`；
+   取证与边界见 `docs/issue-37-compat-content-corner.md`。
 5. **boot 关键路径上的注册一律走 `tolerantRegistration`（issue #23）。** entry 的 `apply()` 一同步抛错 → entry FAILED → 整个 `web boot` 中止（`web boot: N entry(s) did not activate`）→ 官方壳崩溃救援 `disableAllPlugins()` 把**所有**第三方插件关停；而 `ctx.effect` 是同步执行并原样 rethrow 的（`ctx.slots.inject` 在槽已声明时同样同步）。⇒ **凡在 apply 同步路径上调用外部注册表**（`ctx.locale.register/addLanguage`、`theme.register`、`ctx.slots.register`、宿主 `webServer.register`）都必须经 `src/registration-tolerance.ts` 的 `tolerantRegistration`：已知「他方已占用」形态（语言包抢 BCP 47 ID、双份安装抢路由/slot/theme id）静默跳过，其余 warn 后同样跳过——没有任何一项注册值得用户的全套插件陪葬。⚠️ **漏包在本地测不出来**：`tests/registration-tolerance.spec.ts` 只穿过已包好的调用路径，全仓库没有任何用例扫 `src/client/index.ts` 的调用点（2026-10-14 核实，此前此处写的「变异检查会红」不成立）——漏包只会在真机 boot 上暴露，所以新增注册点时必须手工对照上面这份调用面。6. **「文档优先」的采纳必须先问「本地有没有更晚、还没落盘的意图」（issue #31）。** 持久状态是三层：
    ① localStorage 即时缓存 ② ThemeRuntime 偏好 ③ 官方 settings 文档（权威）。三者靠
    「本地改 → 300 ms 防抖 → 写文档 → 文档回声 → 采纳」收敛，**回声永远可能晚于下一次本地改**。
