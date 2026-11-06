@@ -22,6 +22,20 @@
     新规则只是读它，语义上不是 caption 覆盖。
   - 方案与边界：`docs/issue-37-compat-content-corner.md`。
 
+- **双端跟随模式回写死循环：`settings/mutate` ≈1/s，`cordis.patch.yml` 被反复重写（issue #38，2026-11-06）**。
+  `applyScopeSnapshot()` 采纳远端设置文档时只把 6 个字段写回 localStorage，漏了 `#36` 新增的
+  `followSystem` / `followDark`（重放分支同样漏）。桌面壳与局域网 Web 是两个 origin，各自缓存一个值：
+  谁也没把文档的值缓存下来，于是每次发布都判定「本地 ≠ 文档」并把自己的旧值推回去，两端永不收敛——
+  实测约 0.8 次写入/秒把 `followDark` 在 Frappé / Mocha 之间来回翻，并触发所有 `settings/document-updated`
+  订阅者重读。现在两处写回合并成 `writeLocalSection()`，用映射类型逐字段覆盖 section（新字段不写就**编译不过**）。
+  - **顺序有讲究**：`glass` 必须最后写。`applyRemote` 会同步重发布并触发 `queuePersist` 当场快照缓存，
+    follow 两个字段若排在它之后（报告人补丁的位置），循环虽然止住了，却会把 `pendingLocalSection`
+    武装成一个永远对不上账的 section，随后「另一窗口改了设置」的外部编辑会被 #31 守卫吞掉——已用
+    两快照复现钉住（`tests/follow-adopt.spec.ts`）。
+  - 连带把 `settingsSectionsEqual` / `isDefaultState` 那两个「手写样例」测试改成按 section 派生，
+    它们此前只覆盖 6 个字段却名为「every field」。
+  - 方案与取证：`docs/issue-38-follow-cache-loop.md`。
+
 ## [0.7.0] - 2026-11-04
 
 > 本版 = **issue #36**（跟随系统深/浅色）+ 前述两条未发条目（DSH `0.2.1-rc.5` 兼容声明、迁移成功不再写 stdout）。

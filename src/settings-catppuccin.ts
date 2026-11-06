@@ -194,6 +194,10 @@ export interface CatppuccinConfig {
     gap: { get(): number }
     /** Issue #32 ground-glow strength, percent of the shipped look. */
     glowStrength: { get(): number }
+    /** Issue #32 follow-up ground-glow spread, percent of the shipped geometry. */
+    glowSize: { get(): number }
+    /** Issue #26: the optional ground glows (the wash-only ground is the default). */
+    glow: { get(): boolean }
   }
   autoCheck: { get(): boolean }
   updateChannel: { get(): CatppuccinSettingsSection['updateChannel'] }

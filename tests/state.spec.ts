@@ -31,6 +31,50 @@ import {
 import { CATPPUCCIN_FLAVORS } from '../src/client/palettes.ts'
 import { CATPPUCCIN_FLAVOR_VALUES } from '../src/client/index.ts'
 
+/**
+ * One mutation per field of the durable section, each moved away from the
+ * shipped default. Guards that answer "does this field count?" are checked
+ * against this table instead of a hand-written sample, because a hand-written
+ * sample silently stops covering the field somebody just added — which is how
+ * issue #38 shipped (a `followSystem` / `followDark` pair that the adoption
+ * write-back never carried, while the "compares every field" test below only
+ * ever exercised six of them).
+ * @param base - the section to mutate (the shipped defaults).
+ * @returns one mutant per field, keyed by the field's path in the section.
+ */
+function sectionMutants(base: CatppuccinSettingsSection): Record<string, CatppuccinSettingsSection> {
+  return {
+    flavor: { ...base, flavor: 'catppuccin-latte' },
+    // `followSystem` only moves together with a flavour: `sanitizeState` drops
+    // it while `flavor` is `off` (the "off wins over follow" invariant).
+    followSystem: { ...base, flavor: 'catppuccin-mocha', followSystem: true },
+    followDark: { ...base, followDark: 'catppuccin-frappe' },
+    'glass.enabled': { ...base, glass: { ...base.glass, enabled: true } },
+    'glass.mode': { ...base, glass: { ...base.glass, mode: 'compat' } },
+    'glass.blur': { ...base, glass: { ...base.glass, blur: 40 } },
+    'glass.frost': { ...base, glass: { ...base.glass, frost: 90 } },
+    'glass.brightness': { ...base, glass: { ...base.glass, brightness: 100 } },
+    'glass.gap': { ...base, glass: { ...base.glass, gap: 20 } },
+    'glass.glowStrength': { ...base, glass: { ...base.glass, glowStrength: 180 } },
+    'glass.glowSize': { ...base, glass: { ...base.glass, glowSize: 220 } },
+    'glass.glow': { ...base, glass: { ...base.glass, glow: true } },
+    autoCheck: { ...base, autoCheck: false },
+    updateChannel: { ...base, updateChannel: 'beta' },
+    overrides: { ...base, overrides: { '--dsw-static-blue-500': '#cba6f7' } },
+    shikiStyle: { ...base, shikiStyle: 'italic-comments' },
+  }
+}
+
+/** Every field path of a section, derived from the section itself (so a new
+ *  field is missing from {@link sectionMutants} loudly, not silently). */
+function sectionFieldPaths(base: CatppuccinSettingsSection): string[] {
+  return [
+    'flavor',
+    ...Object.keys(base.glass).map((key) => `glass.${key}`),
+    ...Object.keys(base).filter((key) => key !== 'flavor' && key !== 'glass'),
+  ].sort()
+}
+
 describe('durable state defaults', () => {
   it('defaults to no Catppuccin flavour, no glass, auto-check on, stable channel', () => {
     expect(defaultState()).toEqual({
@@ -57,15 +101,17 @@ describe('durable state defaults', () => {
     })
   })
 
-  it('isDefaultState only accepts a fully default state', () => {
+  it('isDefaultState only accepts a fully default state — every field counts', () => {
     expect(isDefaultState(defaultState())).toBe(true)
-    expect(isDefaultState(sanitizeState({ flavor: 'catppuccin-mocha' }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ glass: { enabled: true } }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ glass: { blur: 10 } }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ autoCheck: false }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ updateChannel: 'beta' }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ overrides: { '--dsw-static-blue-500': '#89b4fa' } }))).toBe(false)
-    expect(isDefaultState(sanitizeState({ shikiStyle: 'italic-comments' }))).toBe(false)
+    const base = defaultSettingsSection()
+    const mutants = sectionMutants(base)
+    // This gate decides whether a fresh origin pushes its local state into the
+    // document at all (`applyScopeSnapshot` → `!isDefaultState(local)`), so a
+    // field missing from the comparison silently swallows that choice.
+    expect(Object.keys(mutants).sort()).toEqual(sectionFieldPaths(base))
+    for (const [field, section] of Object.entries(mutants)) {
+      expect(isDefaultState(sanitizeState(section)), field).toBe(false)
+    }
   })
 
   it('uses the settled namespace and the legacy file name for migration', () => {
@@ -256,12 +302,15 @@ describe('settings-document section helpers (0.5.0)', () => {
   it('settingsSectionsEqual compares every field', () => {
     const base = defaultSettingsSection()
     expect(settingsSectionsEqual(base, defaultSettingsSection())).toBe(true)
-    expect(settingsSectionsEqual(base, { ...base, flavor: 'catppuccin-latte' })).toBe(false)
-    expect(settingsSectionsEqual(base, { ...base, glass: { ...base.glass, blur: 10 } })).toBe(false)
-    expect(settingsSectionsEqual(base, { ...base, autoCheck: false })).toBe(false)
-    expect(settingsSectionsEqual(base, { ...base, updateChannel: 'beta' })).toBe(false)
-    expect(settingsSectionsEqual(base, { ...base, shikiStyle: 'italic-comments' })).toBe(false)
-    expect(settingsSectionsEqual(base, { ...base, overrides: { '--dsw-static-blue-500': '#89b4fa' } })).toBe(false)
+    const mutants = sectionMutants(base)
+    // Derived, not sampled: the previous version of this test touched only six
+    // fields and therefore could not have caught a field dropped from the
+    // comparison — the shape of bug issue #38 turned out to be.
+    expect(Object.keys(mutants).sort()).toEqual(sectionFieldPaths(base))
+    for (const [field, mutant] of Object.entries(mutants)) {
+      expect(settingsSectionsEqual(base, mutant), field).toBe(false)
+    }
+    // The override map is compared by CONTENT, not by key order.
     expect(settingsSectionsEqual(
       { ...base, overrides: { '--a': '1', '--b': '2' } },
       { ...base, overrides: { '--b': '2', '--a': '1' } },

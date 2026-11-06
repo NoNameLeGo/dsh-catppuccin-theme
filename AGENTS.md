@@ -556,6 +556,10 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > 与「行级尺寸豁免」（纯 CSS 没有高度判据；改走运行时等于在幂等 stamper 里每帧强制布局）。真机 e2e 在 `0.1.7-rc.2` 上
 > **19/19**。顺带在**上游 + 本插件范围内**查明没有「通用自定义 CSS」入口（两版本全套包 + 前端 bundle + profile patch
 > 全 0 命中；⚠️ **范围只到这里**，别读成「这台机器上没有」，见下条），README 因此改用「只读取证脚本 + 外部注入 + 提 issue」三步。
+> ⚠️ **2026-11-06（issue #38）补：上面那张「加字段要动的清单」现在是 5 处**，漏的第 5 处是
+> **采纳文档时的缓存写回**（`src/client/index.ts` 的 `writeLocalSection`）。漏它的后果不是「设置不生效」，而是
+> **双 origin 的写回死循环**：文档被采纳却不进缓存 ⇒ 每次发布都判定「本地 ≠ 文档」⇒ 把自己的旧值推回去，
+> 两端每秒互推一次、`cordis.patch.yml` 被反复重写。#38 之前这张清单是手抄的，现在由映射类型兜住（新字段不写就编译不过）。
 > ⚠️ **2026-09-29 报告人更正（issue #17 末条评论）**：上面这条结论的**扫描范围只有 DSH 上游 + 本插件**，别读成「这台机器上没有样式入口」——
 > **第三方插件可以自带**：`dsh-better-sidebar@0.21.1` 就有 `customCss` 配置项，gate 在它自己的 `titleBarScheme === 'custom'` 上
 > （`const customCss = scheme === "custom" ? snapshot.prefs.customCss : ""`），以 `data-dsh-custom-css` 注入，写在 profile patch 里该插件条目的
@@ -668,7 +672,7 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
      实测会把**宿主自己的**底色一起抹掉，`@layer` 又会让材质在所有宿主声明过 `background` 的地方失效
      ⇒ 机制判断成立；但「两套设置 API 各写一遍」**是错的**——两套 schema 出自同一张
      `catppuccinSchemaFields()`，真实成本在 `stateToMutateOps` / `settingsSectionsEqual` / Host schema /
-     设置行 UI 四处。
+     设置行 UI 四处（#38 起是五处：还有采纳写回 `writeLocalSection`）。
   3. **写「没有 X」前先问「我的 grep 覆盖了谁」**。#17 那句「DSH 与本插件都没有通用自定义 CSS 入口」源于
      只扫上游 + 本插件，被报告人用 `dsh-better-sidebar@0.21.1` 的 `customCss` 当场纠正（gate =
      `titleBarScheme === 'custom'`，注入属性 `data-dsh-custom-css`）。范围不够就写「在本插件与上游范围内

@@ -321,7 +321,11 @@ function stateToMutateOps(state: CatppuccinState): SettingsPathOpView[] {
     // adoption resets the switch — measured on the live page (2026-10-16): the
     // settings switch toggled back to OFF within a second because this op was
     // absent. Any new field must be added here AND to
-    // `settingsSectionsEqual` / `sanitizeState` / the Host schema.
+    // `settingsSectionsEqual` / `sanitizeState` / the Host schema — and to
+    // `writeLocalSection` (`src/client/index.ts`), the adoption write-back.
+    // Issue #38 (2026-11-06) is what forgetting that last one looks like: the
+    // document was adopted but never cached, so both ends kept re-pushing
+    // their own `followDark` at ~0.8 writes/second.
     { op: 'set', path: ['glass', 'glow'], value: section.glass.glow },
     { op: 'set', path: ['autoCheck'], value: section.autoCheck },
     { op: 'set', path: ['updateChannel'], value: section.updateChannel },

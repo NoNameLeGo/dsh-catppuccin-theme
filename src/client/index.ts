@@ -349,6 +349,60 @@ export function writeFollowDark(value: FollowDarkFlavor): void {
 }
 
 /**
+ * Turn one ADOPTED durable section back into local state — the only place a
+ * settings-document section is written into the localStorage cache.
+ *
+ * Issue #38 (2026-11-06): this used to be two hand-copied field lists inside
+ * the adoption path, and #36 added `followSystem` / `followDark` to the section
+ * without adding them to either. Two origins (Desktop `dsh-app://app` + a LAN
+ * web client on another port) then adopted the document without caching the
+ * pair, so every publish saw "local ≠ document" and pushed its own stale value
+ * back — measured in production at ~0.8 `settings/mutate` per second,
+ * ping-ponging `followDark` between two flavours and rewriting
+ * `cordis.patch.yml` forever. The record below is a mapped type over the
+ * section, so a field added to `CatppuccinSettingsSection` fails to compile
+ * until it is cached here too (same drift class as `stateToMutateOps`, which
+ * got a derived guard in issue #26).
+ *
+ * ⚠️ `glass` is written LAST on purpose. `applyRemote` republishes
+ * synchronously (`sync()` → `theme/change` → the `glass.subscribe` hook) and
+ * that publish runs `queuePersist`, which snapshots `buildLocalState()` on the
+ * spot. Writing the glass material earlier — where the pre-#38 code had it,
+ * right after the flavour — leaves the follow pair un-cached at snapshot time,
+ * so the adoption arms `pendingLocalSection` with a section no flush can ever
+ * settle; issue #31's guard 1 then swallows the NEXT external document edit.
+ * Verified with a two-snapshot repro: appending the two writes at the END of
+ * the adoption block stops the loop but still loses the following edit.
+ *
+ * @param section - the section the settings document resolved to.
+ * @param glass - the glass layer; `applyRemote` caches the knobs and republishes.
+ */
+export function writeLocalSection(
+  section: CatppuccinSettingsSection,
+  glass: { applyRemote(state: CatppuccinSettingsSection['glass']): void },
+): void {
+  // `(value: never) => void` keeps the record free of variance friction while
+  // still forcing EVERY key of the section to be present.
+  const writers: { [K in keyof CatppuccinSettingsSection]: (value: never) => void } = {
+    flavor: writeFlavor,
+    followSystem: writeFollowSystem,
+    followDark: writeFollowDark,
+    autoCheck: writeAutoCheck,
+    updateChannel: writeUpdateChannel,
+    overrides: writeOverrides,
+    shikiStyle: writeShikiStyle,
+    // Last: it republishes, and that publish re-reads the whole cache.
+    glass: (value) => glass.applyRemote(value),
+  }
+  for (const key of Object.keys(writers) as (keyof CatppuccinSettingsSection)[]) {
+    // One assertion for the loop: the record is exhaustive by construction, but
+    // TypeScript cannot correlate two indexes driven by the same union key.
+    const write = writers[key] as (value: unknown) => void
+    write(section[key])
+  }
+}
+
+/**
  * Does this host ship the menu blur that makes a translucent menu surface work?
  *
  * `--dsw-specific-menu` only became translucent together with the blur: upstream
@@ -1163,12 +1217,9 @@ export function apply(ctx: ClientContext): void {
           // MERGED state into the local cache, then let the debounced flush
           // carry it out (`persistLocal` rebuilds from the cache, so it writes
           // exactly these values).
-          writeFlavor(replayed.state.flavor)
-          glass.applyRemote(replayed.state.glass)
-          writeAutoCheck(replayed.state.autoCheck)
-          writeUpdateChannel(replayed.state.updateChannel)
-          writeOverrides(replayed.state.overrides)
-          writeShikiStyle(replayed.state.shikiStyle)
+          // Issue #38: ONE writer for the whole section (glass last), so the
+          // follow pair can never be dropped from this list again.
+          writeLocalSection(replayed.state, glass)
           emitPrefs()
           reapplyThemePrefs()
           applyDesired()
@@ -1221,19 +1272,17 @@ export function apply(ctx: ClientContext): void {
       // Committing to the document: the queued flush would now only write the
       // pre-adoption state back, so drop it (and the revision it captured — a
       // stale base would be read as a conflict by the next burst). Both sync
-      // points move BEFORE the writes below, because `glass.applyRemote`
-      // republishes and that publish runs `queuePersist` (issue #31).
+      // points move BEFORE the writes below, because `writeLocalSection` ends
+      // on `glass.applyRemote` and that republishes, which runs `queuePersist`
+      // (issue #31).
       cancelDurablePersist()
       baseRevisionTracker.take()
       pendingLocalSection = null
       lastDocumentSection = documentSection
       syncedSection = documentSection
-      writeFlavor(state.flavor)
-      glass.applyRemote(state.glass)
-      writeAutoCheck(state.autoCheck)
-      writeUpdateChannel(state.updateChannel)
-      writeOverrides(state.overrides)
-      writeShikiStyle(state.shikiStyle)
+      // Issue #38: the follow pair rides this call too — the pre-fix list
+      // omitted it, and that omission is what kept two origins ping-ponging.
+      writeLocalSection(state, glass)
       emitPrefs()
       reapplyThemePrefs()
       applyDesired()
