@@ -8,6 +8,11 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-06
+
+> 本版两条都是修复：**issue #37**（兼容模式内容列左上角透出氛围地面）+ **issue #38**
+> （双端 `followDark` 回写死循环）。按 2026-11-04 的版本号规则走 `0.7.x`，两条同批发。
+
 ### 修复
 
 - **兼容模式 + Windows 标题栏：内容列左上角透出氛围地面（issue #37，2026-11-06）**。
@@ -22,7 +27,7 @@
     新规则只是读它，语义上不是 caption 覆盖。
   - 方案与边界：`docs/issue-37-compat-content-corner.md`。
 
-- **双端跟随模式回写死循环：`settings/mutate` ≈1/s，`cordis.patch.yml` 被反复重写（issue #38，2026-11-06）**。
+- **双端跟随模式回写死循环：`settings/mutate` ≈1/s、`cordis.patch.yml` 被反复重写（issue #38，2026-11-06）**。
   `applyScopeSnapshot()` 采纳远端设置文档时只把 6 个字段写回 localStorage，漏了 `#36` 新增的
   `followSystem` / `followDark`（重放分支同样漏）。桌面壳与局域网 Web 是两个 origin，各自缓存一个值：
   谁也没把文档的值缓存下来，于是每次发布都判定「本地 ≠ 文档」并把自己的旧值推回去，两端永不收敛——
@@ -1582,7 +1587,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.7...v0.7.0
 [0.6.7]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.5...v0.6.6
