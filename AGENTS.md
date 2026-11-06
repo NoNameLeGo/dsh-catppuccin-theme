@@ -375,7 +375,18 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > - **走到 `0.7.9`、该往下一个号走的时候，先问维护者要不要用 `0.8.0`**——不要自行决定，也不要
 >   顺手写成 `0.8.0-beta.n`。没问就到 `0.7.9` 为止。
 
-> ⚠️ **发版版本号**：`latest` = **`0.7.0`**（2026-11-04；tag `v0.7.0` → Publish run `41806989074` success、
+> ⚠️ **发版版本号**：`latest` = **`0.7.1`**（2026-11-06；tag `v0.7.1` → Publish run `42167449181` success、
+> CI `42167449272` check + boot-e2e 双绿、registry `dist-tags.latest` 约 3 分钟内翻到 `0.7.1`、
+> `versions['0.7.1'].dist.attestations` 为 true、制品实测 `lib/client.js` 含 1 处
+> `[data-dsh-glass-compat][data-windows-titlebar]` 规则与 4 处 `writeLocalSection`）
+> = **issue #37**（compat + Windows 标题栏：把宿主自己的 `--dsw-specific-sidebar-fill` 还给 `frame`，
+> 内容列左上角那个 16px 缺口不再透出地面光斑。**未采纳**报告人的「半径归零」——变量声明在 `frame`
+> 元素自身，写在 `html` 上无效，已用 Chrome headless 实测证伪）+ **issue #38**（双端 `followDark`
+> 回写死循环：两处手抄清单合并成 `writeLocalSection()`，映射类型逐字段、`glass` 排最后）。
+> **测试 429 全绿**（24 文件）。**两条 issue 均已回帖**（#37 `6677595978` / #38 `6677596659`），等报告人复验。
+> ⚠️ 仍未做：#37 的像素前后截图（本机壳窗口 `visibilityState=hidden`，`Page.captureScreenshot` 与
+> `Page.startScreencast` 全部挂住，只有计算样式 + 命中测试）、macOS 壳未验。
+> 上一版 `latest` = **`0.7.0`**（2026-11-04；tag `v0.7.0` → Publish run `41806989074` success、
 > CI `41806988970` check + boot-e2e 双绿、registry `dist-tags.latest` 已翻到 `0.7.0`、
 > `versions['0.7.0'].dist.attestations` 为 true、制品实测 `lib/client.js` 含 15 处 `followSystem`、
 > `lib/index.js` 含 3 处 `prefers-color-scheme`）= **issue #36**（跟随系统深/浅色：偏好留 `system` +
