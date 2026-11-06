@@ -162,9 +162,37 @@ Latte 数值（`src/client/palettes.ts`）：`bg-base` = `neutral-bluish-00`（#
 
 结论：本次修复后，**没有第二处会显形的同类 bug**；全屏右栏那处是「顺手也修好了」。
 
+## 真机验收（2026-11-06，壳 `0.2.2-rc.1` / Windows 11 / 1280×822 / dpr 1.5）
+
+条件按报告复现：**compat + Latte + glow 开（强度 150% / 尺寸 250%）**，blur 5 / frost 20 / brightness 50。
+`--remote-debugging-port=9333` + `.debug/real-verify/cdp.mjs`，读数如下：
+
+| 项 | 值 |
+|---|---|
+| 缺口原点（`centerCol` 左上） | `(280, 40)`：侧栏右缘 280 = 标题栏高 40 |
+| `centerCol` 圆角 | `16px`（上游未变） |
+| 修复态 `frame` 计算底色 | **`rgb(230, 233, 239)`** = `#e6e9ef`，与 `sidebarCol` 完全同色 |
+| 注入 0.7.0 语义（`background: transparent !important`） | `rgba(0, 0, 0, 0)` → 底下露出 `body` 地面（wash + 2 glows，`--dsh-glass-glow:1`、`--dsh-glass-glow-strength:1.5`） |
+| 移除注入后 | 回到 `rgb(230, 233, 239)`（规则未被污染） |
+| `elementFromPoint(284, 44)` | `FRAME` —— 缺口像素的绘制者就是 `frame`，不是 `centerCol` |
+| mica 回归 | `data-dsh-glass-float` 在场时 `frame` 仍为 `rgba(0,0,0,0)`，新规则不误命中 |
+
+壳里 `data-windows-titlebar` / `--dsh-windows-titlebar-height:40px` 与上游 `.frame`
+（`--dsh-windows-content-radius:16px` + `background:var(--dsw-specific-sidebar-fill)`）、
+`.centerCol`（`bg-base` + 该半径）逐字未变，类名哈希从 `pI_x6G` 换到 `mP3x-q`，
+子串 `sidebarCol` / `centerCol` 仍在 ⇒ seam 打点与新规则都照旧命中。
+
+⚠️ **本轮没有像素截图**：该壳窗口 `visibilityState === 'hidden'`，`Page.captureScreenshot`
+（含 `clip` / `captureBeyondViewport`）与 `Page.startScreencast` 全部挂住（8s / 6s 无响应无帧），
+`Page.bringToFront` 与 `Page.setWebLifecycleState('active')` 都拉不回来。取证只到「计算样式 + 命中测试」。
+另：窗口 hidden 时 rAF 冻结，seam 钩子要手动补一遍（`.debug/real-verify/stamp.js`），否则
+`[data-dsh-glass-frame]` 根本不存在 —— 首次读数 `frameTag: null` 就是这个原因，不是规则没生效。
+
 ## 残留
 
-- 真机截图（compat / Latte / glow 150%250% 前后对比）待拍；本机当前无 `0.2.2-rc.1` 壳。
+- 像素级前后截图仍未拍（原因见上，不是待办遗漏）。
 - compat 下地面彻底不可见是**既定行为**，不是回归：该模式的价值在浮层/弹层/输入卡的通用玻璃材质。
 - 上游升版审计时必查两处：`--dsh-windows-content-radius` 与 `.frame` 的填充配方（若宿主换成
   非 token 配方，本规则需跟着改）。
+- 发版：本修复**不单独发**，等 issue #38 的改动落地后同批发（维护者 2026-11-06 定）。
+
