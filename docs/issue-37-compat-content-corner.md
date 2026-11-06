@@ -69,6 +69,20 @@ html[data-dsh-glass-compat][data-windows-titlebar] { --dsh-windows-content-radiu
 而自定义属性不靠继承覆盖——元素一旦有自己的声明，`html` 上的值就再也传不到 `centerCol`。
 要用 A 必须打到 `[data-dsh-glass-frame]` 或 `> [class*='centerCol']` 上。
 
+### 实测反证（Chrome `--headless=new`，上游 CSS 子集逐字复制，Latte 取值）
+
+复现文件 `.debug/issue-37/probe.html`（gitignored）。`getComputedStyle` 读数：
+
+| 写法 | `centerCol` 左上圆角 | `frame` 计算底色 |
+|---|---|---|
+| 0.7.0 现状（只有释放规则） | 16px | `rgba(0, 0, 0, 0)` ← **就是这块洞** |
+| 报告人 A：变量写在 `<html>` 上 | **16px**（毫无变化） | `rgb(230, 233, 239)` |
+| A′：变量写在 `[data-dsh-glass-frame]` 上 | 0px（能生效，但不是我们要的方向） | `rgb(230, 233, 239)` |
+| 本次 B | 16px（几何不动） | `rgb(230, 233, 239)` ← 与侧栏、原生标题栏同色 |
+
+⇒ 报告人的**根因分析完全正确**，只有「改写落在哪个元素」这一步错了：自定义属性的级联不认继承，
+`html` 上的赋值永远打不过 `frame` 元素本地的 `16px`。
+
 即便修正了写法，A 还有两个问题：
 
 1. **违反 compat 的定义**：compat 的唯一承诺是「宿主原样」，零半径是主动改掉一个宿主设计维度；
@@ -122,6 +136,31 @@ Latte 数值（`src/client/palettes.ts`）：`bg-base` = `neutral-bluish-00`（#
 连带改动：`native caption rides the mica sheet` 那组的 `caption` 过滤器从「decls 里出现过该 token」
 收紧为「**声明**该 token（`--dsw-specific-sidebar-fill:`）」。原过滤器把「读」也算成「写」，
 而本次新规则正是**读**——语义上它压根不是 caption 覆盖（compat 保留官方值才是本意）。
+
+## 同类排查（2026-11-06）
+
+两个方向都扫了一遍：① 宿主在 `[data-windows-titlebar]` 下还切了哪些圆角；② 我们还有哪些
+`background` 擦除器没按模式收敛。
+
+**① 宿主圆角。** `grep -rho 'data-windows-titlebar\][^{,]*{[^}]*border-radius[^}]*}'
+@deepseek-ai/*/lib/client.js` 命中 3 条，其中 1 条是折叠态新会话按钮的 `--dsw-radius-sm`（与本变量无关）。
+另外两条都是 `--dsh-windows-content-radius`：
+
+| 位置 | 消费者 | 判定 |
+|---|---|---|
+| `dsh-client-ui-layout` | `[data-windows-titlebar] .centerCol` | **本条 bug** |
+| `dsh-client-ui-sidebar-right` | `[data-sidebar-right-panel='fullscreen'] [data-dockkit-column='0'][data-dockkit-pane]` | **无需处理**：面板 `.P3OORG_panel` 与 dockkit pane 都不画底色（`grep background` 均命中 0），圆角背后在官方与 compat（修复后）都是 `frame` = 侧栏色；mica 下 `frame` 透明，而这块面板本来就整块透地面（没有玻璃卡片），属既定观感。**反过来，修复前 compat 的全屏右栏背后是地面**（比 16px 大得多），修复后一并回到侧栏色 |
+
+**② 未按模式收敛的擦除器。** 共 4 处，逐条判定：
+
+| 擦除规则 | 宿主原本画什么 | 结论 |
+|---|---|---|
+| `[data-dsh-glass-frame]` | 侧栏色（compat + 标题栏下还切 16px 角） | **本条 bug**，已收口 |
+| `[data-dsh-glass-details]`（右栏面板） | 什么都不画：`.P3OORG_panel` / `[data-dockkit-pane]` 的 `background` 命中 0 | no-op，安全（旧壳的 `[class*='detailsCol'] [class*='root']` 分支未验证，本机无对应版本，P3） |
+| `[data-phase]`（会话根） | 不画底色（`dsh-client-ui-chat` 全包 `grep data-phase…background` 命中 0） | no-op，安全 |
+| `[data-phase] [class*='composerSeat']` | active 态有 `linear-gradient(0 → bg-base 36px)` 底部渐隐 | **故意**：compat 的输入卡是半透明的，留着渐变会在卡片内部切出一道硬边；底部那片由 #28/#29 的 dock 带补偿，两模式共用 |
+
+结论：本次修复后，**没有第二处会显形的同类 bug**；全屏右栏那处是「顺手也修好了」。
 
 ## 残留
 
