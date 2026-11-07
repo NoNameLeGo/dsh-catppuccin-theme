@@ -375,7 +375,17 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > - **走到 `0.7.9`、该往下一个号走的时候，先问维护者要不要用 `0.8.0`**——不要自行决定，也不要
 >   顺手写成 `0.8.0-beta.n`。没问就到 `0.7.9` 为止。
 
-> ⚠️ **发版版本号**：`latest` = **`0.7.1`**（2026-11-06；tag `v0.7.1` → Publish run `42167449181` success、
+> ⚠️ **发版版本号**：`latest` = **`0.7.2`**（2026-11-07；tag `v0.7.2` → Publish run `42334870089` success、
+> CI `42334857906` check + boot-e2e 双绿、制品实测 `lib/client.js` 含 1 处 `[data-message-bubble]` 与
+> 1 处 `[class*=bubbleWidth]`、旧的裸子串规则 `[class*='bubble']` 已 0 处、`[role=tooltip]` 不再出现在圆角组）
+> = **issue #39**（Latte + 云母下 tooltip 被「气泡」子串规则一起刷成浅玻璃：tooltip 自绘
+> `--dsw-alias-tooltip-bg`、文字硬编码 `--dsw-static-neutral-bluish-00` ⇒ 实测 **1.00:1**，关玻璃 7.06:1；
+> 改为**点名座位** `[data-message-bubble]` + 问答气泡的「宽度包装层子元素」，tooltip 座位连圆角都不碰）。
+> **测试 432 全绿**（24 文件）。**已回帖**（`6701771076`），等报告人复验。
+> 方案与三态审计（云母转录页/菜单/设置/兼容）见 `docs/issue-39-tooltip-bubble-guard.md`。
+> ⚠️ 仍未做：四风味全矩阵的 tooltip 扫描只跑了 Latte + Mocha 两态（compat 只验 tooltip 一条）；
+> macOS / Linux 壳未验。
+> 上一版 `latest` = **`0.7.1`**（2026-11-06；tag `v0.7.1` → Publish run `42167449181` success、
 > CI `42167449272` check + boot-e2e 双绿、registry `dist-tags.latest` 约 3 分钟内翻到 `0.7.1`、
 > `versions['0.7.1'].dist.attestations` 为 true、制品实测 `lib/client.js` 含 1 处
 > `[data-dsh-glass-compat][data-windows-titlebar]` 规则与 4 处 `writeLocalSection`）
