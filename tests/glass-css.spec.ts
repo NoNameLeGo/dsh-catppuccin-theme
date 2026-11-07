@@ -1919,3 +1919,78 @@ describe('floating-card gap (issue #31)', () => {
     expect(offenders, 'compat mode must stay byte-identical to stock layout').toEqual([])
   })
 })
+
+describe('native seats are never glass-filled (issue #39)', () => {
+  // Issue #39: `[class*='bubble']` inside the transcript also matched the
+  // host's TOOLTIP (`_bubble_44yfq_1`), because a tooltip attached to a
+  // transcript button renders inline instead of portalling to <body>. The rule
+  // replaced `--dsw-alias-tooltip-bg` with a light glass tint while the label
+  // stayed `--dsw-static-neutral-bluish-00` → 1.0:1 on Latte (white on white).
+  // The #17 block above could not catch it: its assertion greps for the
+  // LITERAL `[role='tooltip']`, so a substring selector walks straight past.
+  //
+  // This block matches rules against synthetic seats built from the hashes /
+  // hooks measured on the live GUI (0.2.2-rc.1) instead of grepping text, so a
+  // future substring rule has to face the same gate.
+  const seats = () => {
+    document.documentElement.setAttribute('data-dsh-glass', '')
+    document.documentElement.setAttribute('data-dsh-glass-float', '')
+    document.body.innerHTML = `
+      <div data-conversation-scroll>
+        <span class="_bubble_44yfq_1" role="tooltip">复制</span>
+        <div class="_bubble_1sgyj_1" data-message-bubble data-text-interaction-source><span>user bubble</span></div>
+        <div class="BfLV8a_bubbleWidth"><div class="_bubble_1sgyj_1 BfLV8a_bubble">reply</div></div>
+      </div>`
+    return {
+      tooltip: document.querySelector("[role='tooltip']")!,
+      wrapper: document.querySelector('.BfLV8a_bubbleWidth')!,
+      bubble: document.querySelector('[data-message-bubble]')!,
+      reply: document.querySelector('.BfLV8a_bubble') as HTMLElement,
+    }
+  }
+  const matches = (el: Element, selector: string): boolean => {
+    // Pseudo-elements / pseudo-classes jsdom cannot evaluate simply never match.
+    try {
+      return el.matches(selector)
+    } catch {
+      return false
+    }
+  }
+  const filling = rules.filter((rule) => declOf(rule.decls, 'background') !== undefined)
+
+  it('no rule that paints a fill targets the tooltip or the width wrapper', () => {
+    const s = seats()
+    const offenders = filling.filter((rule) =>
+      selectorList(rule.selector).some((sel) => matches(s.tooltip, sel) || matches(s.wrapper, sel)),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'a glass rule paints a native seat (issue #39)',
+    ).toEqual([])
+  })
+
+  it('leaves the tooltip seat entirely alone (no fill, no radius)', () => {
+    // Issue #39 follow-up: the seat is not ours at all, so the guard is about
+    // the whole rule set, not just `background`. `:not([role='tooltip'])` is
+    // stripped first — that guard EXISTS to exclude the seat, it is not a hit.
+    const bare = (sel: string) => sel.replace(/:not\([^)]*\)/g, '')
+    const offenders = rules.filter((rule) =>
+      selectorList(rule.selector).some((sel) => bare(sel).includes("[role='tooltip']")),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'a glass rule restyles the native tooltip',
+    ).toEqual([])
+  })
+
+  it('still frosts both real bubbles, and the fill is the theme-token mix', () => {
+    const s = seats()
+    const rule = filling.find((candidate) => matches(s.bubble, candidate.selector))
+    expect(rule, 'the user message bubble lost its glass fill').toBeDefined()
+    expect(selectorList(rule!.selector).some((sel) => matches(s.reply, sel)), 'the question-reply bubble lost its fill').toBe(
+      true,
+    )
+    expect(rule!.decls).toContain('--dsw-alias-bg-layer-1')
+    expect(rule!.decls).toContain('--dsh-glass-frost')
+  })
+})

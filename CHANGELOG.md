@@ -6,7 +6,36 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
-## [Unreleased]
+## [0.7.2] - 2026-11-07
+
+### 修复
+
+- **Latte + 玻璃：tooltip 被「气泡」规则一起刷成玻璃，白字白底（issue #39，2026-11-07）**。
+  云母的 `[data-dsh-glass-float] [data-conversation-scroll] [class*='bubble']` 用子串匹配，
+  把宿主**不 portal** 的 tooltip（`span._bubble_44yfq_1`，挂在转录区按钮上时是内联后代）一起命中：
+  该规则把 tooltip 自绘的 `--dsw-alias-tooltip-bg` 替换成 18.4% 浅玻璃，而 tooltip 的文字是硬编码的
+  `--dsw-static-neutral-bluish-00`（Latte = `#eff1f5`）⇒ 实测 **1.00:1**（玻璃关 7.06:1）。
+  只有 Latte 会报：三个深色风味的浅色文字压在深玻璃上仍可读（Mocha 最低 8.69:1）。
+  同一条子串还多画了问答气泡的**尺寸包装层** `BfLV8a_bubbleWidth`（自己不带填充）。
+  改为**点名座位**：用户气泡走宿主的稳定钩子 `[data-message-bubble]`（全库只有 `UserMessageBubble`
+  一处设置），问答气泡走「宽度包装层的气泡子元素」，并补 `:not([role='tooltip'])`。
+  真机复核：tooltip 回到宿主原色 **7.06:1**、4 个用户气泡与问答气泡填充不变、包装层恢复透明。
+  新增护栏 `tests/glass-css.spec.ts` › `native seats are never glass-filled (issue #39)`——
+  用真机量到的类名/钩子造合成座位做 `Element.matches()` 语义断言（#17 那条只 `includes`
+  字面量 `[role='tooltip']`，子串规则能绕过）；变异回旧选择器时新断言失败。
+  证据与三态审计（云母/菜单/设置/兼容）见 `docs/issue-39-tooltip-bubble-guard.md`。
+  （EN: name the seat instead of guessing with a substring — the mica bubble rule also hit the host
+  tooltip, whose text is a hardcoded static token, so Latte rendered 1.00:1; the rule now targets
+  `[data-message-bubble]` plus the question-reply bubble, with a semantic seat guard in the spec）
+
+- **原生 tooltip 不再被改圆角（同条 issue 的收尾，2026-11-07）**。座位既不是我们的，
+  那连形状也不该动：`[role='tooltip']` 从 8px 圆角那一组里摘掉，恢复宿主的 `--dsw-radius-sm`。
+  菜单项与 `*pill*` 保留（它们坐在皮肤已经接管的表面里，圆角属于那层表面的语言）。
+  护栏追加一条：**整份样式表不得有规则直接寻址 `[role='tooltip']`**（先剥掉 `:not(...)`
+  再判，因为 `:not([role='tooltip'])` 的作用正是排除它）；变异验证：把它加回圆角组即失败。
+  （EN: drop the tooltip from the shared 8px corner group — the seat is not ours, so its radius goes
+  back to the host's `--dsw-radius-sm`; the spec now forbids any rule from addressing `[role='tooltip']`
+  at all, with `:not(...)` stripped before the check）
 
 ## [0.7.1] - 2026-11-06
 

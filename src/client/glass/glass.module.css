@@ -461,8 +461,13 @@ html[data-dsh-glass-compat][data-windows-titlebar] [data-dsh-glass-frame] {
   border-radius: 14px;
 }
 
+/* Small seats share one 8px corner. `[role='tooltip']` is NOT in this list
+   (issue #39 follow-up, 2026-11-07): the native tooltip keeps its own
+   `--dsw-radius-sm`, because the skin has no business restyling a bubble the
+   host paints and sizes itself — the same reason its fill was never ours
+   (issue #17). Menu items and pills stay: they sit inside surfaces the glass
+   already owns, so the corner is part of that surface's language. */
 [data-dsh-glass-float] [role='menuitem'],
-[data-dsh-glass-float] [role='tooltip'],
 [data-dsh-glass-float] [class*='pill'] {
   border-radius: 8px;
 }
@@ -536,8 +541,32 @@ html[data-dsh-glass-compat][data-windows-titlebar] [data-dsh-glass-frame] {
    a body-level SVG speech bubble) and frosted them with an unwanted
    translucent box + rim + radius. The transcript holds only DSH's own
    user / command-input bubbles, so narrowing here keeps the glass off
-   foreign bubble-shaped widgets without a per-plugin blacklist. */
-[data-dsh-glass-float] [data-conversation-scroll] [class*='bubble'] {
+   foreign bubble-shaped widgets without a per-plugin blacklist.
+
+   ISSUE #39 (2026-11-07) — scoping to the transcript was NOT enough: the
+   substring also matched the host's TOOLTIP, whose class is
+   `_bubble_44yfq_1` and which renders INLINE (not portaled) when it is
+   attached to a transcript button — e.g. the message action row's 「复制」
+   (measured on 0.2.2-rc.1: hovering it produced
+   `span._bubble_44yfq_1[role='tooltip']` inside [data-conversation-scroll]).
+   The tooltip paints `--dsw-alias-tooltip-bg` itself and hardcodes its text
+   to `--dsw-static-neutral-bluish-00`, so replacing that fill with a light
+   glass tint made the label unreadable on Latte: measured bg
+   `color(srgb .937 .945 .961 / .184)` vs text `rgb(239,241,245)` ≈ 1.0:1
+   (glass off: `rgb(76,79,105)` vs the same text = 7.06:1). The same
+   fire-and-forget substring also painted `BfLV8a_bubbleWidth`, a pure size
+   WRAPPER with no fill of its own (double rim on the question-reply bubble).
+   So the seat is now named instead of guessed:
+     1. `[data-message-bubble]` — the host's own stable hook on the user
+        message bubble (only one component sets it: the UserMessageBubble
+        wrapper in conversation view, 0.2.2-rc.1);
+     2. the question-reply bubble, which has NO data hook, addressed as the
+        bubble CHILD of its width wrapper (never the wrapper itself).
+   Guard = `tests/glass-css.spec.ts` › `native seats are never glass-filled
+   (issue #39)`, which matches this rule against synthetic seats instead of
+   grepping for a literal `[role='tooltip']`. */
+[data-dsh-glass-float] [data-conversation-scroll] [data-message-bubble],
+[data-dsh-glass-float] [data-conversation-scroll] [class*='bubbleWidth'] > [class*='bubble']:not([role='tooltip']) {
   border-radius: 14px;
   border: 1px solid var(--dsh-glass-rim-soft);
   background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(46% * var(--dsh-glass-frost, 1)), transparent);
