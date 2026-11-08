@@ -375,7 +375,16 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > - **走到 `0.7.9`、该往下一个号走的时候，先问维护者要不要用 `0.8.0`**——不要自行决定，也不要
 >   顺手写成 `0.8.0-beta.n`。没问就到 `0.7.9` 为止。
 
-> ⚠️ **发版版本号**：`latest` = **`0.7.2`**（2026-11-07；tag `v0.7.2` → Publish run `42334870089` success、
+> ⚠️ **发版版本号**：`latest` = **`0.7.3`**（2026-11-08；tag `v0.7.3` → Publish run `42452736868` success、
+> CI `42452727363` check + boot-e2e 双绿、`dist-tags.latest` 已翻 `0.7.3`、制品实测 `lib/client.js` 三条
+> 焦点环规则齐全：`:is(input,textarea):focus-visible{outline:none}`、
+> `:has(>:is(input,textarea):focus-visible)`、`:focus-visible:not(input):not(textarea)`）
+> = **焦点环改画在搜索字段容器上**（#22 同类补丁）：宿主搜索字段是「圆角带边框容器 + 透明裸 `input`」，
+> 旧的全局环落在 `input` 上 ⇒ 圆角胶囊里出现直角蓝框贴文字；改为 input 清环、由直系父容器承接同一套配方。
+> **测试 435 全绿**（24 文件）。#22 已关闭，本轮无需回帖；方案与真机读数见
+> `docs/issue-22-rim-regression-2026-11-07.md`「已采纳：方案 2」。
+> ⚠️ 仍未做：`:has()` 需 Chrome 105+（现役壳 152）；macOS / Linux 壳未验。
+> 上一版 `latest` = **`0.7.2`**（2026-11-07；tag `v0.7.2` → Publish run `42334870089` success、
 > CI `42334857906` check + boot-e2e 双绿、制品实测 `lib/client.js` 含 1 处 `[data-message-bubble]` 与
 > 1 处 `[class*=bubbleWidth]`、旧的裸子串规则 `[class*='bubble']` 已 0 处、`[role=tooltip]` 不再出现在圆角组）
 > = **issue #39**（Latte + 云母下 tooltip 被「气泡」子串规则一起刷成浅玻璃：tooltip 自绘
