@@ -1994,3 +1994,43 @@ describe('native seats are never glass-filled (issue #39)', () => {
     expect(rule!.decls).toContain('--dsh-glass-frost')
   })
 })
+
+describe('focus ring rides the visible field, not the bare input (2026-11-08)', () => {
+  // Measured on 0.2.2-rc.1: the host's search fields are a rounded, bordered
+  // WRAPPER with a bare transparent <input> inside (model pane: 249x26 r=8
+  // wrapper, 235x16 r=0 input; sidebar: 207x32 r=12 wrapper, 151x20 r=0 input).
+  // Ringing the input drew a square blue box inside the rounded field and it
+  // appeared on mouse clicks too (text inputs always match :focus-visible).
+  // The ring must survive — the host gives those inputs none — so it moves one
+  // level up, to that wrapper.
+  const ring = (decls: string) => /outline\s*:\s*2px solid color-mix\(in srgb, var\(--dsw-alias-brand-primary-new-colorprimary-new-color\) 85%/.test(decls)
+
+  it('keeps the ring off the bare text field and puts it on the field wrapper', () => {
+    const suppress = rules.find((rule) => /:is\(input, textarea\):focus-visible/.test(rule.selector) && !rule.selector.includes(':has('))
+    expect(suppress, 'a ring still lands on the <input> itself').toBeDefined()
+    expect(declOf(suppress!.decls, 'outline'), 'the bare field must clear the ring').toBe('none')
+
+    const wrapper = rules.find((rule) => rule.selector.includes(':has(> :is(input, textarea):focus-visible)'))
+    expect(wrapper, 'the field wrapper lost its ring').toBeDefined()
+    expect(wrapper!.selector, 'the wrapper ring must stay on the DIRECT parent — a deep container must not inherit it').toContain(
+      '*:has(>',
+    )
+    expect(ring(wrapper!.decls), 'the wrapper ring lost the shared brand recipe').toBe(true)
+  })
+
+  it('still rings the controls the host leaves unstyled (buttons, rows)', () => {
+    const general = rules.filter((rule) => rule.selector.startsWith('[data-dsh-glass] :focus-visible'))
+    expect(general.length, 'the general focus ring disappeared').toBe(1)
+    expect(general[0].selector, 'inputs/textareas must be excluded explicitly').toContain(':not(input):not(textarea)')
+    expect(ring(general[0].decls)).toBe(true)
+  })
+
+  it('leaves contenteditable on the general path (the composer shell is not a field box)', () => {
+    // The composer editor's parent is the bare 846x52 scroll shell with radius
+    // 0 — a ring there would be a square box inside the 24px card, and it is
+    // clipped by overflow anyway. So the wrapper rule must key on
+    // input/textarea ONLY, never on [contenteditable].
+    const wrapper = rules.find((rule) => rule.selector.includes(':has(>'))
+    expect(wrapper!.selector).not.toContain('contenteditable')
+  })
+})

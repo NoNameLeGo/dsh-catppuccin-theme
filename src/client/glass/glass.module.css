@@ -1620,7 +1620,33 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
 }
 
 /* ---------- Keyboard focus and text selection. ---------- */
-[data-dsh-glass] :focus-visible {
+/* The ring normally rides the focused element itself. TEXT FIELDS are the
+   exception (issue #22 follow-up family, 2026-11-08): the host renders its
+   search / filter fields as a rounded, bordered WRAPPER whose <input> is a
+   bare transparent box (measured 0.2.2-rc.1: model pane
+   `SPAN._wrap_14sgc_1` 249x26 r=8px with a .5px border; sidebar
+   `DIV.GAkraW_search` 207x32 r=12px with a .67px border; the inputs themselves
+   are 235x16 / 151x20 with radius 0 and no border). Drawing the ring on the
+   input put a SQUARE blue box inside the rounded field, hugging the text, and
+   it appeared on mouse clicks too (text inputs always match :focus-visible).
+   Host gives those inputs no focus indication of its own, so the ring must
+   survive — it just has to land on the visible field: the input's DIRECT
+   parent, which is that wrapper in both known shapes. Contenteditable (the
+   composer) is deliberately left on the old path: its parent is the bare
+   846x52 editor shell with radius 0, and its ring is clipped by the scroll
+   container anyway. */
+[data-dsh-glass] :focus-visible:not(input):not(textarea) {
+  outline: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 85%, transparent);
+  outline-offset: 1px;
+}
+
+[data-dsh-glass] :is(input, textarea):focus-visible {
+  outline: none;
+}
+
+/* One level up only (`>`), so a wrapper that merely CONTAINS a field deep
+   inside cannot inherit the ring. */
+[data-dsh-glass] *:has(> :is(input, textarea):focus-visible) {
   outline: 2px solid color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 85%, transparent);
   outline-offset: 1px;
 }

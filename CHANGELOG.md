@@ -6,6 +6,31 @@
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（`0.x.y` 正式版，
 `0.x.y-beta.n` 预发布 → `beta` npm 标签）。
 
+## [Unreleased]
+
+## [0.7.3] - 2026-11-08
+
+### 修复
+
+- **焦点环画到了搜索框自己的文字框上（issue #22 同类，2026-11-08）**。宿主的搜索/筛选字段是「圆角带边框的
+  **外层容器** + 里面一个透明裸 `<input>`」：模型面板 `SPAN._wrap_14sgc_1` 249×26 配 `.5px` 边（真机实测圆角 12px），
+  输入框只有 235×16 / r=0；侧栏 `DIV.GAkraW_search` 207×32 / r=12 配 `.67px` 边，输入框 151×20 / r=0。
+  全局 `[data-dsh-glass] :focus-visible` 的 2px 品牌环落在 `<input>` 上 ⇒ 圆角胶囊里出现一个**直角蓝方框、
+  贴着文字**，而且鼠标点进去也出现（文本输入框永远匹配 `:focus-visible`）。
+  宿主对这些输入框**没有自己的焦点指示**（`outline: none`、无边框变化、无 `box-shadow`），所以环不能删：
+  改为画在**直接父级**（就是那个可视容器）上——`:is(input, textarea):focus-visible { outline: none }`
+  + `*:has(> :is(input, textarea):focus-visible)` 承接同一套品牌环配方（`>` 限定一层，深层容器不会被牵连）。
+  按钮、会话行、菜单项仍走原来的通用环（宿主同样没有自有环）；composer 的 `contenteditable` 不变
+  （父级是无圆角的编辑器壳，环本就被 `overflow` 裁掉）。
+  真机验证（0.2.2-rc.1）：Latte 与 Mocha 下两处输入框的环都落在 12px 圆角容器上、与容器同形，
+  输入框自身 `outline: none`；Tab 到按钮仍是 2px 环。
+  护栏 = `tests/glass-css.spec.ts` › `focus ring rides the visible field, not the bare input`（3 条：
+  输入框清环 + 父级承环且只限直系、通用环仍排除 input/textarea、`:has` 规则不得吃 contenteditable）。
+  （EN: the shared focus ring landed on the bare `<input>` inside the host's rounded search wrapper, drawing a
+  square blue box inside the pill — and text inputs always match `:focus-visible`. The ring now suppresses itself
+  on input/textarea and is re-drawn on the DIRECT parent so it follows the visible field; buttons/rows keep the
+  general ring and the composer's contenteditable is untouched）
+
 ## [0.7.2] - 2026-11-07
 
 ### 修复
@@ -1616,7 +1641,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.7...v0.7.0

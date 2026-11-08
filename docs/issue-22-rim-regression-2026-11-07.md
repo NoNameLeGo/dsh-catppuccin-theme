@@ -87,3 +87,19 @@
 3. 折中：输入框上保留环但补 `border-radius` + `outline-offset: 3px`，让它至少是圆的、离开文字一点。
 
 三条都要真机验收（尤其第 2 条要确认容器钩子稳定），且属于观感/无障碍取舍，需维护者定。
+
+### 已采纳：方案 2（`0.7.3`，2026-11-08）
+
+```css
+[data-dsh-glass] :focus-visible:not(input):not(textarea) { outline: 2px solid …brand 85%; outline-offset: 1px }
+[data-dsh-glass] :is(input, textarea):focus-visible { outline: none }
+[data-dsh-glass] *:has(> :is(input, textarea):focus-visible) { outline: 2px solid …brand 85%; outline-offset: 1px }
+```
+
+- `>` 限定「直接父级」，两处字段的直接父级正是可视容器（12px 圆角），环因此与胶囊同形；
+- 按钮 / 会话行 / 菜单项照旧吃通用环（宿主同样没有自有环，删了就是无障碍回归）；
+- composer 的 `contenteditable` 不动：父级是 846×52 无圆角编辑器壳（环会被 `overflow` 裁掉，本来也看不见），
+  而且规则只认 `input/textarea`，不会被 `:has()` 误吃。
+
+真机复核（0.2.2-rc.1）：Latte 与 Mocha 两处输入框 —— `input` `outline: none`、父级 `2px solid` 品牌环；
+Tab 到按钮仍是 `2px`。截图 `focus-fixed-model.png`（6×，环与胶囊同形）。
