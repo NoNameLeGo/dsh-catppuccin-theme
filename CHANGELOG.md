@@ -8,6 +8,35 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **插件页 sticky 页头是一条不透明 `bg-base` 白带，与地面之间出现硬边（issue #40，2026-11-14）**。
+  宿主 0.2.2 给 `dsh-client-ui-plugin-manager` 加了 scroll-linked 页头：bar 一旦测量完就 `position: sticky`
+  （`data-natural`）并在自身下方画一条**全宽** `--dsw-alias-bg-base` 带，高度由
+  `--plugin-header-paint-height` 每帧重写（`max(compactHeight, restHeight - scrollTop)`）。
+  stock 里它就是页面底色，看不出；换上 #25 地面后它成了屏幕上唯一纯 `bg-base` 的矩形 —— 硬边 + 色差。
+  座位用宿主自己的 data 钩子 **`[data-plugin-bar][data-natural]`**（0.2.2 新增、其自身 CSS 一处未用），
+  不用 #17/#21 退场的 `pageBar` 子串；0.2.1-rc.5 没有这套机制（`pageBar` / `data-plugin-bar` /
+  `plugin-header-paint-height` 命中数全为 0）⇒ 规则静默不匹配即正确。配方取 #29 的 dock：
+  **地面色**填充（取 wash 的亮端 —— 带子在滚动区顶部；dock 取暗端是因为它贴底边）+ **α 70% 下限**
+  （随 frost 上升）+ `blur(--dsh-glass-blur)` + 底部 12px `mask` 渐隐（`paint-height` 每帧变，
+  不渐隐就是一条随滚动往上爬的硬切）。**未采用报告人 A 草稿里的 `--dsh-glass-card`**：它是 `layer-1 @ α`，
+  dark 风味上 layer-1 在 base 之上 ⇒ 会画出一条比地面更亮的带子；52% α 也低于 clear 预设（`blur: 0`）的 70% 下限。
+  同批还处理了报告人跟帖里的同族项：`dsh-client-ui-schedule` 的页面根（`data-testid="task-manager-page"`）
+  原本整页涂 `bg-base`，现**并进 body 那条地面声明的选择器列表**（同 wash、同光斑、同旋钮），
+  既消掉「一屏两种白」又保住他倾向的「页面仍是实底」；float-only，compat 仍保留宿主实底（#37 政策）。
+  `dsh-context` 那页未动（不透明底来自哪个宿主容器尚未定位）。
+  护栏 = `tests/glass-css.spec.ts` › `plugin page sticky band (issue #40, 2026-11-14)`（5 条）+
+  `schedule panel rides the ground (issue #40 follow-up, 2026-11-14)`（2 条）+ `GROUND_ONLY` 加
+  `task-manager-page`；启动级 e2e 追加一条探针断言（合成座位读伪元素计算值）。取证与残留见
+  `docs/issue-40-plugin-page-band.md`。
+  （EN: upstream 0.2.2 makes the plugin page head sticky and paints a full-bleed `bg-base` band under it —
+  the only opaque plate left once the ambient ground ships. The band now rides
+  `[data-plugin-bar][data-natural]::before` with the dock recipe (ground-coloured fill at the 70% floor, blur,
+  12px bottom ramp); the schedule panel joins the ground declaration's selector list so it stops reading as a
+  second kind of white)
+
+
 ## [0.7.3] - 2026-11-08
 
 ### 修复

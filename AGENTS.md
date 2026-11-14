@@ -100,6 +100,23 @@
    `--dsh-windows-content-radius` 声明在 `frame` 元素自身上，报告人给的 html 片段就是这么失效的。
    护栏 = `tests/glass-css.spec.ts` 的 `compat keeps the host frame fill (issue #37)`；
    取证与边界见 `docs/issue-37-compat-content-corner.md`。
+   **推论八（issue #40 实测，2026-11-14）：宿主自己涂 `bg-base` 的「页级板」在换成地面后一定显形，而座位几乎总有 data 钩子。**
+   两种形状：① **页头带** —— `dsh-client-ui-plugin-manager` 0.2.2 起把页头做成 scroll-linked sticky bar，
+   并让它自己的 `::before` 画一条**全宽** `--dsw-alias-bg-base` 带，高度 `--plugin-header-paint-height`
+   每帧重算（`max(compactHeight, restHeight - scrollTop)`）；② **整页板** —— `dsh-client-ui-schedule` 的页面根
+   直接 `background: var(--dsw-alias-bg-base)`（第三方视图那种「自己没写、底来自宿主容器」的算同类）。
+   stock 里它们与页面底色同色所以看不见；地面一换就是「一屏两种白」+ 硬边。
+   ⇒ 页头带：地面色半透明 + blur + 底部 `mask` 渐隐（#29 的 dock 配方）。填充取 **wash 的亮端**
+   （带子贴着滚动区顶部），别照搬 dock 的暗端（那是它贴底边的结果）；α 别低于 70%（出厂 clear 预设 `blur: 0`）。
+   ⇒ 整页板：把它**并进 body 那条地面声明的选择器列表**，别手搓「平均色」——在既有 wash 上再叠一条
+   自己算的渐变只会换来新接缝（同一条声明 = 同 wash / 同光斑 / 同旋钮）。
+   ⇒ 座位：先找宿主自己的 `data-*`（本例 `data-plugin-bar` / `data-plugin-body` / `data-plugin-header-part`
+   都是 0.2.2 新增、其自身 CSS 一处未用），再退到 `[class*='…']` 子串；`data-testid` 只能当**软座位**
+   （写进注释 + 回帖请上游补正式 `data-*`）。
+   ⚠️ 这类机制**常常是某个上游版本才出现的**：0.2.1-rc.5 里 `pageBar` / `plugin-header-paint-height` 命中为 0
+   ⇒「规则不匹配」就是正确答案，不是漏适配，先查版本再决定要不要「补」。
+   护栏 = `tests/glass-css.spec.ts` 的 `plugin page sticky band (issue #40…)` / `schedule panel rides the ground`
+   两组 + 启动级 e2e 的合成座位探针；取证与残留见 `docs/issue-40-plugin-page-band.md`。
 5. **boot 关键路径上的注册一律走 `tolerantRegistration`（issue #23）。** entry 的 `apply()` 一同步抛错 → entry FAILED → 整个 `web boot` 中止（`web boot: N entry(s) did not activate`）→ 官方壳崩溃救援 `disableAllPlugins()` 把**所有**第三方插件关停；而 `ctx.effect` 是同步执行并原样 rethrow 的（`ctx.slots.inject` 在槽已声明时同样同步）。⇒ **凡在 apply 同步路径上调用外部注册表**（`ctx.locale.register/addLanguage`、`theme.register`、`ctx.slots.register`、宿主 `webServer.register`）都必须经 `src/registration-tolerance.ts` 的 `tolerantRegistration`：已知「他方已占用」形态（语言包抢 BCP 47 ID、双份安装抢路由/slot/theme id）静默跳过，其余 warn 后同样跳过——没有任何一项注册值得用户的全套插件陪葬。⚠️ **漏包在本地测不出来**：`tests/registration-tolerance.spec.ts` 只穿过已包好的调用路径，全仓库没有任何用例扫 `src/client/index.ts` 的调用点（2026-10-14 核实，此前此处写的「变异检查会红」不成立）——漏包只会在真机 boot 上暴露，所以新增注册点时必须手工对照上面这份调用面。6. **「文档优先」的采纳必须先问「本地有没有更晚、还没落盘的意图」（issue #31）。** 持久状态是三层：
    ① localStorage 即时缓存 ② ThemeRuntime 偏好 ③ 官方 settings 文档（权威）。三者靠
    「本地改 → 300 ms 防抖 → 写文档 → 文档回声 → 采纳」收敛，**回声永远可能晚于下一次本地改**。

@@ -324,6 +324,31 @@ async function passOnboarding(page) {
       check(`盖住内容的面保留 backdrop-filter（${covered.sel}）`, covered.blur !== 'none' && covered.blur !== null, String(covered.blur))
     }
 
+    // ---- 关键区域采样 3a：插件页吸顶带（issue #40）-------------------------
+    // 宿主的 `[data-plugin-bar][data-natural]::before` 在 stock 里画的是不透明
+    // `--dsw-alias-bg-base`；我们把它改成地面色半透明 + blur + 底部渐隐。插件页要先
+    // 导航空过去才看得到，所以这里注入一个只带**宿主 data 钩子**的探针，读级联后的
+    // 伪元素计算值——断言的是「座位真能命中 + 变量真能解析」，不是真页几何。
+    const band = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.setAttribute('data-plugin-bar', '')
+      probe.setAttribute('data-natural', '')
+      probe.style.cssText = 'position:fixed;left:0;top:0;width:240px;height:60px;z-index:-1;pointer-events:none'
+      document.body.appendChild(probe)
+      const style = getComputedStyle(probe, '::before')
+      const out = { background: style.backgroundColor, blur: style.backdropFilter, mask: style.maskImage }
+      probe.remove()
+      return out
+    })
+    // Opaque would come back as `rgb(r, g, b)`; a mixed fill carries an alpha
+    // component (`color(srgb … / 0.8)` or `rgba(…)`).
+    const bandHasAlpha = /\/\s*[\d.]+/.test(band.background) || /,\s*0?\.\d+\s*\)/.test(band.background)
+    check(
+      '插件页吸顶带不再是纯 bg-base 实底（issue #40）',
+      bandHasAlpha && band.blur !== 'none' && /linear-gradient/.test(band.mask ?? ''),
+      JSON.stringify(band),
+    )
+
     // ---- 关键区域采样 3b：命令面板不得落在任何 filtered 祖先里（issue #19）----
     // 面板（`[data-trigger-menu]`）被挂进 `[data-composer-card]` 的
     // `conversation.input.overlay` 锚点，而它整块悬在卡盒之外（`bottom: calc(100% + 4px)`）。
