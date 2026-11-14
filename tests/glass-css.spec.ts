@@ -52,8 +52,9 @@ const CSS = readFileSync(
  *  since issue #25 — the field stays low-frequency, so the blur verdict is
  *  unchanged). `ground-sample` is the settings strip that IS the ground (see
  *  the "settings ground sample" block): a blur on it would be the worst case
- *  of the same waste. */
-const GROUND_ONLY = /sidebarCol|bubble|trajectory|ground-sample/
+ *  of the same waste. `task-manager-page` (issue #40 follow-up) IS the ground
+ *  too — its plate shares the body declaration, so nothing moves behind it. */
+const GROUND_ONLY = /sidebarCol|bubble|trajectory|ground-sample|task-manager-page/
 
 /** The individual selectors of a rule (a rule may carry a selector LIST — the
  *  ground rule does, since it paints both <body> and the settings strip). */
@@ -2032,5 +2033,112 @@ describe('focus ring rides the visible field, not the bare input (2026-11-08)', 
     // input/textarea ONLY, never on [contenteditable].
     const wrapper = rules.find((rule) => rule.selector.includes(':has(>'))
     expect(wrapper!.selector).not.toContain('contenteditable')
+  })
+})
+
+describe('plugin page sticky band (issue #40, 2026-11-14)', () => {
+  // Upstream 0.2.2 gave the plugin manager a scroll-linked page head: the bar
+  // goes `position: sticky` (`data-natural`) and paints a full-bleed
+  // `--dsw-alias-bg-base` band under itself, height
+  // `--plugin-header-paint-height` (rewritten on every scroll frame). In stock
+  // that band IS the page; over the #25 ground it is the only pure bg-base
+  // rectangle on the screen — the reporter's hard edge.
+  //
+  // The seat is the host's own data hook (`data-plugin-bar`, new in 0.2.2 and
+  // unused by its own CSS), NOT the hashed `pageBar` substring that issues
+  // #17 / #21 retired. The recipe is the #29 dock strip: ground-coloured fill
+  // at a 70% floor + blur + bottom ramp — never `--dsh-glass-card` (lighter
+  // than the ground on the dark flavours) and never a bare fill (the shipped
+  // clear preset runs `blur: 0`).
+  const band = rules.find((rule) => rule.selector === '[data-dsh-glass-float] [data-plugin-bar][data-natural]::before')
+
+  it('seats the band on the host data hook, float-only, without the old substring', () => {
+    expect(band, 'the plugin page lost its band override').toBeDefined()
+    expect(band!.selector, 'the mode gate must stay: compat keeps the host opaque plate').toContain(
+      '[data-dsh-glass-float]',
+    )
+    expect(band!.selector, 'issue #17 / #21: never match a hashed module class').not.toContain('class*=')
+    expect(band!.selector, 'the seat is the data hook 0.2.2 ships').toContain('[data-plugin-bar]')
+    // 0.2.2 sets `data-natural` only once the head has been measured; the
+    // pre-measure bar has no band, so gating on it is what keeps first paint
+    // byte-identical to stock.
+    expect(band!.selector).toContain('[data-natural]')
+  })
+
+  it('paints the ground, not the card step and not the host bg-base', () => {
+    expect(band!.decls, 'the host bg-base band came back').not.toContain('--dsw-alias-bg-base')
+    expect(
+      declOf(band!.decls, 'background'),
+      'issue #40: card is layer-1 @ α — a step ABOVE the ground on the dark flavours',
+    ).not.toContain('--dsh-glass-card')
+    const fill = declOf(band!.decls, 'background') ?? ''
+    expect(fill, 'the fill must be the ground colour').toContain('var(--dsh-glass-ground)')
+    // This band sits at the TOP of the scroll area, i.e. at the wash's light
+    // end. The dock samples the dark end because it lives at the bottom edge.
+    expect(fill, 'sample the wash light end, not the tail').toContain('var(--dsh-glass-wash-tint)')
+    // Issue #25's invalidation trap: both weights stay inline in `background`.
+    expect(fill).toContain('var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience)')
+  })
+
+  it('keeps the 70% alpha floor from the dock, riding the frost knob upward', () => {
+    const fill = declOf(band!.decls, 'background') ?? ''
+    expect(fill, 'below 70% the clear preset (blur: 0) lets the list read through the title row').toContain('70%')
+    expect(fill, 'the fill must climb with the frost knob like every other pane').toContain('--dsh-glass-frost')
+  })
+
+  it('blurs (the list scrolls under it) and ramps out at its bottom edge', () => {
+    expect(blurOf(band!.decls), 'the band covers moving content — its blur is paid for').toBe(
+      'blur(var(--dsh-glass-blur, 14px))',
+    )
+    const mask = declOf(band!.decls, 'mask-image') ?? ''
+    expect(mask, 'paint-height is rewritten every scroll frame — a hard cut would crawl').toContain(
+      'calc(100% - 12px)',
+    )
+    expect(mask, 'the ramp belongs at the bottom edge, where content enters').toMatch(/180deg, black/)
+  })
+
+  it('leaves the host geometry and the host ::after hairline alone', () => {
+    for (const property of ['height', 'inset', 'position', 'content', 'pointer-events']) {
+      expect(declOf(band!.decls, property), `the band must not restate the host's ${property}`).toBeUndefined()
+    }
+    expect(
+      rules.some((rule) => rule.selector.includes('[data-plugin-bar]') && /::after/.test(rule.selector)),
+      '::after is the host compact hairline (0.5px border-l3) — it stays theirs',
+    ).toBe(false)
+  })
+})
+
+describe('schedule panel rides the ground (issue #40 follow-up, 2026-11-14)', () => {
+  // `dsh-client-ui-schedule`'s page root paints `--dsw-alias-bg-base` across the
+  // whole content column, so that screen is a flat #EFF1F5 plate next to a
+  // washed session view (the reporter's "一屏两种白"). The reporter preferred
+  // "keep it opaque but match the ground", so the root joins the ground
+  // declaration's selector LIST — same wash, same opt-in glows, no hand-tuned
+  // "average colour" on top of the existing gradient.
+  const groundRule = rules.find(
+    (rule) =>
+      selectorList(rule.selector).includes('[data-dsh-glass] body') &&
+      /(?:^|;)\s*background\s*:/.test(rule.decls),
+  )
+
+  it('paints the plate from the body ground rule itself, not a copy', () => {
+    expect(groundRule, 'the ground background rule disappeared').toBeDefined()
+    expect(
+      selectorList(groundRule!.selector),
+      'a second hand-tuned gradient over the first one is a new seam, not a fix',
+    ).toContain("[data-dsh-glass-float] [data-testid='task-manager-page']")
+    expect(
+      rules.filter(
+        (rule) =>
+          rule.selector.includes('task-manager-page') && /(?:^|;)\s*background\s*:/.test(rule.decls),
+      ),
+      'the plate must not get a second background declaration',
+    ).toHaveLength(1)
+  })
+
+  it('stays float-only — compat keeps the host opaque surfaces (issue #37 policy)', () => {
+    const seat = selectorList(groundRule!.selector).find((part) => part.includes('task-manager-page'))
+    expect(seat).toContain('[data-dsh-glass-float]')
+    expect(seat).not.toContain('[data-dsh-glass-compat]')
   })
 })
