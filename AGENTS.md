@@ -100,6 +100,22 @@
    `--dsh-windows-content-radius` 声明在 `frame` 元素自身上，报告人给的 html 片段就是这么失效的。
    护栏 = `tests/glass-css.spec.ts` 的 `compat keeps the host frame fill (issue #37)`；
    取证与边界见 `docs/issue-37-compat-content-corner.md`。
+   **推论七（issue #41 实测，2026-11-14）：composer 卡的层叠上下文是载荷，卡内浮层的上限就是卡这一层。**
+   卡的 `position: relative; z-index: 8`（compat 只有 `isolation: isolate`，它没有 z-index）不是装饰：
+   转录正文、宿主 dock 行（7）、上下渐隐带（`position: fixed; z-index: 7`）都低于 8，卡必须压住它们，
+   否则玻璃读的是正文（#28）。
+   同一个层叠上下文也把**卡内任何后代**的 `z-index` 封顶在卡的层上——第三方插件在卡内渲染面板并写
+   `z-index: 60`，实际只是「卡内的 60」，页面里 ≥8 的层（顶栏 8、侧栏 9）照样盖住它，**`position: fixed`
+   不豁免**（headless 同构 DOM 实测：卡内 fixed 面板被 9 画在下面；`isolation` 有 / 无观感一致）。
+   **也不能靠删上下文解决**：去掉卡的层叠上下文，材质面（`z-index:-1`）会沉到定位的转录层之下、玻璃整块消失
+   （同批实测）。⇒ 做法是**契约不是重构**：第三方浮层 `createPortal` 到 `document.body`；不得已留卡内就用
+   `absolute` + 卡内定位（`fixed` 还会被宿主 `_composerSeat{will-change:transform}`（0.2.2+）重新锚定到座位原点）。
+   ⚠️ **别把 #19 的直觉平移过来**：`isolation` **不是** backdrop root——`filter-effects-2` §3 的七条触发条件是
+   `filter` / `opacity<1` / `mask` / `clip-path` / `backdrop-filter` / `mix-blend-mode` / 对应 `will-change`，
+   注释还明写「a Backdrop Root is not formed by elements with z-index applied, fixed or sticky-positioned
+   elements, and elements with transforms applied」；#19 读空的是**祖先 `backdrop-filter`**，与本条无关。
+   护栏 = `tests/glass-css.spec.ts` 的 `composer stacking trap (issue #41)` 一组（4 条）；
+   取证与三方案裁决见 `docs/issue-41-composer-stacking-trap.md`。
    **推论八（issue #40 实测，2026-11-14）：宿主自己涂 `bg-base` 的「页级板」在换成地面后一定显形，而座位几乎总有 data 钩子。**
    两种形状：① **页头带** —— `dsh-client-ui-plugin-manager` 0.2.2 起把页头做成 scroll-linked sticky bar，
    并让它自己的 `::before` 画一条**全宽** `--dsw-alias-bg-base` 带，高度 `--plugin-header-paint-height`
@@ -727,6 +743,19 @@ git push origin main --tags   # publish.yml 监听 v* tag 推送
   另记一条**部分成立**的：#17 ②「`:where()` 只降权重、不阻止规则生效」——实测它**能**救回宿主自己也声明
   过的属性（代码块底色），但救不了「宿主没声明」的元素、也去不掉 blur 成本；正确说法是「只修 A2 那一类」。
 - 报告的机制推断**逐条核对**后再回：本轮 #13 的两处表格错（边缘渐变条、composer 卡片都不是 mica 独有）就是这样查出来的——**自己代码注释里的同类说法也要一起改**。
+- **第三方插件的浮层报「被盖住 / 毛玻璃变灰」= 契约问题，不是缺陷（issue #41，2026-11-14）**。先确认它是不是
+  渲染在 `[data-composer-card]` 内（输入框旁的 chip / 面板基本都是）。是，就用下面这段回，**不要承诺皮肤侧改造**：
+
+  > 本皮肤给输入卡建立了层叠上下文（卡必须压住转录区、宿主 dock 行与 7 层的上下渐隐带），所以卡内**任何**
+  > 后代的 `z-index` 都封顶在卡的层上，`position: fixed` 也不豁免；另外宿主自 0.2.2 起给 composer 座位加了
+  > `will-change: transform`，卡内 `fixed` 还会被重新锚定（视口坐标失效）。请把面板 `createPortal` 到
+  > `document.body` 并用视口坐标定位——这是唯一同时躲开两个成因的做法；必须在卡内渲染时改用 `absolute` +
+  > 卡内定位，并接受「最高到卡层」。这个问题只在**玻璃开启**时存在（关玻璃 = 上游原样），详见
+  > `docs/issue-41-composer-stacking-trap.md`。
+
+  反向也要防：若有人为了「修」它把卡的 `z-index` 往上调，卡会盖住侧栏（9）与顶栏（8）；往下调 / 删
+  `isolation`，`z-index:-1` 的材质面直接沉到转录层下（#41 §3.3 实测）。护栏在
+  `tests/glass-css.spec.ts` 的 `composer stacking trap (issue #41)`。
 
 ## 本机测量资产（真页 A/B 与面积账）
 

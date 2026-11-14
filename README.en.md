@@ -400,6 +400,25 @@ longer declared.
 Colour coverage is based on `dsh-v0.2.0-rc.2`'s `design-platform.css`: all 190 `--dsw-*` tokens per
 scheme (static 77 / alias 101 / specific 11 / non-family 1), including the 17 aliases added in 0.2.0.
 
+### Third-party popovers (issue #41)
+
+The glass layer gives the composer card (`[data-composer-card]`) a **stacking context** (`z-index: 8`) —
+it has to outrank the scrolling transcript, the host's dock row and the two edge fades (`z-index: 7` for the
+last two). The price: **a `position: fixed` / `absolute` panel rendered inside the card can never paint above
+the card's layer** — a larger `z-index` only means a larger number *inside* the card.
+
+So if a third-party panel looks "covered by the transcript" or its frost turns into a flat grey block
+**while glass is on**, the panel never left the card:
+
+1. **Preferred**: `createPortal(panel, document.body)` with viewport coordinates.
+2. If it has to stay inside the card: use `position: absolute` anchored to the card (`fixed` also gets
+   re-anchored by the host's `will-change: transform` on the composer seat, shifting the panel), and
+   accept the card-layer ceiling.
+3. Raising `z-index` does not help — it cannot leave the card.
+
+Only with glass on; glass off is exactly upstream. Analysis:
+[`docs/issue-41-composer-stacking-trap.md`](docs/issue-41-composer-stacking-trap.md).
+
 ### Permissions and external access
 
 | Category | Purpose | Bound |

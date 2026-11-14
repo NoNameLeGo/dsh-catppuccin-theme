@@ -357,6 +357,23 @@ console.table({ backdropFilter: cs.backdropFilter, background: cs.backgroundColo
 色彩覆盖以 `dsh-v0.2.0-rc.2` 的 `design-platform.css` 为基线：每方案 190 个 `--dsw-*` token（static 77 /
 alias 101 / specific 11 / 非三族 1）全覆盖，含 0.2.0 新增的 17 个 alias。
 
+### 第三方插件的浮层约定（issue #41）
+
+玻璃层给输入卡（`[data-composer-card]`）建立了**层叠上下文**（`z-index: 8`），因为它必须压住滚动的转录区、
+宿主 dock 行与上下渐隐带（后两者都是 `z-index: 7`）。代价是：**渲染在卡内的 `position: fixed` / `absolute`
+弹出面板，最高只能到卡这一层**——面板写多大的 `z-index` 都只是「卡内的数字」。
+
+所以装了别的插件、在**玻璃开启**时看到它的面板「被正文盖住」或「毛玻璃变成一整块灰」，不是那个面板自己的
+问题，是它没离开卡片：
+
+1. **首选**：`createPortal(panel, document.body)`，用视口坐标定位。
+2. 必须在卡内渲染：改成 `position: absolute` + 卡内定位（`fixed` 还会被宿主的
+   `will-change: transform` 重新锚定到 composer 座位，位置会整体偏），并接受「最高到卡层」。
+3. 调大 `z-index` 没用——跨不出卡。
+
+只在**玻璃开启**时存在；关掉玻璃 = 上游原样。分析与取证见
+[`docs/issue-41-composer-stacking-trap.md`](docs/issue-41-composer-stacking-trap.md)。
+
 ### 权限与外部访问
 
 | 类别 | 用途 | 边界 |

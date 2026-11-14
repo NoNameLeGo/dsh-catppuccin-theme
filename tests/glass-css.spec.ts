@@ -2142,3 +2142,94 @@ describe('schedule panel rides the ground (issue #40 follow-up, 2026-11-14)', ()
     expect(seat).not.toContain('[data-dsh-glass-compat]')
   })
 })
+
+describe('composer stacking trap: the card is a ceiling, not a bug (issue #41)', () => {
+  // `dsh-compact-suite@2.9.2` renders its 420px compress panel as
+  // `position: fixed; z-index: 60` INSIDE the composer card. Two independent
+  // ceilings stop it, and neither is a defect to be "fixed" here:
+  //
+  //  1. `[data-composer-card]` is a stacking context (`z-index: 8` in mica,
+  //     `isolation: isolate` in compat) because the card has to outrank the
+  //     transcript, the host's dock row (7) and the edge fades (7). Every
+  //     descendant's z-index therefore stops at the card's layer — measured in
+  //     a reduced repro (`.debug/probe-41/`): a fixed panel at 60 was painted
+  //     UNDER a page-level element at 9, identically with and without
+  //     `isolation` (and the spec agrees: `isolation` is not a backdrop root).
+  //  2. The host's `[data-phase=active] ._composerSeat { will-change: transform }`
+  //     (0.2.2+) makes that seat the containing block of any fixed descendant.
+  //
+  // Removing the stacking context is NOT an option: `z-index: -1` on the
+  // material plane then sinks below the positioned transcript and the glass
+  // vanishes (same repro, variant c). The answer is a contract — third-party
+  // popovers portal to <body> — and these four assertions keep the traps from
+  // growing (no new containing block / backdrop root, no clip, same layer).
+  const CARD = '[data-composer-card]'
+  const cardRules = rules.filter(
+    (rule) => rule.selector.includes(CARD) && !rule.selector.includes('::before'),
+  )
+  const MICA_CARD = '[data-dsh-glass-float] [data-composer-card]'
+  const COMPAT_CARD = '[data-dsh-glass-compat] [data-composer-card]'
+
+  it('parses the composer rules of both modes', () => {
+    expect(cardRules.length).toBeGreaterThan(3)
+  })
+
+  it('never adds a containing-block / backdrop-root trap to the card', () => {
+    // `filter` / `transform` / `contain` would make the card the containing
+    // block of third-party fixed popovers (issue #33's failure mode, worse than
+    // the z-index ceiling); `will-change` promotes exactly those properties; a
+    // `backdrop-filter` here is issue #19's backdrop root all over again.
+    const TRAPS = ['filter', 'transform', 'contain', 'will-change']
+    const offenders = cardRules.filter((rule) =>
+      TRAPS.some((property) => declOf(rule.decls, property) !== undefined),
+    )
+    expect(
+      offenders.map((rule) => rule.selector),
+      'issue #41: this declaration traps third-party popovers inside the card (or starves their backdrop)',
+    ).toEqual([])
+    for (const rule of cardRules) {
+      const blur = blurOf(rule.decls)
+      if (blur !== undefined) {
+        expect(blur, 'issue #19: the card hosts the trigger palette — no blur on the element').toBe(
+          'none',
+        )
+      }
+    }
+  })
+
+  it('keeps one stacking context per mode — it is what holds the material plane down', () => {
+    const mica = cardRules.find((rule) => rule.selector === MICA_CARD)
+    const compat = cardRules.find((rule) => rule.selector === COMPAT_CARD)
+    expect(mica?.decls, 'mica composer card rule is gone').toBeDefined()
+    expect(compat?.decls, 'compat composer card rule is gone').toBeDefined()
+    expect(
+      declOf(mica!.decls, 'z-index'),
+      "mica: z-index is the card's stacking context — without it the ::before plane sinks under the transcript",
+    ).toBe('8')
+    expect(
+      declOf(compat!.decls, 'isolation'),
+      "compat: isolation is the card's only stacking context (that rule declares no z-index)",
+    ).toBe('isolate')
+  })
+
+  it('keeps the card layer pinned at 8 — the band is a contract', () => {
+    // 8 is a FLOOR: the host's dock row and the edge fades sit at 7 and the
+    // card must stay legible over them (#28). It is also a CEILING: the sidebar
+    // is 9, and a card above it paints over a neighbouring column.
+    for (const rule of cardRules) {
+      const value = declOf(rule.decls, 'z-index')
+      if (value === undefined) continue
+      expect(value, 'issue #41: 8 = above dock/fades (7), below the sidebar (9)').toBe('8')
+    }
+  })
+
+  it('never clips the card — a clip would cut third-party popups in half', () => {
+    const clippers = cardRules.filter((rule) =>
+      /(?:^|;)\s*overflow(?:-[xy])?\s*:\s*(?:hidden|clip|auto|scroll)/.test(rule.decls),
+    )
+    expect(
+      clippers.map((rule) => rule.selector),
+      'issue #41: the card must stay unpainted AND unclipped — its popups paint outside its box',
+    ).toEqual([])
+  })
+})
