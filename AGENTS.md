@@ -408,7 +408,17 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > - **走到 `0.7.9`、该往下一个号走的时候，先问维护者要不要用 `0.8.0`**——不要自行决定，也不要
 >   顺手写成 `0.8.0-beta.n`。没问就到 `0.7.9` 为止。
 
-> ⚠️ **发版版本号**：`latest` = **`0.7.3`**（2026-11-08；tag `v0.7.3` → Publish run `42452736868` success、
+> ⚠️ **发版版本号**：`latest` = **`0.7.4`**（2026-11-14；tag `v0.7.4` → Publish run `43607571370` success
+> —— Typecheck / Build / Test / `Verify changelog entry` / `Publish to npm` 全绿，日志
+> `+ @nonamelego/dsh-catppuccin@0.7.4`；CI `43607571451` success；`dist-tags.latest` 约 2 分钟后翻到 `0.7.4`）
+> = **issue #40**（插件页 sticky 页头回到地面：座位改用宿主 0.2.2 新露的 `data-plugin-bar` / `data-natural`，
+> 配方取 #29 的 dock —— **地面色**填充 α70% 起 + blur + 底部 12px 渐隐、取 wash 亮端；自动化任务页根部并入
+> body 地面声明）+ **issue #41**（第三方浮层契约：卡的 `z-index: 8` 是载荷 ⇒ 卡内浮层上限就是卡层，浮层须
+> `createPortal` 到 body；只落文档 + 4 条护栏，**CSS 零改动**）。
+> **两条 issue 均已回帖**（#40 `6879301612` / #41 `6879300396`），等报告人复验。
+> ⚠️ 仍未做：#40 的 Latte 像素复验（带子上下沿 20px 采样、滚动中途下沿是否还有硬切）与 4 风味 × 光斑 0/200%
+> 同色采样；#41 的「灰糊」真因（H1–H3，等报告人三样数据）；macOS / Linux 壳未验。
+> 上一版 `latest` = **`0.7.3`**（2026-11-08；tag `v0.7.3` → Publish run `42452736868` success、
 > CI `42452727363` check + boot-e2e 双绿、`dist-tags.latest` 已翻 `0.7.3`、制品实测 `lib/client.js` 三条
 > 焦点环规则齐全：`:is(input,textarea):focus-visible{outline:none}`、
 > `:has(>:is(input,textarea):focus-visible)`、`:focus-visible:not(input):not(textarea)`）
