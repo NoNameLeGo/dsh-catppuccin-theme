@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-14
+
 ### 修复
 
 - **插件页 sticky 页头是一条不透明 `bg-base` 白带，与地面之间出现硬边（issue #40，2026-11-14）**。
@@ -36,6 +38,23 @@
   12px bottom ramp); the schedule panel joins the ground declaration's selector list so it stops reading as a
   second kind of white)
 
+### 文档
+
+- **立一条第三方插件的浮层契约（issue #41，2026-11-14）**。`dsh-compact-suite` 把 420px 的压缩面板渲染在输入卡内
+  （`position: fixed; z-index: 60`），玻璃开启时本体被上层内容盖住、毛玻璃变成灰糊。复盘（headless 同构 DOM，
+  `.debug/probe-41/`）把报告人的两条归因拆开：**层叠上下文封顶成立**——卡为了压住转录区、宿主 dock 行与
+  7 层的上下渐隐带持有 `z-index: 8`（compat 是 `isolation: isolate`），卡内任何后代的 `z-index` 都停在这一层，
+  `fixed` 不豁免；而 **`isolation` ⇒ backdrop root 不成立**（`filter-effects-2` §3 的七条触发条件里没有
+  `isolation`，也没有 z-index / fixed / transform；有 / 无 `isolation` 的同构 A/B 观感一致）。
+  否决「材质挪进 wrapper」：`z-index` 挂到哪一层，笼子就在哪一层，而去掉层叠上下文会让 `z-index:-1` 的材质面
+  沉到转录层之下（实测玻璃整块消失）。故本轮**不动 CSS**，只落契约：`AGENTS.md` 规则 4 新增推论七 + 跨插件回帖模板、
+  README 新增「第三方插件的浮层约定」（中英）、`tests/glass-css.spec.ts` 的
+  `composer stacking trap (issue #41)` 4 条护栏（不得给卡加 `filter`/`transform`/`contain`/`will-change`、
+  两种模式各保留一条层叠上下文、`z-index` 钉在 8、卡不得 `overflow` 裁切）。
+  取证与三方案裁决见 `docs/issue-41-composer-stacking-trap.md`。
+  （EN: third-party popovers must portal to `<body>` — the composer card is a deliberate stacking context
+  (`z-index: 8`) that caps every descendant; `isolation` is not a backdrop root, so the CSS is untouched and the
+  contract is now documented and guarded by four assertions）
 
 ## [0.7.3] - 2026-11-08
 
@@ -1670,7 +1689,8 @@
 [0.6.3-beta.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.0...v0.6.3-beta.1
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
-[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.0...v0.7.1
