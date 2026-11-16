@@ -1082,7 +1082,8 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    the band instead of being sliced. 12px is the ramp: long enough to read as a
    melt, short enough to leave the tab row (which sits at the band's bottom)
    fully covered. Guard: `tests/glass-css.spec.ts` › plugin page sticky band. */
-/* ⚠️ MINIMAL VERIFICATION BUILD (2026-11-16) — issue #40, second attempt.
+/* issue #40, SECOND ATTEMPT (2026-11-16, merged from PR #42 by @aurasuisui
+   as `1d60603`; ships with the next release — `0.7.4` on npm is v1, above).
    The 0.7.4 recipe just above approximated the ground with ONE flat colour
    (ground ⊕ wash-tint). That colour only equals the ground when the glows are
    off: with 光斑 on, BOTH radial glows peak inside this band's own box
@@ -1102,12 +1103,26 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    fully occludes scrolled content — the #29 70% floor is not needed, so the
    #28 "text reads through" risk is removed rather than traded. blur and both
    masks are gone: there is nothing left to blur or to fade.
-   Headless-Chrome A/B (1600×700, glow 150% / size 250%, the real three-layer
-   ground): shipped flat fill maxΔ 79 / meanΔ 63 over the band rect; this rule
-   maxΔ 0 over the same rect.
-   ⚠️ MINIMAL VERIFICATION STATE: tests/glass-css.spec.ts › "plugin page sticky
-   band" still asserts the OLD recipe and is expected RED until it is rewritten
-   together with docs/issue-40-plugin-page-band.md. Not releasable as-is. */
+   Headless-Chrome A/B, two independent runs:
+   - the author's (1600×700, real three-layer ground, glow 150% / size 250%),
+     over the band rect: shipped flat fill maxΔ 79 / meanΔ 63, this rule maxΔ 0.
+   - the maintainer's, at the reporter's viewport (1646×1028, Latte, 39,000 px
+     inside the band, reference = the same page with NO band at all), ΔRGB vs
+     that reference: stock 22.15 / v1 19.56 / v1 made fully opaque 26.15 /
+     this field WITHOUT `fixed` 10.86 / this rule 0.44 (max 3, zero pixels
+     over 3/255). That opaque row is the load-bearing one: raising alpha made
+     v1 *worse* than stock, i.e. alpha was never the axis — the fill has to
+     BE the field, not sample it. The 10.86 row is the second: copying a
+     body-sized declaration into a 129px box is still wrong without the
+     viewport anchor. Same rule measured 0.43 at DPR 1.75, 0.41 with the
+     content column pushed down 24px, 0.44 scrolled 200px ⇒ the anchor, not
+     the geometry, is what makes it match. Harness: `.debug/issue-40-band-ab/`
+     (`page.html` + `diff.mjs`, dependency-free PNG decode).
+   ⚠️ Still unmeasured: the scroll cost of `background-attachment: fixed`
+   inside the page's own scroll container (it replaces a full-width
+   `backdrop-filter` read, but a fixed background may force repaint per
+   frame). Also unverified: 4 flavours × mica/compat on real hardware, and
+   the `app.asar`-level premise that the document itself never scrolls. */
 [data-dsh-glass-float] [data-plugin-bar][data-natural]::before {
   background:
     radial-gradient(calc(58% * var(--dsh-glass-glow-size, 1)) calc(46% * var(--dsh-glass-glow-size, 1)) at 18% 6%,
