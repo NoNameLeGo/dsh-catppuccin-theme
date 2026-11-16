@@ -2044,12 +2044,26 @@ describe('plugin page sticky band (issue #40, 2026-11-14)', () => {
   // that band IS the page; over the #25 ground it is the only pure bg-base
   // rectangle on the screen — the reporter's hard edge.
   //
-  // The seat is the host's own data hook (`data-plugin-bar`, new in 0.2.2 and
-  // unused by its own CSS), NOT the hashed `pageBar` substring that issues
-  // #17 / #21 retired. The recipe is the #29 dock strip: ground-coloured fill
-  // at a 70% floor + blur + bottom ramp — never `--dsh-glass-card` (lighter
-  // than the ground on the dark flavours) and never a bare fill (the shipped
-  // clear preset runs `blur: 0`).
+  // The seat is the host's own data hook (data-plugin-bar, new in 0.2.2 and
+  // unused by its own CSS), NOT the hashed pageBar substring that issues
+  // #17 / #21 retired.
+  //
+  // RECIPE HISTORY — the guards below lock v2, not v1:
+  //   v1 (0.7.4) approximated the ground with ONE flat colour (ground ⊕
+  //   wash-tint at alpha 70-79%) plus blur and a 12px bottom ramp. It shipped,
+  //   the reporter still saw the band, and the pixels say why: that colour only
+  //   matches where the ground has no glows. With 光斑 on, BOTH radial glows
+  //   peak inside this band's own box (centres 18%/6% and 86%/14% — the top
+  //   14% of the page; the band is ~13%), and the flat fill omits them
+  //   entirely. Measured on the reporter's machine: Δ +9/255 at the right
+  //   edge, +20/255 on the left. The mask softened the EDGE, never the COLOUR
+  //   ERROR, and the blur was an identity over a low-frequency field (issue
+  //   #13), so it could not help either. Turning 光斑 off made the band vanish
+  //   — which is the proof that the omitted layer was the whole bug.
+  //   v2 reproduces the FIELD: the identical three-layer declaration, anchored
+  //   to the viewport so the band's own height stops mattering, opaque.
+  //   Headless-Chrome A/B (1600x700, glow 150%/size 250%, real ground): v1
+  //   maxΔ 79 / meanΔ 63 over the band rect; v2 maxΔ 0.
   const band = rules.find((rule) => rule.selector === '[data-dsh-glass-float] [data-plugin-bar][data-natural]::before')
 
   it('seats the band on the host data hook, float-only, without the old substring', () => {
@@ -2065,36 +2079,67 @@ describe('plugin page sticky band (issue #40, 2026-11-14)', () => {
     expect(band!.selector).toContain('[data-natural]')
   })
 
-  it('paints the ground, not the card step and not the host bg-base', () => {
+  it('reproduces the body ground FIELD instead of sampling it', () => {
     expect(band!.decls, 'the host bg-base band came back').not.toContain('--dsw-alias-bg-base')
     expect(
       declOf(band!.decls, 'background'),
-      'issue #40: card is layer-1 @ α — a step ABOVE the ground on the dark flavours',
+      'issue #40: card is layer-1 @ alpha — a step ABOVE the ground on the dark flavours',
     ).not.toContain('--dsh-glass-card')
-    const fill = declOf(band!.decls, 'background') ?? ''
-    expect(fill, 'the fill must be the ground colour').toContain('var(--dsh-glass-ground)')
-    // This band sits at the TOP of the scroll area, i.e. at the wash's light
-    // end. The dock samples the dark end because it lives at the bottom edge.
-    expect(fill, 'sample the wash light end, not the tail').toContain('var(--dsh-glass-wash-tint)')
-    // Issue #25's invalidation trap: both weights stay inline in `background`.
-    expect(fill).toContain('var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience)')
+
+    const groundRule = rules.find(
+      (rule) =>
+        selectorList(rule.selector).includes('[data-dsh-glass] body') &&
+        /(?:^|;)\s*background\s*:/.test(rule.decls),
+    )
+    expect(groundRule, 'the body ground rule disappeared').toBeDefined()
+    const ground = declOf(groundRule!.decls, 'background') ?? ''
+    const bandBg = declOf(band!.decls, 'background') ?? ''
+    expect(bandBg, 'the band repaints nothing?').not.toBe('')
+
+    // THE DRIFT GUARD. v2 works by carrying the ground declaration verbatim;
+    // the moment the two copies diverge the band is back to guessing, and the
+    // failure mode is silent (a colour step no test names). Same class of
+    // incident as issue #38's hand-copied field list.
+    expect(
+      normalize(bandBg),
+      'copy the body ground expression verbatim — any divergence is a new colour step',
+    ).toBe(normalize(ground))
+
+    // Both opt-in glows AND the unconditional wash, in the ground's order.
+    // v1 shipped without the two radial layers — that omission was the bug.
+    expect(bandBg.match(/radial-gradient\(/g) ?? [], 'both glows must be present').toHaveLength(2)
+    expect(bandBg, 'the unconditional wash layer').toContain('linear-gradient(165deg')
   })
 
-  it('keeps the 70% alpha floor from the dock, riding the frost knob upward', () => {
-    const fill = declOf(band!.decls, 'background') ?? ''
-    expect(fill, 'below 70% the clear preset (blur: 0) lets the list read through the title row').toContain('70%')
-    expect(fill, 'the fill must climb with the frost knob like every other pane').toContain('--dsh-glass-frost')
+  it('anchors that field to the viewport — the only way a ~129px box matches a 100vh one', () => {
+    // background-attachment: fixed makes the gradient's positioning area the
+    // VIEWPORT, so the band paints the pixels the body ground occupies at its
+    // own screen position. Without it the identical declaration would squeeze
+    // the whole wash into the band's height — exactly why the schedule page
+    // could reuse the declaration verbatim and this element could not.
+    // It does NOT create a containing block for fixed descendants (unlike
+    // filter / transform / backdrop-filter), so the #19 / #33 / #41 hygiene is
+    // untouched: this property only changes where the gradient is sampled.
+    expect(
+      declOf(band!.decls, 'background-attachment'),
+      'without fixed the wash is squeezed into the band and the colour step returns',
+    ).toBe('fixed')
   })
 
-  it('blurs (the list scrolls under it) and ramps out at its bottom edge', () => {
-    expect(blurOf(band!.decls), 'the band covers moving content — its blur is paid for').toBe(
-      'blur(var(--dsh-glass-blur, 14px))',
-    )
-    const mask = declOf(band!.decls, 'mask-image') ?? ''
-    expect(mask, 'paint-height is rewritten every scroll frame — a hard cut would crawl').toContain(
-      'calc(100% - 12px)',
-    )
-    expect(mask, 'the ramp belongs at the bottom edge, where content enters').toMatch(/180deg, black/)
+  it('drops the veil: no blur (identity over the ground) and no mask (nothing left to fade)', () => {
+    // The blur was inert — the backdrop is the ground, a low-frequency field,
+    // and blurring it is an identity (issue #13's own measurement) — while
+    // costing a per-frame full-width backdrop read.
+    expect(blurOf(band!.decls), 'blur is identity here and the read is not free').toBe(undefined)
+    // The 12px ramp softened the fill's bottom edge; with the fill equal to the
+    // ground there is no edge, and a ramp would instead let the scrolled list
+    // pop through in the last 12px.
+    expect(declOf(band!.decls, 'mask-image'), 'nothing to fade: the fill IS the ground').toBeUndefined()
+    expect(declOf(band!.decls, '-webkit-mask-image')).toBeUndefined()
+    // The #29 70% alpha floor is deliberately NOT restated: it governed a
+    // translucent veil. This fill is the opaque ground, which occludes more
+    // than 70% ever did, so the list-reads-through risk is removed, not traded.
+    expect(declOf(band!.decls, 'background') ?? '').not.toContain('calc(70%')
   })
 
   it('leaves the host geometry and the host ::after hairline alone', () => {
@@ -2134,6 +2179,24 @@ describe('schedule panel rides the ground (issue #40 follow-up, 2026-11-14)', ()
       ),
       'the plate must not get a second background declaration',
     ).toHaveLength(1)
+  })
+
+  it('re-anchors the plate to the viewport so its own box stops offsetting the field', () => {
+    // Reusing the declaration verbatim fixes the COLOUR, but gradients resolve
+    // against whatever box paints them. This plate is not body-sized, so its
+    // field is shifted AND squeezed against the real ground and its boundary
+    // reads as a hard edge (reporter's screenshot at glow 150%/250%). The
+    // viewport anchor puts it back on the body's pixels.
+    const reanchor = rules.find(
+      (rule) =>
+        selectorList(rule.selector).includes("[data-dsh-glass-float] [data-testid='task-manager-page']") &&
+        /(?:^|;)\s*background-attachment\s*:/.test(rule.decls),
+    )
+    expect(reanchor, 'the plate lost its viewport anchor').toBeDefined()
+    expect(declOf(reanchor!.decls, 'background-attachment')).toBe('fixed')
+    // ...and it must NOT ship a second copy of the gradient: one ground
+    // declaration, one anchor.
+    expect(declOf(reanchor!.decls, 'background')).toBeUndefined()
   })
 
   it('stays float-only — compat keeps the host opaque surfaces (issue #37 policy)', () => {

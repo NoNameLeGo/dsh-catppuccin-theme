@@ -232,6 +232,17 @@
       color-mix(in srgb, var(--dsh-glass-ground), #000000 calc(5% * var(--dsh-glass-ambience))) 100%);
 }
 
+/* issue #40 minimal verification, second surface: the schedule page root
+   joins the shared ground declaration above, but its BOX is not body-sized —
+   the glows' `at %` resolve against that box, so its field is shifted and
+   squeezed relative to the real ground and the plate's boundary reads as a
+   hard edge (reporter's screenshot, glow at 150%/250%). Re-anchoring to the
+   viewport puts it on the same pixels as the body ground. Float-only is
+   inherited from the declaration above; compat keeps the host's own plate. */
+[data-dsh-glass-float] [data-testid='task-manager-page'] {
+  background-attachment: fixed;
+}
+
 [data-dsh-glass] [data-dsh-glass-frame] {
   background: transparent;
 }
@@ -1071,20 +1082,48 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
    the band instead of being sliced. 12px is the ramp: long enough to read as a
    melt, short enough to leave the tab row (which sits at the band's bottom)
    fully covered. Guard: `tests/glass-css.spec.ts` › plugin page sticky band. */
+/* ⚠️ MINIMAL VERIFICATION BUILD (2026-11-16) — issue #40, second attempt.
+   The 0.7.4 recipe just above approximated the ground with ONE flat colour
+   (ground ⊕ wash-tint). That colour only equals the ground when the glows are
+   off: with 光斑 on, BOTH radial glows peak inside this band's own box
+   (centres 18%/6% and 86%/14% = the top 14% of the page, the band is ~13%),
+   and a flat fill omits them entirely — Δ up to 20/255 measured on the
+   reporter's machine. The 12px mask softened the EDGE, never the COLOUR
+   ERROR, and `backdrop-filter: blur()` is an identity over a low-frequency
+   field (issue #13), so it could not help either.
+   The fix reproduces the same FIELD instead of sampling it:
+   `background-attachment: fixed` anchors this identical three-layer
+   expression to the VIEWPORT rather than to the pseudo-element's own box, so
+   the paint lands on the same pixels the body's ground occupies no matter how
+   tall the band is. (That box mismatch is also why the schedule page could
+   reuse the declaration verbatim and this one could not: that plate is
+   body-sized, this one is ~129px — the wash would be squeezed into the band.)
+   Opaque + same field ⇒ invisible over bare ground BY CONSTRUCTION and still
+   fully occludes scrolled content — the #29 70% floor is not needed, so the
+   #28 "text reads through" risk is removed rather than traded. blur and both
+   masks are gone: there is nothing left to blur or to fade.
+   Headless-Chrome A/B (1600×700, glow 150% / size 250%, the real three-layer
+   ground): shipped flat fill maxΔ 79 / meanΔ 63 over the band rect; this rule
+   maxΔ 0 over the same rect.
+   ⚠️ MINIMAL VERIFICATION STATE: tests/glass-css.spec.ts › "plugin page sticky
+   band" still asserts the OLD recipe and is expected RED until it is rewritten
+   together with docs/issue-40-plugin-page-band.md. Not releasable as-is. */
 [data-dsh-glass-float] [data-plugin-bar][data-natural]::before {
-  background: color-mix(
-    in srgb,
-    color-mix(
-        in srgb,
-        var(--dsh-glass-ground),
-        var(--dsh-glass-wash-tint) calc(var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience))
-      )
-      calc(70% + 10% * var(--dsh-glass-frost, 1)),
-    transparent
-  );
-  backdrop-filter: blur(var(--dsh-glass-blur, 14px));
-  -webkit-mask-image: linear-gradient(180deg, black calc(100% - 12px), transparent);
-  mask-image: linear-gradient(180deg, black calc(100% - 12px), transparent);
+  background:
+    radial-gradient(calc(58% * var(--dsh-glass-glow-size, 1)) calc(46% * var(--dsh-glass-glow-size, 1)) at 18% 6%,
+      color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color)
+        calc(12% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
+          * var(--dsh-glass-glow-strength, 1)), transparent), transparent 68%),
+    radial-gradient(calc(48% * var(--dsh-glass-glow-size, 1)) calc(42% * var(--dsh-glass-glow-size, 1)) at 86% 14%,
+      color-mix(in srgb, var(--dsw-alias-state-success-tertiary)
+        calc(10% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
+          * var(--dsh-glass-glow-strength, 1)), transparent), transparent 62%),
+    linear-gradient(165deg,
+      color-mix(in srgb, var(--dsh-glass-ground), var(--dsh-glass-wash-tint)
+        calc(var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience))) 0%,
+      var(--dsh-glass-ground) 55%,
+      color-mix(in srgb, var(--dsh-glass-ground), #000000 calc(5% * var(--dsh-glass-ambience))) 100%);
+  background-attachment: fixed;
 }
 
 /* ---------- Sidebar (侧边栏): header-style glass card; the token fill on

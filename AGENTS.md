@@ -122,8 +122,13 @@
    每帧重算（`max(compactHeight, restHeight - scrollTop)`）；② **整页板** —— `dsh-client-ui-schedule` 的页面根
    直接 `background: var(--dsw-alias-bg-base)`（第三方视图那种「自己没写、底来自宿主容器」的算同类）。
    stock 里它们与页面底色同色所以看不见；地面一换就是「一屏两种白」+ 硬边。
-   ⇒ 页头带：地面色半透明 + blur + 底部 `mask` 渐隐（#29 的 dock 配方）。填充取 **wash 的亮端**
-   （带子贴着滚动区顶部），别照搬 dock 的暗端（那是它贴底边的结果）；α 别低于 70%（出厂 clear 预设 `blur: 0`）。
+   ⇒ 页头带（**v2，2026-11-16 起**）：**逐字复制 body 那条三层声明 + `background-attachment: fixed` + 不透明**，
+   删掉 blur 与 mask。理由：v1（0.7.4）用「wash 亮端 + α70% + 12px 渐隐」，光斑一开必然留一条板 ——
+   两枚光斑的圆心（`at 18% 6%` / `86% 14%`）**就在这条带子的盒子里**，而平色填充把它们整个丢掉；
+   实测左 20/255、右 9/255，**关掉光斑即消失**（报告人的判据）。mask 只能抹边、blur 对低频场是恒等，都治不了色差。
+   `fixed` 让渐变按**视口**取样，带子多高都不影响；不透明既是隐形、又比 α70 更彻底地遮挡（#29 的 70% 下限对它不再适用）。
+   ⚠️ 两份拷贝会漂移（不能走 custom property —— #25 陷阱）⇒ 护栏 `normalize(bandBg) === normalize(groundBg)`。
+   ⚠️ 代价：`background-attachment: fixed` 的滚动成本**未测**；融化感消失（内容在下沿直接消失，与 stock 一致）。
    ⇒ 整页板：把它**并进 body 那条地面声明的选择器列表**，别手搓「平均色」——在既有 wash 上再叠一条
    自己算的渐变只会换来新接缝（同一条声明 = 同 wash / 同光斑 / 同旋钮）。
    ⇒ 座位：先找宿主自己的 `data-*`（本例 `data-plugin-bar` / `data-plugin-body` / `data-plugin-header-part`
