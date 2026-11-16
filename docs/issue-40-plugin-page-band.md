@@ -207,6 +207,8 @@ B = 候选（同一片场 + `background-attachment: fixed` + 不透明）；C = 
 - `plugin page sticky band` —— 4 条：座位；**场相等（漂移护栏）+ 两层 radial + 一层 165deg**；
   `background-attachment: fixed`；无 blur / 无 mask / 无 70% 残项；不碰宿主几何。
 - `schedule panel rides the ground` —— 3 条：并进 body 声明、**视口锚定且不重复声明 background**、float-only。
+- 启动级 e2e（`scripts/e2e-boot-check.cjs`）：带子探针改读 `backgroundImage` / `backgroundAttachment`（v1 读的是
+  `background-color` / `blur` / `mask`，v2 下必然假红）——断言「两道 radial + 一道 wash」与「三份 `fixed`」。
 
 > 上文「残留 / 待验收」与「护栏」两节描述的是 **v1**；第 2 项（α70% 软边、`data-scrolled` 门控）已作废，
 > 以本节为准。

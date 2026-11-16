@@ -324,11 +324,14 @@ async function passOnboarding(page) {
       check(`盖住内容的面保留 backdrop-filter（${covered.sel}）`, covered.blur !== 'none' && covered.blur !== null, String(covered.blur))
     }
 
-    // ---- 关键区域采样 3a：插件页吸顶带（issue #40）-------------------------
-    // 宿主的 `[data-plugin-bar][data-natural]::before` 在 stock 里画的是不透明
-    // `--dsw-alias-bg-base`；我们把它改成地面色半透明 + blur + 底部渐隐。插件页要先
-    // 导航空过去才看得到，所以这里注入一个只带**宿主 data 钩子**的探针，读级联后的
-    // 伪元素计算值——断言的是「座位真能命中 + 变量真能解析」，不是真页几何。
+    // ---- 关键区域采样 3a：插件页吸顶带（issue #40，v2 2026-11-16）-----------
+    // 宿主在 `[data-plugin-bar][data-natural]::before` 上画不透明 bg-base。
+    // v1（0.7.4）用「地面色半透明 + blur + 底部 mask」近似地面；光斑一开就露馅，
+    // 因为那套填充只含 wash、漏掉两枚 radial 光斑（见 docs/issue-40-plugin-page-band.md
+    // 的「第二轮」）。v2 改为**逐字复制 body 的三层地面场** + `background-attachment: fixed`
+    // + 不透明：无 blur、无 mask。所以这里断言三件事：座位命中、三层渐变都在、按视口锚定。
+    // 探针只带**宿主 data 钩子**、不带 class —— 断言的是「选择器命中 + 变量可解析」，
+    // 不是真页几何（真页像素 A/B 见上述文档）。
     const band = await page.evaluate(() => {
       const probe = document.createElement('div')
       probe.setAttribute('data-plugin-bar', '')
@@ -336,17 +339,31 @@ async function passOnboarding(page) {
       probe.style.cssText = 'position:fixed;left:0;top:0;width:240px;height:60px;z-index:-1;pointer-events:none'
       document.body.appendChild(probe)
       const style = getComputedStyle(probe, '::before')
-      const out = { background: style.backgroundColor, blur: style.backdropFilter, mask: style.maskImage }
+      const out = {
+        image: style.backgroundImage,
+        attachment: style.backgroundAttachment,
+        blur: style.backdropFilter,
+        mask: style.maskImage,
+      }
       probe.remove()
       return out
     })
-    // Opaque would come back as `rgb(r, g, b)`; a mixed fill carries an alpha
-    // component (`color(srgb … / 0.8)` or `rgba(…)`).
-    const bandHasAlpha = /\/\s*[\d.]+/.test(band.background) || /,\s*0?\.\d+\s*\)/.test(band.background)
+    const radialLayers = (band.image.match(/radial-gradient/g) ?? []).length
+    const linearLayers = (band.image.match(/linear-gradient/g) ?? []).length
+    // `background-attachment` is a per-LAYER list once there are several gradients:
+    // three layers compute to "fixed, fixed, fixed", not the single keyword.
+    const attachmentFixed =
+      String(band.attachment).split(',').length >= 3 &&
+      String(band.attachment).split(',').every((part) => part.trim() === 'fixed')
     check(
-      '插件页吸顶带不再是纯 bg-base 实底（issue #40）',
-      bandHasAlpha && band.blur !== 'none' && /linear-gradient/.test(band.mask ?? ''),
-      JSON.stringify(band),
+      '插件页吸顶带复制地面三层场（两道 radial + 一道 wash，issue #40 二轮）',
+      radialLayers >= 2 && linearLayers >= 1,
+      `radial=${radialLayers} linear=${linearLayers} image=${String(band.image).slice(0, 140)}`,
+    )
+    check(
+      '插件页吸顶带按视口锚定、且不再叠 blur / mask（issue #40 二轮）',
+      attachmentFixed && band.blur === 'none' && band.mask === 'none',
+      JSON.stringify({ attachment: band.attachment, blur: band.blur, mask: band.mask }),
     )
 
     // ---- 关键区域采样 3b：命令面板不得落在任何 filtered 祖先里（issue #19）----
