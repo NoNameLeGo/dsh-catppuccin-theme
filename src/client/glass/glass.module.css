@@ -1385,6 +1385,32 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      also replaces the host's own `--dsw-specific-input-major` fill. */
   isolation: isolate;
   background: none;
+  /* ---------- Issue #41, MATERIAL half (2026-11-16). A third-party panel
+     rendered INSIDE this card may borrow the host's menu material —
+     `background: var(--dsw-menu-surface-fill)` +
+     `backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%))`
+     (that is `dsh-compact-suite` 2.9.2's `.dcs-panel`, verbatim). Its backdrop
+     is this card's translucent plane over the scrolling transcript, and the
+     stock 40px blur turns that moving text into flat grey — the reporter's
+     「灰糊」.
+     Shrinking the radius does NOT fix it. Measured headless
+     (`.debug/issue-41/`, 420×320 panel over 13px body text, 124k sampled px,
+     surviving high-pass structure as a share of the unpaneled pixels):
+     stock 40px = 0.2%, our 14px knob = 0.8%, no blur = 30–37%. 40 vs 14 is
+     invisible; the axis is blur itself, not its radius.
+     So the token collapses here instead of being retuned. Real menu SURFACES
+     are unaffected: they re-declare the token themselves on
+     `[data-menu-material='translucent']` (mica: the blur knob, compat: 12px),
+     which is nearer than this ancestor and therefore wins.
+     Scope: float AND compat. Not a mode choice — the rule that released the
+     seat plate (`[data-phase] [class*='composerSeat'] { background: none }`,
+     above) is not mode-gated, so both modes put the transcript behind the
+     panel and both produce the same mush.
+     ⚠️ Replica evidence only: compact-suite cannot mount on the shell we
+     verify against (0.2.2-rc.3 dropped `primitives.useAnchoredPosition`), so
+     this rule has NOT been seen on a real panel yet. See
+     docs/issue-41-composer-stacking-trap.md §9. */
+  --dsw-menu-backdrop-filter: none;
   /* Main input surface (issue #22 follow-up): the stronger rim — the hero
      card sits flat on the page ground, where the generic 18% rim measures
      invisible (see the rim-strong note in the variable block). */
@@ -1941,6 +1967,11 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
   isolation: isolate;
   background: none;
   backdrop-filter: none;
+  /* Issue #41 material half — same reason as the float block above: a panel
+     that borrows the host menu blur reads this card's translucent plane over
+     a live transcript, and 40px turns it into flat grey. Surfaces keep their
+     own token (compat's `[data-menu-material='translucent']` rule sets 12px). */
+  --dsw-menu-backdrop-filter: none;
 }
 
 [data-dsh-glass-compat] [data-composer-card]::before {

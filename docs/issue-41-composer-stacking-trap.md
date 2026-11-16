@@ -130,3 +130,77 @@ NO_PROXY="127.0.0.1,localhost" node .debug/real-verify/cdp.mjs eval '<expr>'
 - H1–H3 未定，取证后回填本文档 §5；
 - 宿主 `_composerSeat{will-change:transform}` 随时可能扩大范围或换命中面，届时契约仍成立，但要复核 §3.4 的版本号；
 - 报告人的 `#41` 关闭条件：文档可查 + 回帖给了可执行方案，**不要求面板被修好**（那在 compact-suite 侧）。
+
+## 9. 材质那半（2026-11-16）：把半径调小没用，得把 blur 去掉
+
+§7 当时判「CSS 零改动」，只对了一半：层叠上下文那半确实只能靠 portal，但**灰糊**那半是皮肤能碰的。
+报告人的原话给了决定性线索 —— 「面板自己的毛玻璃变成灰糊（背后的文字/图形只剩色块）」「关掉玻璃总开关后两条都消失」。
+而面板借的是 stock 菜单材质：
+
+```css
+/* dsh-compact-suite 2.9.2 的 .dcs-panel，原文 */
+background: var(--dsw-menu-surface-fill);
+backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%));
+```
+
+它渲染在输入卡**内部**，所以它的 backdrop = 卡那层半透明平面 + 正在滚动的正文。40px 一叠，字就是灰块。
+
+### 复现（replica，不是真机）
+
+compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了 `primitives.useAnchoredPosition`，见 §10），
+于是按真实结构搭 replica：面板**放进**卡内、卡材质逐条照抄 `glass.module.css` 的 float 卡（`isolation: isolate`
++ `::before` 的 `blur(14px)` + 52% 填充）、面板 420×320、底下 13px 正文。
+口径：面板矩形内缩 6px，12.4 万像素，量**残留的高频结构**（`|L − 3×3 邻域均值|` 的均值），
+以「没有面板时的同一区域」为 100%。资产：`.debug/issue-41/panel-ab.html` + `metrics.mjs`。
+
+| 变体 | detail | 相对原始 | 观感 |
+|---|---|---|---|
+| 无面板（原始正文） | 5.047 | 100% | — |
+| stock：`blur(40px) saturate(150%)` + α0.7 | 0.009 | **0.2%** | 全灰 |
+| `blur(14px)` + α0.7（皮肤自己的旋钮） | 0.041 | 0.8% | 还是灰 |
+| `blur(14px)` + card-raised 填充 | 0.049 | 1.0% | 还是灰 |
+| **无 blur** + card-raised 填充 | 1.863 | **37%** | 字能读 |
+| 无 blur + stock 填充 | 1.527 | 30% | 字能读 |
+
+**结论：轴是 blur 本身，不是半径。** 40→14 只是 0.2% → 0.8%，肉眼同一片灰；再换更实的填充也没用。
+所以皮肤侧唯一有效的动作是把卡子树里的 `--dsw-menu-backdrop-filter` 塌成 `none`。
+
+### 落地
+
+```css
+[data-dsh-glass-float] [data-composer-card],
+[data-dsh-glass-compat] [data-composer-card] { --dsw-menu-backdrop-filter: none; }
+```
+
+（实际写在两条既有的卡规则里，避免出现同选择器的第二块规则 —— 那会让护栏的 `find` 抓错块。）
+
+- **真菜单表面不受影响**：它们在 `[data-menu-material='translucent']` 上自己再声明一次
+  （mica 是 blur 旋钮、compat 是 12px），是后代声明、更近，赢过卡这一层。护栏里专门钉了这条，
+  否则哪天有人把表面声明删了，真实菜单会被一起剥掉 blur。
+- **两种模式都做**：抹掉 composer 座位底板的那条规则（`[data-phase] [class*='composerSeat'] { background: none }`）
+  本身不分模式，so 两种模式都把正文放到了面板背后。
+- **只解决糊，不解决盖**：被顶栏 / 侧栏盖住那半依旧是层叠上下文的天花板，仍然只有 portal。
+
+### 未验
+
+- 真机：等 compact-suite 能在我们验的壳上挂起来（它现在需要 `useAnchoredPosition`），或报告人给出他那边的
+  面板 computed 值再交叉；
+- 卡内若还有别的插件用它自己的手写菜单（不带 `data-menu-material`）借这个 token，会跟着失去 blur ——
+  这条是**已知取舍**，写在这里而不是当成 bug。
+
+## 10. 为什么这块面板在本机复现不了（2026-11-16）
+
+装 `dsh-compact-suite`（2.9.2 与 2.8.9 都试了，含维护者手动从 tgz 装、走插件页那条路）后，
+`conversation.input.left` 一挂就崩：
+
+```
+TypeError: primitives.useAnchoredPosition is not a function
+    at CompactChip (plugins/??dsh-compact-suite/client.js:977:32)
+```
+
+根因在 `app.asar` 自带的迁移文档里：`@deepseek-ai/dsh-client-ui-primitives` **removed** the
+`useAnchoredPosition` value export（`Menu` 改用 `anchorRef` / CSS anchor positioning）。
+逐版 grep `2.8.5 / 2.8.6 / 2.8.7 / 2.8.9 / 2.9.2` **五个版本都还在调这个 hook** ⇒ 在 `0.2.2-rc.3` 上一个都起不来。
+
+⇒ 报告人那套组合（同为 `0.2.2-rc.3` + `2.9.2`）能跑起来，说明他那边与本机的差异还没定位到，
+这条已回帖请他确认「chip 还在不在」。在他回之前，本节之后的结论一律按 replica 证据对待。
