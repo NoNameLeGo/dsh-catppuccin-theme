@@ -8,6 +8,8 @@
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-11-17
+
 ### 新增
 
 - **卡内浮层的填充实度可调（issue #41 的「材质那半」补完，2026-11-17）**。
@@ -29,8 +31,10 @@
   两者肉眼无差；**去掉 blur 才回到 30–37%**。所以做法是把卡子树里的
   `--dsw-menu-backdrop-filter` 直接塌成 `none`（float + compat 都做，因为抹掉 composer 座位底板的那条规则
   本身不分模式）。真菜单表面不受影响：它们在 `[data-menu-material='translucent']` 上自己再声明一次，
-  更近、更胜。⚠️ 证据只到 replica —— compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了
-  `primitives.useAnchoredPosition`），真机还没见过这块面板。详见 `docs/issue-41-composer-stacking-trap.md` §9。
+  更近、更胜。**真机已验**（2026-11-17，官方壳 `0.2.2-rc.3` / mica / DPR 1.5）：`dsh-compact-suite` 2.9.2
+  的真 `.dcs-panel` 就是 `[data-composer-card]` 的后代，面板 computed `backdrop-filter: none`；背后占位符文字
+  的高频结构 stock 40px 为 **0.009**、`none` 为 **5.571**（截图 `.debug/issue-41/real/dcs-*.png`）。
+  详见 `docs/issue-41-composer-stacking-trap.md` §9 / §12。
 
 ## [0.7.4] - 2026-11-14
 
@@ -1714,6 +1718,7 @@
 [0.6.3-beta.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.2...v0.6.3-beta.3
 [0.6.3-beta.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.6.3-beta.1...v0.6.3-beta.2
 [Unreleased]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.4...HEAD
+[0.7.5]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/NoNameLeGo/dsh-catppuccin-theme/compare/v0.7.1...v0.7.2
