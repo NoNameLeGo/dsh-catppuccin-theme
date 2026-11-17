@@ -1514,6 +1514,7 @@ export function apply(ctx: ClientContext): void {
     setGlow: (glow) => { glass.setGlow(glow) },
     setGlowStrength: (glowStrength) => { glass.setGlowStrength(glowStrength) },
     setGlowSize: (glowSize) => { glass.setGlowSize(glowSize) },
+    setCardOverlay: (cardOverlay) => { glass.setCardOverlay(cardOverlay) },
     resetDefaults: () => { glass.resetDefaults() },
   })
 

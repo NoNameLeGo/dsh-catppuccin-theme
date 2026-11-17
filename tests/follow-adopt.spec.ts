@@ -52,6 +52,7 @@ const NON_DEFAULT_SECTION: CatppuccinSettingsSection = {
     gap: 20,
     glowStrength: 180,
     glowSize: 220,
+    cardOverlay: 140,
     glow: true,
   },
   autoCheck: false,

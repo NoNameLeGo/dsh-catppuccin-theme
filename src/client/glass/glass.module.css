@@ -46,6 +46,13 @@
   --dsh-glass-card: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(52% * var(--dsh-glass-frost, 1)), transparent);
   --dsh-glass-card-raised: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(64% * var(--dsh-glass-frost, 1)), transparent);
   --dsh-glass-card-hover: color-mix(in srgb, var(--dsw-alias-bg-layer-1) calc(76% * var(--dsh-glass-frost, 1)), transparent);
+  /* Issue #41 material half: the alpha the HOST's own menu-surface token uses
+     (`palettes.ts`: `--dsw-menu-surface-fill` = `--dsw-alias-bg-layer-3` at 58%
+     light / 45% dark). Written out here because a custom property cannot
+     reference the very token it overrides, and the card subtree has to rebuild
+     that fill from a multiplier. `tests/glass-css.spec.ts` pins this pair
+     against `palettes.ts`, so the two cannot drift apart silently. */
+  --dsh-glass-menu-fill-base: 58%;
   /* Rim: a real hairline so the pane's silhouette stays readable over a
      busy backdrop (the bare border-l2 token was too faint to carve the
      glass out of the page ground). `rim-strong` is the one step up,
@@ -110,6 +117,9 @@
      of edge light, and a deep neutral drop for separation from the
      backdrop. */
   --dsh-glass-rim: color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);
+  /* Issue #41 material half: the dark half of the stock menu-surface alpha
+     (see the light value and the comment there). */
+  --dsh-glass-menu-fill-base: 45%;
   --dsh-glass-rim-soft: color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);
   /* Same 30% as the light block on purpose: the same alpha reads WEAKER on
      a dark ground, so the dark step must never go below the light one
@@ -1411,6 +1421,20 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      this rule has NOT been seen on a real panel yet. See
      docs/issue-41-composer-stacking-trap.md §9. */
   --dsw-menu-backdrop-filter: none;
+  /* Issue #41 MATERIAL half, part 2 (2026-11-17): the knob. With the blur
+     collapsed above, what is left to trade is how much the panel HIDES what is
+     behind it — low fill = you can still read the transcript through the panel,
+     high fill = a clean plate. A MULTIPLIER on the host's own menu-surface alpha
+     (`--dsh-glass-menu-fill-base`, 45% dark / 58% light) so that 1 reproduces
+     stock in BOTH schemes; an absolute-alpha default would have to pick one
+     scheme and restyle the other. Measured inside a 420×320 panel, `none` blur:
+     45% kept 56% of the backdrop's structure, 60% → 35%, 75% → 10%, 90% → 4%.
+     Guarded by `tests/glass-css.spec.ts` (base pairing with `palettes.ts`). */
+  --dsw-menu-surface-fill: color-mix(
+    in srgb,
+    var(--dsw-alias-bg-layer-3) calc(var(--dsh-glass-menu-fill-base, 45%) * var(--dsh-glass-card-overlay, 1)),
+    transparent
+  );
   /* Main input surface (issue #22 follow-up): the stronger rim — the hero
      card sits flat on the page ground, where the generic 18% rim measures
      invisible (see the rim-strong note in the variable block). */
@@ -1972,6 +1996,13 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
      a live transcript, and 40px turns it into flat grey. Surfaces keep their
      own token (compat's `[data-menu-material='translucent']` rule sets 12px). */
   --dsw-menu-backdrop-filter: none;
+  /* Same fill knob as the float block above — one axis, both modes (the rule
+     that released the seat plate is not mode-gated). */
+  --dsw-menu-surface-fill: color-mix(
+    in srgb,
+    var(--dsw-alias-bg-layer-3) calc(var(--dsh-glass-menu-fill-base, 45%) * var(--dsh-glass-card-overlay, 1)),
+    transparent
+  );
 }
 
 [data-dsh-glass-compat] [data-composer-card]::before {

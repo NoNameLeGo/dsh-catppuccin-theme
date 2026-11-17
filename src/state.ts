@@ -189,6 +189,26 @@ export interface GlassState {
    */
   glowSize: number
   /**
+   * Fill solidity of the composer card's INNER floating panels, in percent of
+   * the host's own menu-surface alpha (issue #41 material half, 2026-11-17).
+   * 100 = exactly the stock menu fill (`palettes.ts`: `bg-layer-3` at 58% light
+   * / 45% dark), which is what a panel borrowing `--dsw-menu-surface-fill`
+   * inside the card rendered before this knob existed — so an untouched profile
+   * is byte-identical.
+   *
+   * Why this axis and not a blur slider: measured on the live shell, the blur
+   * radius is NOT a continuum. With `blur(40px)` and `blur(14px)` the surviving
+   * high-pass structure inside a 420×320 panel read 0.12% / 0.32% of the
+   * unpaneled pixels (both read as flat grey), and only removing the filter
+   * outright restored 54%. So the fix collapses the blur to `none` in the card
+   * subtree, and what is left to trade is how much the panel hides what is
+   * behind it: at `none`, alpha 45% kept 56% structure, 60% → 35%, 75% → 10%,
+   * 90% → 4%. Low = you can still read the transcript through the panel, high =
+   * the panel is a clean plate. Numbers in
+   * `docs/issue-41-composer-stacking-trap.md` §11.
+   */
+  cardOverlay: number
+  /**
    * The optional ground GLOWS (issue #26, 2026-10-16). The page ground is
    * always a same-family wash (the "C" answer to the reporter's report: the
    * wash gives the glass something to transmit without localising the
@@ -305,6 +325,24 @@ export const GLOW_SIZE_MAX = 250
  *  them, so an untouched profile renders the 0.6.x ground. */
 export const GLOW_SIZE_DEFAULT = 100
 
+/** Lower bound of the card-overlay solidity (issue #41 material half), in
+ *  percent of the host's menu-surface alpha. 30% is the point where a panel
+ *  still reads as a surface rather than a tint — below it the panel's own
+ *  content (which sits ON this fill) starts losing contrast against the
+ *  transcript sliding underneath. Measured: 45% → 56% of the backdrop's
+ *  structure survives, 30% would push past 70%. */
+export const CARD_OVERLAY_MIN = 30
+
+/** Upper bound of the card-overlay solidity, percent of the host's alpha.
+ *  180% takes the dark fill from 45% to 81% — opaque enough that the panel is
+ *  a plate and the transcript behind it is gone. The cap exists because the
+ *  alpha saturates at 1 anyway; past it the knob would be a dead zone. */
+export const CARD_OVERLAY_MAX = 180
+
+/** The shipped card-overlay solidity: 100% = the host's own menu fill, so a
+ *  profile that never opens this knob renders the panel exactly as 0.7.4 did. */
+export const CARD_OVERLAY_DEFAULT = 100
+
 /** Shipped glass defaults — the single source of truth; the client glass layer
  *  (`src/client/glass/glass-layer.ts`) derives its knob defaults from here. */
 export const DEFAULT_GLASS: GlassState = {
@@ -319,6 +357,7 @@ export const DEFAULT_GLASS: GlassState = {
   gap: 12,
   glowStrength: GLOW_STRENGTH_DEFAULT,
   glowSize: GLOW_SIZE_DEFAULT,
+  cardOverlay: CARD_OVERLAY_DEFAULT,
   glow: false,
 }
 
@@ -433,6 +472,10 @@ export function sanitizeState(input: unknown): CatppuccinState {
   // hand-edited document must not be able to collapse the two light sources
   // into a pinhole or blow them up past the page.
   state.glass.glowSize = clampFinite(glass.glowSize, GLOW_SIZE_MIN, GLOW_SIZE_MAX, DEFAULT_GLASS.glowSize)
+  // Issue #41 material half: how solid the card's inner panels are, percent of
+  // the host's menu alpha. Absent field = the shipped 100% (the stock fill), so
+  // every existing document keeps the look it had before this knob existed.
+  state.glass.cardOverlay = clampFinite(glass.cardOverlay, CARD_OVERLAY_MIN, CARD_OVERLAY_MAX, DEFAULT_GLASS.cardOverlay)
   // Issue #26: boolean-only, shipped OFF (the wash-only ground is the fix).
   state.glass.glow = glass.glow === true
 
@@ -483,6 +526,7 @@ export function isDefaultState(state: CatppuccinState): boolean {
     && state.glass.gap === expected.glass.gap
     && state.glass.glowStrength === expected.glass.glowStrength
     && state.glass.glowSize === expected.glass.glowSize
+    && state.glass.cardOverlay === expected.glass.cardOverlay
     && state.glass.glow === expected.glass.glow
     && state.autoCheck === expected.autoCheck
     && state.updateChannel === expected.updateChannel
@@ -547,6 +591,7 @@ export function settingsSectionsEqual(a: CatppuccinSettingsSection, b: Catppucci
     && a.glass.gap === b.glass.gap
     && a.glass.glowStrength === b.glass.glowStrength
     && a.glass.glowSize === b.glass.glowSize
+    && a.glass.cardOverlay === b.glass.cardOverlay
     && a.glass.glow === b.glass.glow
     && a.autoCheck === b.autoCheck
     && a.updateChannel === b.updateChannel
@@ -625,6 +670,7 @@ export function replayLocalChanges(
   carryGlass('gap')
   carryGlass('glowStrength')
   carryGlass('glowSize')
+  carryGlass('cardOverlay')
   carryGlass('glow')
   carry('autoCheck')
   carry('updateChannel')

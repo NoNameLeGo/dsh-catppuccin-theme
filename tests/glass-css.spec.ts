@@ -2260,6 +2260,50 @@ describe('composer stacking trap: the card is a ceiling, not a bug (issue #41)',
     }
   })
 
+  it('rebuilds the borrowed menu FILL from the knob in both modes (material half, 2026-11-17)', () => {
+    // With the blur collapsed, what is left to trade is how much the panel
+    // HIDES what is behind it: at `blur: none` the surviving structure inside
+    // a 420×320 panel measured 56% at alpha .45, 35% at .60, 10% at .75, 4% at
+    // .90 — a real continuum, unlike the radius (40px 0.12% vs 14px 0.32%).
+    // So the fill is rebuilt from a multiplier instead of the stock token.
+    for (const [mode, selector] of [
+      ['mica', MICA_CARD],
+      ['compat', COMPAT_CARD],
+    ] as const) {
+      const rule = cardRules.find((candidate) => candidate.selector === selector)
+      expect(rule?.decls, `${mode}: composer card rule is gone`).toBeDefined()
+      const fill = declOf(rule!.decls, '--dsw-menu-surface-fill') ?? ''
+      expect(fill, `${mode}: the inner panels must take their fill from the knob`).toContain(
+        '--dsh-glass-card-overlay',
+      )
+      expect(fill, `${mode}: and from the per-scheme stock alpha`).toContain(
+        '--dsh-glass-menu-fill-base',
+      )
+      expect(fill, `${mode}: rebuilt from the same token the host uses`).toContain(
+        'var(--dsw-alias-bg-layer-3)',
+      )
+    }
+  })
+
+  it('keeps the stock-alpha constants in sync with the palette (issue #41)', () => {
+    // A custom property cannot reference the very token it overrides, so the
+    // pair is written twice: `palettes.ts` (the host's own `--dsw-menu-surface-
+    // fill`) and the stylesheet (the multiplier's base). Pin them together so a
+    // palette regeneration cannot silently double the panel's opacity.
+    const palettes = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'client', 'palettes.ts'),
+      'utf8',
+    )
+    expect(palettes).toContain(
+      '"--dsw-menu-surface-fill": "color-mix(in srgb, var(--dsw-alias-bg-layer-3) 58%, transparent)"',
+    )
+    expect(palettes).toContain(
+      '"--dsw-menu-surface-fill": "color-mix(in srgb, var(--dsw-alias-bg-layer-3) 45%, transparent)"',
+    )
+    expect(CSS).toContain('--dsh-glass-menu-fill-base: 58%;')
+    expect(CSS).toContain('--dsh-glass-menu-fill-base: 45%;')
+  })
+
   it('keeps one stacking context per mode — it is what holds the material plane down', () => {
     const mica = cardRules.find((rule) => rule.selector === MICA_CARD)
     const compat = cardRules.find((rule) => rule.selector === COMPAT_CARD)

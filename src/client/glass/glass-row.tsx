@@ -16,7 +16,7 @@ import { useId, useState, useSyncExternalStore } from 'react'
 import { Button, SegmentedControl, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { SETTINGS_DEFAULTS, type GlassRowState } from './glass-layer.ts'
-import { GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX } from '../../state.ts'
+import { CARD_OVERLAY_MAX, CARD_OVERLAY_MIN, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX } from '../../state.ts'
 import type { CatppuccinKey } from '../locales.ts'
 import { HelpBadge } from '../HelpBadge.tsx'
 import css from './GlassRow.module.css'
@@ -48,6 +48,10 @@ export interface GlassRowInjected {
   /** Set the ground-glow SPREAD, 100-250% of the shipped radii (issue #32
    *  follow-up; 100 = unchanged). */
   setGlowSize: (value: number) => void
+  /** Set the fill solidity of the panels a third party renders inside the
+   *  composer card, 30-180% of the host's own menu alpha (issue #41 material
+   *  half; 100 = the stock fill). */
+  setCardOverlay: (value: number) => void
   /** Restore every knob to the shipped defaults. */
   resetDefaults: () => void
   /** Close the settings surface so the user can look at the real main UI. The
@@ -182,9 +186,9 @@ const GAP_PRESETS: readonly { id: string; key: CatppuccinKey; gap: number }[] = 
  * @param props - composed slot props.
  * @returns the settings row.
  */
-export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, setGlowStrength, setGlowSize, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
+export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur, setFrost, setBrightness, setGap, setGlow, setGlowStrength, setGlowSize, setCardOverlay, resetDefaults, onPreviewMain }: GlassRowProps): React.JSX.Element {
   const state = useSyncExternalStore(subscribe, getState)
-  const { enabled, mode, blur, frost, brightness, gap, glow, glowStrength, glowSize, dark } = state
+  const { enabled, mode, blur, frost, brightness, gap, glow, glowStrength, glowSize, cardOverlay, dark } = state
 
   // The brightness knob only ever offers the half that makes sense for the
   // resolved scheme: dark mode darkens (0-50), light mode brightens (50-100).
@@ -288,6 +292,23 @@ export function GlassRow({ t, getState, subscribe, setEnabled, setMode, setBlur,
                 </div>
                 <Knob label={t('glass.gap')} value={gap} min={GLASS_GAP_MIN} max={GLASS_GAP_MAX} step={1} unit="px" onChange={setGap} />
                 <div className={css.rowHint}>{t('glass.gapHint')}</div>
+                {/* Issue #41 material half: the one continuous axis left after the
+                    borrowed menu blur collapsed to `none`. 100% = the host's own
+                    menu alpha (so an untouched profile is unchanged); dragging it
+                    down lets the panel transmit the transcript underneath, dragging
+                    it up turns the panel into a clean plate. NOT a blur-radius
+                    knob: measured on the live shell, 40px and 14px are the same
+                    flat grey — only on/off does anything. */}
+                <Knob
+                  label={t('glass.cardOverlay')}
+                  value={cardOverlay}
+                  min={CARD_OVERLAY_MIN}
+                  max={CARD_OVERLAY_MAX}
+                  step={5}
+                  unit="%"
+                  onChange={setCardOverlay}
+                />
+                <div className={css.rowHint}>{t('glass.cardOverlayHint')}</div>
               </>
             )}
             {/* Issue #26: the ground glows are opt-in. The switch sits with the

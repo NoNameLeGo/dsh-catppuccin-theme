@@ -118,7 +118,7 @@ function leaves(json: SchemaJson): { volatile: string[]; plain: string[] } {
 }
 
 const CONFIG_FIELDS = ['flavor', 'followSystem', 'followDark', 'autoCheck', 'updateChannel', 'overrides', 'shikiStyle']
-const GLASS_FIELDS = ['enabled', 'mode', 'blur', 'frost', 'brightness', 'gap', 'glowStrength', 'glowSize', 'glow']
+const GLASS_FIELDS = ['enabled', 'mode', 'blur', 'frost', 'brightness', 'gap', 'glowStrength', 'glowSize', 'cardOverlay', 'glow']
 
 describe('maybeVolatile feature detection', () => {
   it('marks the node when the capability exists', () => {

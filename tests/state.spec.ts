@@ -57,6 +57,7 @@ function sectionMutants(base: CatppuccinSettingsSection): Record<string, Catppuc
     'glass.gap': { ...base, glass: { ...base.glass, gap: 20 } },
     'glass.glowStrength': { ...base, glass: { ...base.glass, glowStrength: 180 } },
     'glass.glowSize': { ...base, glass: { ...base.glass, glowSize: 220 } },
+    'glass.cardOverlay': { ...base, glass: { ...base.glass, cardOverlay: 150 } },
     'glass.glow': { ...base, glass: { ...base.glass, glow: true } },
     autoCheck: { ...base, autoCheck: false },
     updateChannel: { ...base, updateChannel: 'beta' },
@@ -92,6 +93,7 @@ describe('durable state defaults', () => {
         gap: 12,
         glowStrength: 100,
         glowSize: 100,
+        cardOverlay: 100,
         glow: false,
       },
       autoCheck: true,
@@ -154,6 +156,17 @@ describe('sanitizeState', () => {
     expect(sanitizeState({ glass: { gap: 0 } }).glass.gap).toBe(4)
     expect(sanitizeState({ glass: { gap: 'wide' } }).glass.gap).toBe(12)
     expect(sanitizeState({ glass: { gap: 17 } }).glass.gap).toBe(17)
+  })
+
+  it('keeps the card-overlay knob inside 30-180 and defaults it to the host fill (issue #41)', () => {
+    // Percent of the host's own menu-surface alpha, so 100 = stock and an
+    // untouched document renders the inner panels exactly as 0.7.4 did.
+    expect(DEFAULT_GLASS.cardOverlay).toBe(100)
+    expect(sanitizeState({ glass: { cardOverlay: 999 } }).glass.cardOverlay).toBe(180)
+    expect(sanitizeState({ glass: { cardOverlay: 0 } }).glass.cardOverlay).toBe(30)
+    expect(sanitizeState({ glass: { cardOverlay: -20 } }).glass.cardOverlay).toBe(30)
+    expect(sanitizeState({ glass: { cardOverlay: 'solid' } }).glass.cardOverlay).toBe(100)
+    expect(sanitizeState({ glass: { cardOverlay: 140 } }).glass.cardOverlay).toBe(140)
   })
 
   it('keeps the glow switch boolean-only and OFF by default (issue #26)', () => {
@@ -351,7 +364,7 @@ describe('replayLocalChanges (issue #30)', () => {
     flavor: 'catppuccin-frappe',
     followSystem: true,
     followDark: 'catppuccin-macchiato',
-    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glowStrength: 150, glowSize: 180, glow: true },
+    glass: { enabled: true, mode: 'compat', blur: 12, frost: 33, brightness: 77, gap: 18, glowStrength: 150, glowSize: 180, cardOverlay: 120, glow: true },
     autoCheck: false,
     updateChannel: 'beta',
     overrides: { '--dsw-static-blue-500': '#89b4fa' },
@@ -428,6 +441,7 @@ describe('replayLocalChanges (issue #30)', () => {
       'glass.gap': (s) => ({ ...s, glass: { ...s.glass, gap: 20 } }),
       'glass.glowStrength': (s) => ({ ...s, glass: { ...s.glass, glowStrength: 180 } }),
       'glass.glowSize': (s) => ({ ...s, glass: { ...s.glass, glowSize: 220 } }),
+      'glass.cardOverlay': (s) => ({ ...s, glass: { ...s.glass, cardOverlay: 150 } }),
       'glass.glow': (s) => ({ ...s, glass: { ...s.glass, glow: true } }),
       autoCheck: (s) => ({ ...s, autoCheck: false }),
       updateChannel: (s) => ({ ...s, updateChannel: 'beta' }),

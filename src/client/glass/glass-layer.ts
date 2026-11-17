@@ -34,7 +34,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import { startGlassSeamStamper } from './glass-seams.ts'
 import { GLASS_CSS_TEXT } from './glass-css.gen.ts'
-import { DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type GlassState } from '../../state.ts'
+import { CARD_OVERLAY_MAX, CARD_OVERLAY_MIN, DEFAULT_GLASS, GLASS_GAP_MAX, GLASS_GAP_MIN, GLOW_SIZE_MAX, GLOW_SIZE_MIN, GLOW_STRENGTH_MAX, type GlassState } from '../../state.ts'
 
 /** html attribute selecting the glass layer: CSS hooks and page effects. */
 export const GLASS_ATTRIBUTE = 'data-dsh-glass'
@@ -60,6 +60,7 @@ const GLASS_KNOB_PROPERTIES = [
   '--dsh-glass-gap',
   '--dsh-glass-glow-strength',
   '--dsh-glass-glow-size',
+  '--dsh-glass-card-overlay',
 ] as const
 
 /** localStorage key carrying the layer enable flag. */
@@ -114,6 +115,14 @@ export interface GlassSettings {
    */
   glowSize: number
   /**
+   * Fill solidity of the panels a third party renders INSIDE the composer
+   * card, percent of the host's own menu-surface alpha (issue #41 material
+   * half). 100 = the stock fill, which is what those panels rendered before
+   * the knob existed. Collapse-vs-hide trade-off, see
+   * `GlassState.cardOverlay` in `src/state.ts`.
+   */
+  cardOverlay: number
+  /**
    * Enable the two static ground glows (issue #26). OFF by default: the page
    * ground is the same-family WASH only, because the glows are fixed to screen
    * coordinates and every translucent pane therefore transmits a different
@@ -149,6 +158,7 @@ export const SETTINGS_DEFAULTS: GlassSettings = {
   gap: DEFAULT_GLASS.gap,
   glowStrength: DEFAULT_GLASS.glowStrength,
   glowSize: DEFAULT_GLASS.glowSize,
+  cardOverlay: DEFAULT_GLASS.cardOverlay,
   glow: DEFAULT_GLASS.glow,
 }
 
@@ -160,6 +170,7 @@ const NUMERIC_KEYS = {
   gap: 'dsh.catppuccin.glass.gap',
   glowStrength: 'dsh.catppuccin.glass.glow-strength',
   glowSize: 'dsh.catppuccin.glass.glow-size',
+  cardOverlay: 'dsh.catppuccin.glass.card-overlay',
 } as const
 type NumericKey = keyof typeof NUMERIC_KEYS
 
@@ -179,6 +190,10 @@ const NUMERIC_BOUNDS: Record<NumericKey, readonly [number, number]> = {
   // Issue #32 follow-up: the spread is NOT zero-based either — 100% is the
   // shipped geometry and the knob only enlarges, so the floor is deliberate.
   glowSize: [GLOW_SIZE_MIN, GLOW_SIZE_MAX],
+  // Issue #41 material half: percent of the host's menu alpha. Not zero-based —
+  // 0% would be an invisible panel, and the floor is where the panel stops
+  // reading as a surface at all.
+  cardOverlay: [CARD_OVERLAY_MIN, CARD_OVERLAY_MAX],
 }
 
 /** The localStorage names of the numeric knobs — the reverse of
@@ -380,6 +395,7 @@ export class GlassLayer {
       gap: this.settings.gap,
       glowStrength: this.settings.glowStrength,
       glowSize: this.settings.glowSize,
+      cardOverlay: this.settings.cardOverlay,
       glow: this.settings.glow,
     }
   }
@@ -397,6 +413,7 @@ export class GlassLayer {
       gap: clampSetting('gap', remote.gap),
       glowStrength: clampSetting('glowStrength', remote.glowStrength),
       glowSize: clampSetting('glowSize', remote.glowSize),
+      cardOverlay: clampSetting('cardOverlay', remote.cardOverlay),
       glow: remote.glow === true,
     }
     writeEnabled(this.enabled)
@@ -407,6 +424,7 @@ export class GlassLayer {
     writeSetting('gap', this.settings.gap)
     writeSetting('glowStrength', this.settings.glowStrength)
     writeSetting('glowSize', this.settings.glowSize)
+    writeSetting('cardOverlay', this.settings.cardOverlay)
     writeGlow(this.settings.glow)
     this.sync()
   }
@@ -500,6 +518,20 @@ export class GlassLayer {
    *  follow-up). Geometry only: the peak alpha stays put, the falloff flattens
    *  — and positions stay hardcoded (no "where" axis, see
    *  `docs/issue-32-glow-tuning.md` §2). */
+  /** Set the fill solidity of the panels rendered INSIDE the composer card,
+   *  percent of the host's own menu alpha (issue #41 material half). 100 = the
+   *  stock fill; the blur itself is collapsed by the stylesheet, so this is the
+   *  only continuous axis left (see `docs/issue-41-composer-stacking-trap.md`
+   *  §11 — with the blur left on, this knob measures as a no-op). */
+  setCardOverlay(value: number): void {
+    const next = clampSetting('cardOverlay', value)
+    if (next === this.settings.cardOverlay) return
+    this.settings.cardOverlay = next
+    writeSetting('cardOverlay', next)
+    if (this.enabled) this.applySettings()
+    this.publish()
+  }
+
   setGlowSize(value: number): void {
     const next = clampSetting('glowSize', value)
     if (next === this.settings.glowSize) return
@@ -519,6 +551,7 @@ export class GlassLayer {
     writeSetting('gap', this.settings.gap)
     writeSetting('glowStrength', this.settings.glowStrength)
     writeSetting('glowSize', this.settings.glowSize)
+    writeSetting('cardOverlay', this.settings.cardOverlay)
     writeGlow(this.settings.glow)
     if (this.enabled) this.applySettings()
     this.publish()
@@ -534,6 +567,7 @@ export class GlassLayer {
       gap: readSetting('gap'),
       glowStrength: readSetting('glowStrength'),
       glowSize: readSetting('glowSize'),
+      cardOverlay: readSetting('cardOverlay'),
       glow: readGlow(),
     }
   }
@@ -592,6 +626,15 @@ export class GlassLayer {
       // Same #25 trap — read inline in `background`, never through an
       // intermediate property.
       '--dsh-glass-glow-size': String(this.settings.glowSize / 100),
+      // Card-inner panel fill (issue #41 material half): a MULTIPLIER on the
+      // host's own menu-surface alpha, 1 = stock. A multiplier rather than an
+      // absolute alpha on purpose — the stock alpha differs per scheme (58%
+      // light / 45% dark, `palettes.ts`), and an absolute default would have to
+      // pick one and silently restyle the other scheme. Read inline by the card
+      // rules in `glass.module.css` (`calc(base * this)`), never through an
+      // intermediate property that a `color-mix` weight would then freeze —
+      // the #25 invalidation trap.
+      '--dsh-glass-card-overlay': String(this.settings.cardOverlay / 100),
     }
     for (const [property, value] of Object.entries(knobs)) style.setProperty(property, value)
 

@@ -124,6 +124,16 @@
    真菜单表面靠自己在 `[data-menu-material='translucent']` 上再声明一次而免疫（护栏钉了这条）。
    float + compat 都做（抹掉 composer 座位底板的规则本身不分模式）。⚠️ 证据只到 replica：
    compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了 `primitives.useAnchoredPosition`，五个已发布版本都还在调它）。
+   **2026-11-17 已补真机**（官方壳 0.2.2-rc.3 / mica / dpr 1.5）：卡内借用该 token 的浮层 computed = `none`、
+   卡外仍 `blur(40px) saturate(1.5)`、`[data-menu-material='translucent']` 表面仍 `blur(5px)`；
+   像素 A/B 基线 16.475 → stock40 **0.12%** / 14px **0.32%** / 无 blur **54%**。
+   **推论七之三（同一批实测）：模糊只有开/关，填充才是连续轴。** `none` 下 alpha 0.45/0.60/0.75/0.90 的
+   背后结构残留为 56% / 35% / 10% / 4%（真机 205×210，基线 21.993），而 **blur 开着时 alpha 完全无效**
+   （40px 下 α0.45 与 α0.90 = 0.349 / 0.355）。⇒ 设置里那个旋钮做在填充上（`glass.cardOverlay`，100 = 宿主 alpha），
+   **不要**做模糊强度滑块（那是假档位）。
+   ⚠️ **陷阱：这个乘数只能写在 `<body>` 上才会实时重算。**只写 `<html>` 时，后代把它的 `color-mix` 权重
+   不会失效（0.5 / 1.8 都读回 0.45；`@property` 注册成 `<number>` 也救不了）；写 `<body>` 才得到 0.225 / 0.81。
+   生产路径靠 `applySettings()` 的 html+body 双写，**删掉 body 镜像会让旋钮变成「刷新才生效」**。
    **推论八（issue #40 实测，2026-11-14）：宿主自己涂 `bg-base` 的「页级板」在换成地面后一定显形，而座位几乎总有 data 钩子。**
    两种形状：① **页头带** —— `dsh-client-ui-plugin-manager` 0.2.2 起把页头做成 scroll-linked sticky bar，
    并让它自己的 `::before` 画一条**全宽** `--dsw-alias-bg-base` 带，高度 `--plugin-header-paint-height`

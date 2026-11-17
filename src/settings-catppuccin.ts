@@ -37,6 +37,8 @@
  */
 import Schema from '@deepseek-ai/schemastery'
 import {
+  CARD_OVERLAY_MAX,
+  CARD_OVERLAY_MIN,
   CATPPUCCIN_THEME_IDS,
   DEFAULT_AUTO_CHECK,
   DEFAULT_FOLLOW_DARK,
@@ -114,6 +116,11 @@ export function catppuccinSchemaFields(): Record<string, Schema> {
       // Issue #32 follow-up: the glow SPREAD. Same rule — the form must not be
       // able to hold a value the sanitizer would clamp away on the next publish.
       glowSize: Schema.number().min(GLOW_SIZE_MIN).max(GLOW_SIZE_MAX).default(DEFAULT_GLASS.glowSize),
+      // Issue #41 material half: how solid the panels a third party renders
+      // INSIDE the composer card are, percent of the host's menu-surface alpha.
+      // 100 = stock. Same rule as the two knobs above — the form must not hold
+      // a value the sanitizer would clamp away on the next publish.
+      cardOverlay: Schema.number().min(CARD_OVERLAY_MIN).max(CARD_OVERLAY_MAX).default(DEFAULT_GLASS.cardOverlay),
       // Issue #26: the optional ground glows (the wash-only ground is the
       // shipped default, so this must default to the same value as
       // `DEFAULT_GLASS.glow` — the client reads "resolves to the shipped
@@ -196,6 +203,8 @@ export interface CatppuccinConfig {
     glowStrength: { get(): number }
     /** Issue #32 follow-up ground-glow spread, percent of the shipped geometry. */
     glowSize: { get(): number }
+    /** Issue #41 material half: card-inner panel fill, percent of the host alpha. */
+    cardOverlay: { get(): number }
     /** Issue #26: the optional ground glows (the wash-only ground is the default). */
     glow: { get(): boolean }
   }

@@ -598,7 +598,7 @@ describe('GlassRow knobs', () => {
     // The snapshot object must keep a stable identity: `useSyncExternalStore`
     // compares by reference and would re-render forever on a fresh object
     // (the same contract the real face honours via `overridesSnapshot`).
-    const state = { enabled: true, mode: 'mica' as const, blur: 14, frost: 20, brightness: 30, gap: 12, dark: true }
+    const state = { enabled: true, mode: 'mica' as const, blur: 14, frost: 20, brightness: 30, gap: 12, cardOverlay: 100, dark: true }
     const props = {
       t,
       getState: () => state,
@@ -616,7 +616,7 @@ describe('GlassRow knobs', () => {
     // the contract is value+unit, not a phrase. Order follows the row: blur,
     // frost, brightness, then the issue #31 card-gap slider.
     const ranges = screen.getAllByRole('slider')
-    expect(ranges.map((range) => range.getAttribute('aria-valuetext'))).toEqual(['14px', '20%', '30%', '12px'])
+    expect(ranges.map((range) => range.getAttribute('aria-valuetext'))).toEqual(['14px', '20%', '30%', '12px', '100%'])
   })
 })
 
