@@ -124,6 +124,9 @@
    真菜单表面靠自己在 `[data-menu-material='translucent']` 上再声明一次而免疫（护栏钉了这条）。
    float + compat 都做（抹掉 composer 座位底板的规则本身不分模式）。⚠️ 证据只到 replica：
    compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了 `primitives.useAnchoredPosition`，五个已发布版本都还在调它）。
+   **但 2026-11-17 已用一行本地 shim 绕开**（安装目录里的 `lib/client.js` 加 `?? (() => ({left:'0px',top:'0px'}))`），
+   真面板挂起来了且 `card.contains(panel) === true` ⇒ 上面的规则前提已是实测。⚠️ shim 打在安装目录，
+   插件升级会丢，重打用 `.debug/real-verify/reapply-compact-shim.mjs`（幂等，`--revert` 还原）；详见 docs §12。
    **2026-11-17 已补真机**（官方壳 0.2.2-rc.3 / mica / dpr 1.5）：卡内借用该 token 的浮层 computed = `none`、
    卡外仍 `blur(40px) saturate(1.5)`、`[data-menu-material='translucent']` 表面仍 `blur(5px)`；
    像素 A/B 基线 16.475 → stock40 **0.12%** / 14px **0.32%** / 无 blur **54%**。

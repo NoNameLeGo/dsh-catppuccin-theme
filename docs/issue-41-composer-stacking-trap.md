@@ -272,3 +272,45 @@ TypeError: primitives.useAnchoredPosition is not a function
 生产路径本来就没事：`applySettings()` 会把每个旋钮**同时写 `<html>` 和 `<body>`**（`glass-layer.ts`
 的镜像，原本是为标题栏 caption 同步），`<body>` 那一份正好落在声明 `--dsh-glass-menu-fill-base` 的元素上，
 所以重算成立。**将来若有人删掉 body 镜像，这个旋钮会静默变成「只有刷新才生效」。**
+
+## 12. 真插件终于挂起来了（2026-11-17 下午）：本地 shim 与真实面板实测
+
+装 `dsh-compact-suite` **不等于启用**：包在 `~/.dsh/profiles/desktop/node_modules/dsh-compact-suite`（2.9.2），
+但 `cordis.patch.yml` 里没有条目 ⇒ 宿主从头就没加载过它。§10 的「装不起来」有一半是这件事。
+
+### 让它挂起来的一行补丁
+
+崩溃点只有一个：`primitives.useAnchoredPosition`（§10）。该返回值只被展开成样式：
+
+```js
+style: Object.assign({}, position, { position: 'fixed', zIndex: 60 })
+```
+
+所以在 `lib/client.js` 的调用点加个守卫即可（`primitives.useAnchoredPosition` 不存在时退化为固定 0,0，
+面板位置由 `.dcs-panel` 自己的 CSS 兜住，本机实测落点正常）：
+
+```js
+const position = (primitives.useAnchoredPosition ?? (() => ({ left: '0px', top: '0px' })))({ … })
+```
+
+⚠️ 这个补丁**打在安装目录里**，`pnpm add` / 重装会清掉。重打脚本：
+`node .debug/real-verify/reapply-compact-shim.mjs`（幂等；`--revert` 还原，备份是 `lib/client.js.orig`）。
+
+### 真实面板实测（官方壳 0.2.2-rc.3 / mica / DPR 1.5）
+
+面板 `420×409`，**`card.contains(panel) === true`** —— 即 `.dcs-panel` 确实是 `[data-composer-card]` 的后代，
+§9 那条规则的前提从「按结构推定」变成实测。
+
+`detail` 取面板顶部「背后有占位符文字」的那条 280×30 条带（越接近 0 越糊）：
+
+| 状态 | 面板 computed | 背后文字 detail |
+|---|---|---|
+| stock `blur(40px)` | `blur(40px) saturate(1.5)` | **0.009** —— 文字彻底消失 |
+| #43 修复 | `none` | **5.571** |
+| 修复 + 实度 50% | `none`，alpha 0.225 | **7.871** |
+| 修复 + 实度 180% | `none`，alpha 0.81 | **1.915** |
+
+截图：`.debug/issue-41/real/dcs-{before,fixed,a50,a180}.png`。
+
+⇒ 至此 #41 的「材质那半」不再是 replica 证据：**真插件、真壳、真面板**。仍未解的是层叠那半
+（被顶栏/侧栏盖住），那只有插件 `createPortal` 到 body 能解。
