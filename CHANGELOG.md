@@ -8,6 +8,21 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **composer 卡内借用菜单材质的第三方面板会糊成一片（issue #41 的「材质那半」，2026-11-16）**。
+  有些插件把面板渲染在输入卡**内部**，材质则直接借宿主的菜单 token：
+  `background: var(--dsw-menu-surface-fill)` + `backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%))`
+  （`dsh-compact-suite` 2.9.2 的 `.dcs-panel` 原文如此）。皮肤的 composer 卡是半透明平面 + 会滚动的正文，
+  40px 一叠就是一片灰糊 —— 报告人的「面板自己的毛玻璃变成灰糊，背后只剩色块」。
+  **把半径调小没用**：无头复现（`.debug/issue-41/`，420×320 面板压在 13px 正文上，12.4 万像素采样，
+  量面板内残留的高频结构 / 未被面板覆盖时的结构）：stock 40px 剩 **0.2%**、我们的 14px 旋钮剩 **0.8%**，
+  两者肉眼无差；**去掉 blur 才回到 30–37%**。所以做法是把卡子树里的
+  `--dsw-menu-backdrop-filter` 直接塌成 `none`（float + compat 都做，因为抹掉 composer 座位底板的那条规则
+  本身不分模式）。真菜单表面不受影响：它们在 `[data-menu-material='translucent']` 上自己再声明一次，
+  更近、更胜。⚠️ 证据只到 replica —— compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了
+  `primitives.useAnchoredPosition`），真机还没见过这块面板。详见 `docs/issue-41-composer-stacking-trap.md` §9。
+
 ## [0.7.4] - 2026-11-14
 
 ### 修复

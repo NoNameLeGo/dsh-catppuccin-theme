@@ -2295,4 +2295,40 @@ describe('composer stacking trap: the card is a ceiling, not a bug (issue #41)',
       'issue #41: the card must stay unpainted AND unclipped — its popups paint outside its box',
     ).toEqual([])
   })
+
+  it('collapses the borrowed menu blur inside the card (material half, 2026-11-16)', () => {
+    // A panel that borrows `--dsw-menu-backdrop-filter` paints its blur over
+    // THIS card's translucent plane, i.e. over moving transcript text — the
+    // reporter's 「灰糊」. Measured on a replica of the real stack
+    // (`.debug/issue-41/panel-ab.html`: 420×320 panel inside the card over 13px
+    // body text, 124k sampled px, surviving high-pass structure vs the
+    // unpaneled page): stock 40px leaves 0.2%, our own 14px knob 0.8% — both
+    // read as flat grey — while `none` restores 30–37%. Retuning the radius is
+    // therefore a no-op; the token has to collapse on the card.
+    for (const [mode, selector] of [
+      ['mica', MICA_CARD],
+      ['compat', COMPAT_CARD],
+    ] as const) {
+      const rule = cardRules.find((candidate) => candidate.selector === selector)
+      expect(rule?.decls, `${mode}: composer card rule is gone`).toBeDefined()
+      expect(
+        declOf(rule!.decls, '--dsw-menu-backdrop-filter'),
+        `${mode}: a borrowed menu blur inside the card reads as 灰糊 (issue #41)`,
+      ).toBe('none')
+    }
+    // …and that is only safe because real menu SURFACES keep declaring their
+    // own value: they are descendants of the card, so their declaration is
+    // nearer and wins over this ancestor.
+    for (const selector of [
+      "[data-dsh-glass-float] [data-menu-material='translucent']:not(:focus-visible)",
+      "[data-dsh-glass-compat] [data-menu-material='translucent']:not(:focus-visible)",
+    ]) {
+      const surface = rules.find((rule) => rule.selector === selector)
+      expect(surface?.decls, `menu surface rule is gone: ${selector}`).toBeDefined()
+      expect(
+        declOf(surface!.decls, '--dsw-menu-backdrop-filter'),
+        `issue #41: ${selector} must re-declare the token, or collapsing it on the card strips real menus too`,
+      ).toBeDefined()
+    }
+  })
 })

@@ -116,6 +116,14 @@
    elements, and elements with transforms applied」；#19 读空的是**祖先 `backdrop-filter`**，与本条无关。
    护栏 = `tests/glass-css.spec.ts` 的 `composer stacking trap (issue #41)` 一组（4 条）；
    取证与三方案裁决见 `docs/issue-41-composer-stacking-trap.md`。
+   **推论七之二（材质那半，2026-11-16）：第三方面板借 stock 菜单 blur，糊的是「blur」不是「半径」。**
+   面板渲染在卡内、材质借 `var(--dsw-menu-surface-fill)` + `var(--dsw-menu-backdrop-filter)`（stock 40px）时，
+   它的 backdrop 就是卡那层半透明平面 + 滚动正文。复现（replica，`.debug/issue-41/`，420×320 面板 / 13px 正文 /
+   12.4 万像素）：残留高频结构 stock 40px **0.2%**、皮肤自己的 14px **0.8%**（肉眼无差）、**无 blur 30–37%**。
+   ⇒ 修法是把卡子树里的 `--dsw-menu-backdrop-filter` 塌成 `none`，**别指望调半径**；
+   真菜单表面靠自己在 `[data-menu-material='translucent']` 上再声明一次而免疫（护栏钉了这条）。
+   float + compat 都做（抹掉 composer 座位底板的规则本身不分模式）。⚠️ 证据只到 replica：
+   compact-suite 在 `0.2.2-rc.3` 上起不来（宿主删了 `primitives.useAnchoredPosition`，五个已发布版本都还在调它）。
    **推论八（issue #40 实测，2026-11-14）：宿主自己涂 `bg-base` 的「页级板」在换成地面后一定显形，而座位几乎总有 data 钩子。**
    两种形状：① **页头带** —— `dsh-client-ui-plugin-manager` 0.2.2 起把页头做成 scroll-linked sticky bar，
    并让它自己的 `::before` 画一条**全宽** `--dsw-alias-bg-base` 带，高度 `--plugin-header-paint-height`
