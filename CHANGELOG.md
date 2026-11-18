@@ -8,6 +8,20 @@
 
 ## [Unreleased]
 
+### 修复
+
+- **「插件市场」tab 的两条吸顶行在玻璃地面上是一块纯 `bg-base` 白板（2026-11-18）**。
+  这两行由第三方 `dshmarket` 自己绘制（`--dsw-alias-bg-base`），stock 下等于页底色所以看不见，
+  地面换成 wash + 光斑之后就成了整屏唯一一块平色矩形——与 issue #40 同族，只是画它的是第三方。
+  上游 `dsh-market#1237`（PR #1246）已在 `1.73.21` 给出钩子：三条 sticky 规则读
+  `var(--dshm-sticky-bg, …)`，其中两条可吸顶的行在吸顶时带 `data-dshm-stuck="true"` 并改读
+  `var(--dshm-stuck-bg, …)`，两个变量都没在自己的样式表里声明（未设时回落到原 token）。
+  本皮肤因此**静止态交还地面**（`--dshm-sticky-bg: transparent`）、**吸顶态画地面场本身**
+  （`--dshm-stuck-bg` 逐字复制 body 的地面三层声明 + 行上 `background-attachment: fixed` 做视口锚定），
+  不碰任何 hashed 类名、不加 blur、不动 `--dsw-alias-bg-base`。float only：compat 下宿主那层板
+  本来就与这两行同色。`.stickyHead` 无 stuck 钩子，保持上游默认。取证与真机数值见
+  `docs/issue-gh-1237-market-sticky-rows.md`。
+
 ## [0.7.5] - 2026-11-17
 
 ### 新增

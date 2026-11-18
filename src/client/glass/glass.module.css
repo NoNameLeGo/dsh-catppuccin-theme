@@ -1151,6 +1151,79 @@ html[data-dsh-glass-float] [data-turn-trigger]:hover {
   background-attachment: fixed;
 }
 
+/* ---------- Third-party market: the sticky rows (dshmarket >= 1.73.21).
+
+   Surface: `dshmarket`'s plugin tab pins TWO rows over the scrolling list —
+   the banner+tabs row and the category row — and each paints
+   `var(--dsw-alias-bg-base)` so the list cannot read through while they hold
+   the top. Stock: that token IS the page, so the rows are invisible. Over the
+   #25 ground they became flat `#EFF1F5` plates on a wash+glow field (measured
+   by the reporter next to `rgb(210,222,245)`) — the "白板" in issue #40's
+   thread.
+
+   THE HOOK — upstream solved the seat for us (`dsh-market#1237`, PR #1246,
+   shipped in `1.73.21`): every sticky rule reads
+   `var(--dshm-sticky-bg, …)`, and the two rows that can be pinned get
+   `data-dshm-stuck="true"` while they sit on their line, which swaps the read
+   to `var(--dshm-stuck-bg, …)`. NEITHER variable is declared in their own
+   sheet — a local declaration would shadow whatever a theme sets above them —
+   so the value can only arrive from here, and unset both fall back to
+   `--dsw-alias-bg-base` (a host without this skin renders unchanged).
+   That is why this needs no hashed class: `[class*='_head']` is the door
+   issues #17 / #21 retired.
+
+   TWO STATES, TWO ANSWERS:
+   - at rest the rows belong to the page, so the honest fill is NONE: hand the
+     ground back (`transparent`). Any fill here is the白板 again.
+   - once pinned they must occlude, and the only fill that occludes without
+     becoming a band is the ground FIELD itself — the body rule's three-layer
+     declaration verbatim, anchored to the viewport (a 46px row cannot hold a
+     100vh wash; the same declaration would be squeezed into a colour step —
+     exactly the #40 v1 failure). Being opaque it occludes more than the #29
+     70% alpha floor ever did.
+
+   WHY NOT `--dsh-glass-card`: layer-1 sits a step ABOVE the ground on the dark
+   flavours, so a pinned row would paint LIGHTER than the page under it — the
+   #40 reply's own argument.
+
+   SCOPE — float only. In compat the host paints its own opaque plate and
+   `--dsw-alias-bg-base` IS that plate, so the rows already match; painting the
+   ground there would be the mismatch #37 removed.
+
+   NOT COVERED (deliberate): `--dshm-sticky-bg` is shared by all three sticky
+   rules, and the third one, `.stickyHead`, carries no stuck state. Inside the
+   plugin tab it is `display: contents` (rect 0x0, measured on 1.73.21) and
+   only paints on the market's own screens, which we have never measured — so
+   it inherits the `transparent` rest value and is otherwise left alone. Ask
+   upstream for a stuck mark there before painting it. */
+[data-dsh-glass-float] [data-dsh-market-root][data-dsh-market-plugins-tab='true'] {
+  --dshm-sticky-bg: transparent;
+  --dshm-stuck-bg:
+    radial-gradient(calc(58% * var(--dsh-glass-glow-size, 1)) calc(46% * var(--dsh-glass-glow-size, 1)) at 18% 6%,
+      color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color)
+        calc(12% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
+          * var(--dsh-glass-glow-strength, 1)), transparent), transparent 68%),
+    radial-gradient(calc(48% * var(--dsh-glass-glow-size, 1)) calc(42% * var(--dsh-glass-glow-size, 1)) at 86% 14%,
+      color-mix(in srgb, var(--dsw-alias-state-success-tertiary)
+        calc(10% * var(--dsh-glass-ambience) * var(--dsh-glass-glow, 0)
+          * var(--dsh-glass-glow-strength, 1)), transparent), transparent 62%),
+    linear-gradient(165deg,
+      color-mix(in srgb, var(--dsh-glass-ground), var(--dsh-glass-wash-tint)
+        calc(var(--dsh-glass-wash-mix) * var(--dsh-glass-ambience))) 0%,
+      var(--dsh-glass-ground) 55%,
+      color-mix(in srgb, var(--dsh-glass-ground), #000000 calc(5% * var(--dsh-glass-ambience))) 100%);
+}
+
+/* The viewport anchor lives on the row, not in the variable: a custom property
+   cannot carry `background-attachment`. `data-dshm-stuck` is upstream's own
+   attribute, so this still needs no hashed class. `background-attachment:
+   fixed` only changes where the gradient is sampled — it is NOT one of the
+   containing-block makers (filter / transform / backdrop-filter), so the
+   #19 / #33 / #41 hygiene is untouched. */
+[data-dsh-glass-float] [data-dsh-market-root][data-dsh-market-plugins-tab='true'] [data-dshm-stuck='true'] {
+  background-attachment: fixed;
+}
+
 /* ---------- Sidebar (侧边栏): header-style glass card; the token fill on
    the column and its inner chrome goes transparent so the glass reads. The
    root width inline-style is released so content follows the glass panel.

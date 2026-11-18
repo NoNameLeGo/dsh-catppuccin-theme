@@ -2376,3 +2376,88 @@ describe('composer stacking trap: the card is a ceiling, not a bug (issue #41)',
     }
   })
 })
+
+describe('third-party market sticky rows (issue #40 follow-up, 2026-11-18)', () => {
+  // `dshmarket`'s plugin tab pins two rows over its list and each paints
+  // `var(--dsw-alias-bg-base)`; over the #25 ground they became flat plates
+  // (the reporter's 白板). We cannot seat them ourselves — the rows are a third
+  // party's, their class names are hashed (`nUhMVa_head`), and the hooks it
+  // ships are container-level only. Upstream then solved it for every theme
+  // (dsh-market#1237, PR #1246, shipped in 1.73.21): the sticky rules read
+  // `var(--dshm-sticky-bg, …)` and the pinnable rows carry
+  // `data-dshm-stuck="true"` while they sit on their line, which swaps the read
+  // to `var(--dshm-stuck-bg, …)`. Both variables are deliberately NOT declared
+  // in their sheet, so the value can only arrive from a theme above them.
+  const seat =
+    "[data-dsh-glass-float] [data-dsh-market-root][data-dsh-market-plugins-tab='true']"
+  const anchored = `${seat} [data-dshm-stuck='true']`
+  const restRule = rules.find((rule) => rule.selector === seat)
+  const stuckRule = rules.find((rule) => rule.selector === anchored)
+
+  it('paints through upstream variables, float-only, with no hashed class', () => {
+    expect(restRule, 'the market rows lost their rest override').toBeDefined()
+    expect(
+      restRule!.selector,
+      'compat keeps the host bg-base plate, which those rows already match (#37)',
+    ).toContain('[data-dsh-glass-float]')
+    expect(
+      restRule!.selector,
+      'issue #17 / #21: the row classes rotate on every build',
+    ).not.toContain('class*=')
+    expect(restRule!.selector, 'gated on the plugin tab only — the other surface is unmeasured').toContain(
+      "[data-dsh-market-plugins-tab='true']",
+    )
+  })
+
+  it('hands the ground back at rest — any fill here is the 白板 again', () => {
+    expect(declOf(restRule!.decls, '--dshm-sticky-bg')).toBe('transparent')
+    // The host token is what upstream falls back to; restating it would paint
+    // the flat plate the issue is about.
+    expect(restRule!.decls).not.toContain('--dsw-alias-bg-base')
+    expect(restRule!.decls, 'issue #40: card is a step ABOVE the ground on dark flavours').not.toContain(
+      '--dsh-glass-card',
+    )
+  })
+
+  it('paints the pinned row from the SAME field the page ground uses', () => {
+    const stuck = declOf(restRule!.decls, '--dshm-stuck-bg') ?? ''
+    expect(stuck, 'the pinned row repaints nothing?').not.toBe('')
+
+    const groundRule = rules.find(
+      (rule) =>
+        selectorList(rule.selector).includes('[data-dsh-glass] body') &&
+        /(?:^|;)\s*background\s*:/.test(rule.decls),
+    )
+    expect(groundRule, 'the body ground rule disappeared').toBeDefined()
+    const ground = declOf(groundRule!.decls, 'background') ?? ''
+
+    // THE DRIFT GUARD (same class as the #40 band's): the copy has to stay
+    // verbatim, or the pinned row is guessing at a colour again — and the
+    // failure is silent.
+    expect(
+      normalize(stuck),
+      'copy the body ground expression verbatim — any divergence is a new colour step',
+    ).toBe(normalize(ground))
+    expect(stuck.match(/radial-gradient\(/g) ?? [], 'both opt-in glows').toHaveLength(2)
+    expect(stuck, 'the unconditional wash layer').toContain('linear-gradient(165deg')
+  })
+
+  it('anchors that field to the viewport and leaves the fill to the variable', () => {
+    expect(stuckRule, 'the pinned row lost its viewport anchor').toBeDefined()
+    expect(
+      declOf(stuckRule!.decls, 'background-attachment'),
+      'without fixed a 46px row squeezes the 100vh wash into a step (the #40 v1 failure)',
+    ).toBe('fixed')
+    // The fill must travel through upstream's variable, never a second
+    // `background:` declaration that would fight their rule.
+    expect(declOf(stuckRule!.decls, 'background'), 'the fill is the variable, not a redeclaration').toBeUndefined()
+  })
+
+  it('adds no blur and no second material', () => {
+    // The backdrop under these rows is the ground — blurring it is an identity
+    // (issue #13) at a full-width per-frame read.
+    expect(blurOf(restRule!.decls)).toBeUndefined()
+    expect(blurOf(stuckRule!.decls)).toBeUndefined()
+    expect(stuckRule!.decls, 'the anchor must not smuggle a filter in').not.toContain('backdrop-filter')
+  })
+})
