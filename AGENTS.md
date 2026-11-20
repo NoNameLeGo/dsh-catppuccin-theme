@@ -442,8 +442,11 @@ Plugins 页每个 bundle 卡片的图标来自 **Host 读取的包元数据**，
 > body 地面声明）+ **issue #41**（第三方浮层契约：卡的 `z-index: 8` 是载荷 ⇒ 卡内浮层上限就是卡层，浮层须
 > `createPortal` 到 body；只落文档 + 4 条护栏，**CSS 零改动**）。
 > **两条 issue 均已回帖**（#40 `6879301612` / #41 `6879300396`），等报告人复验。
+> ✅ **两条都已收尾（2026-11-18 / 2026-11-21 按 `COMPLETED` 关闭）**：#40 白带由 `0.7.5` 修复并经报告人复验；
+> #41 的「灰糊」真因已定为 H1（blur 本身，非半径），皮肤侧随 `0.7.5` 发（见 `docs/issue-41-…` §11–§13），
+> 层叠 / 定位那半转 `NoiraBaka/dsh-compact-suite#2`。
 > ⚠️ 仍未做：#40 的 Latte 像素复验（带子上下沿 20px 采样、滚动中途下沿是否还有硬切）与 4 风味 × 光斑 0/200%
-> 同色采样；#41 的「灰糊」真因（H1–H3，等报告人三样数据）；macOS / Linux 壳未验。
+> 同色采样；macOS / Linux 壳未验。
 > 上一版 `latest` = **`0.7.3`**（2026-11-08；tag `v0.7.3` → Publish run `42452736868` success、
 > CI `42452727363` check + boot-e2e 双绿、`dist-tags.latest` 已翻 `0.7.3`、制品实测 `lib/client.js` 三条
 > 焦点环规则齐全：`:is(input,textarea):focus-visible{outline:none}`、
